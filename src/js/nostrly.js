@@ -1,5 +1,5 @@
 import NDK from "@nostr-dev-kit/ndk";
-import { finalizeEvent, verifyEvent, getPublicKey } from 'nostr-tools/pure';
+import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 import { nip19, nip98 } from "nostr-tools";
 
 (function ($) {
@@ -8,7 +8,7 @@ import { nip19, nip98 } from "nostr-tools";
 
     const TIMEOUT_DURATION = 15000; // 15 seconds timeout
 
-    let ndk = new NDK({
+    const ndk = new NDK({
       explicitRelayUrls: [
         "wss://purplepag.es",
         "wss://relay.nostr.band",
@@ -214,7 +214,7 @@ import { nip19, nip98 } from "nostr-tools";
 
         // Create user object with the public key and signer if available
         let user = ndk.getUser({ pubkey: publicKey });
-        console.log("set user:", user);
+        // console.log("set user:", user);
 
         // Fetch user profile with timeout
         const fetchProfilePromise = user.fetchProfile();
@@ -242,7 +242,7 @@ import { nip19, nip98 } from "nostr-tools";
         try {
           const _sign = (privateKey) ? (e) => finalizeEvent(e, privateKey) : (e) => window.nostr.signEvent(e);
           var authToken = await nip98.getToken(nostrly_ajax.ajax_url, 'post', _sign);
-          console.log("authtoken:", authToken);
+          // console.log("authtoken:", authToken);
         } catch (error) {
           console.error("Failed to create authtoken:", error);
           alert("Failed to create authtoken.");
@@ -303,13 +303,11 @@ import { nip19, nip98 } from "nostr-tools";
             $feedback.html('Connecting to relays...');
 
             // Ensure NDK is connected
-            if (!ndk.connected) {
-                try {
-                    await ndk.connect();
-                    console.log("connected to relays", ndk);
-                } catch (error) {
-                    throw new Error('Failed to connect to relays. Please try again.');
-                }
+            try {
+                await ndk.connect();
+                console.log("connected to relays", ndk);
+            } catch (error) {
+                throw new Error('Failed to connect to relays. Please try again.');
             }
 
             $feedback.html('Fetching Nostr profile...');
