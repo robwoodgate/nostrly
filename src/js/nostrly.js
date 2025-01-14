@@ -1,20 +1,19 @@
 import NDK from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKKind, NDKNip07Signer, NDKUser } from "@nostr-dev-kit/ndk";
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 import { nip19, nip98 } from "nostr-tools";
 
 (function ($) {
   $(document).ready(function () {
-    // console.log("Nostr login script loaded");
 
     const TIMEOUT_DURATION = 15000; // 15 seconds timeout
-
-    const ndk = new NDK({
+    const signer = new NDKNip07Signer();
+    window.ndk = new NDK({
       explicitRelayUrls: [
         "wss://purplepag.es",
         "wss://relay.nostr.band",
         "wss://relay.primal.net",
         "wss://relay.damus.io",
-        "wss://nostr.wine",
         "wss://relay.snort.social",
         "wss://nostr.bitcoiner.social"
 
@@ -378,6 +377,48 @@ import { nip19, nip98 } from "nostr-tools";
         }
     }
 
+    async function handleUpdateNip05(e) {
+      e.preventDefault();
+      const nip05 = e.target.getAttribute("data-nip05") || '';
+
+      // Ensure NDK is connected
+      try {
+          await ndk.connect();
+          console.log("connected to relays", ndk);
+      } catch (error) {
+          throw new Error('Failed to connect to relays. Please try again.');
+      }
+
+      // Get NIP-07 user
+      var user = await signer.user(); // NDKUser
+      if (!user || !user.pubkey) {
+          throw new Error('Failed to get public key from extension.');
+      }
+
+      // Get user profile metadata
+      let usermeta = await ndk.fetchEvent({ kinds: [0], authors: [user.pubkey]});
+      let profile = JSON.parse(usermeta.content);
+
+      try {
+        // Update NIP-05
+        profile.nip05 = nip05;
+        const update = new NDKEvent(ndk, {kind: NDKKind.Metadata});
+        update.content = JSON.stringify(profile);
+        console.log("Unsigned update", update.rawEvent());
+        await update.sign(signer);
+        await update.publish();
+      } catch (error) {
+        console.error("Failed to set NIP-05 identifier:", error);
+        alert(
+          "Failed to set NIP-05 identifier."
+        );
+        return;
+      }
+
+      $('#nostr-nip05').val(nip05);
+      handleNostrSync(e);
+    }
+
     async function handleNostrDisconnect(e) {
         e.preventDefault();
         const $feedback = $('#nostr-connect-feedback');
@@ -423,7 +464,7 @@ import { nip19, nip98 } from "nostr-tools";
 
     // Add event listener
     $(document).ready(function() {
-        console.log('Nostr login script loaded'); // Debug log
+        console.log('Nostrly script loaded'); // Debug log
 
         const $connectButton = $('#nostr-connect-extension');
         const $resyncButton = $('#nostr-resync-extension');
@@ -440,6 +481,10 @@ import { nip19, nip98 } from "nostr-tools";
         $('#nostr-disconnect').on('click', function(e) {
             console.log('Nostr disconnect button clicked'); // Debug log
             handleNostrDisconnect(e);
+        });
+        $('#nostr-set-nip05').on('click', function(e) {
+            console.log('Nostr NIP-05 button clicked'); // Debug log
+            handleUpdateNip05(e);
         });
     });
   });

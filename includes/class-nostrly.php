@@ -16,7 +16,6 @@ class Nostrly
         'wss://relay.nostr.band',
         'wss://relay.primal.net',
         'wss://relay.damus.io',
-        'wss://nostr.wine',
         'wss://relay.snort.social',
         'wss://nostr.bitcoiner.social',
     ];
@@ -160,6 +159,11 @@ class Nostrly
                     <input type="text" id="nip05"
                        value="<?php echo esc_attr(get_user_meta($user->ID, 'nip05', true)); ?>"
                        class="regular-text" readonly />
+                    <?php if ($user->ID == $user_id && get_user_meta($user->ID, 'nip05', true) !== $user->user_login . '@nostrly.com') { ?>
+                    <button type="button" id="nostr-set-nip05" class="button" data-nip05="<?php echo $user->user_login; ?>@nostrly.com">
+                        <?php esc_html_e('Use your Nostrly identifier', 'nostrly'); ?>
+                    </button>
+                    <?php } ?>
                     <p class="description">
                         <?php esc_html_e('This is your currently set NIP-05 internet identifier.', 'nostrly'); ?>
                     </p>
