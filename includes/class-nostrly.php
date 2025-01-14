@@ -29,8 +29,6 @@ class Nostrly
         add_action('wp_ajax_nostrly_register', [$this, 'ajax_nostrly_register']);
         add_action('show_user_profile', [$this, 'add_custom_user_profile_fields']);
         add_action('edit_user_profile', [$this, 'add_custom_user_profile_fields']);
-        add_action('personal_options_update', [$this, 'save_custom_user_profile_fields']);
-        add_action('edit_user_profile_update', [$this, 'save_custom_user_profile_fields']);
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('wp_ajax_nostr_sync_profile', [$this, 'ajax_nostr_sync_profile']);
@@ -159,7 +157,7 @@ class Nostrly
                     <input type="text" id="nip05"
                        value="<?php echo esc_attr(get_user_meta($user->ID, 'nip05', true)); ?>"
                        class="regular-text" readonly />
-                    <?php if ($user->ID == $user_id && get_user_meta($user->ID, 'nip05', true) !== $user->user_login . '@nostrly.com') { ?>
+                    <?php if ($user->ID == $user_id && get_user_meta($user->ID, 'nip05', true) !== $user->user_login.'@nostrly.com') { ?>
                     <button type="button" id="nostr-set-nip05" class="button" data-nip05="<?php echo $user->user_login; ?>@nostrly.com">
                         <?php esc_html_e('Use your Nostrly identifier', 'nostrly'); ?>
                     </button>
@@ -172,41 +170,6 @@ class Nostrly
             <!-- Add more custom fields here -->
         </table>
         <?php
-    }
-
-    public function save_custom_user_profile_fields($user_id)
-    {
-        // Verify nonce to prevent CSRF attacks
-        if (!wp_verify_nonce(sanitize_text_field(
-            wp_unslash($_POST['nostrly_nonce'] ?? '')
-        ), 'nostrly_save_profile')) {
-            // Nonce is invalid; stop processing
-            return;
-        }
-
-        // Check user permissions to ensure that only authorized users can edit
-        if (!current_user_can('edit_user', $user_id)) {
-            // User does not have permission; stop processing
-            return false;
-        }
-
-        // Save Nostr public key securely
-        if (isset($_POST['nostr_public_key'])) {
-            $nostr_public_key = sanitize_text_field(wp_unslash($_POST['nostr_public_key']));
-            if ($this->is_valid_public_key($nostr_public_key)) {
-                update_user_meta($user_id, 'nostr_public_key', $nostr_public_key);
-            }
-            // Handle invalid public key
-        }
-
-        // Save Nip05 securely
-        if (isset($_POST['nip05'])) {
-            $nip05 = sanitize_text_field(wp_unslash($_POST['nip05']));
-            if ($this->is_valid_nip05($nip05)) {
-                update_user_meta($user_id, 'nip05', $nip05);
-            }
-            // Handle invalid nip05
-        }
     }
 
     public function ajax_nostrly_login()
@@ -249,70 +212,19 @@ class Nostrly
             wp_send_json_error(['message' => __('Authorisation is invalid or expired.', 'nostrly')]);
         }
 
-        // Validate public key format
-        $public_key = $nip98->pubkey;
-        if (!$this->is_valid_public_key($public_key)) {
-            nostrly_debug_log('Invalid public key format');
-            wp_send_json_error(['message' => __('Invalid public key format.', 'nostrly')]);
-        }
-
-        // Decode and sanitize metadata
-        $metadata = json_decode($metadata_json, true);
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            nostrly_debug_log('Invalid metadata JSON: '.json_last_error_msg());
-            wp_send_json_error(['message' => __('Invalid metadata: ', 'nostrly').json_last_error_msg()]);
-        }
-
-        // Sanitize and validate each field
-        $sanitized_metadata = [];
-        if (isset($metadata['name'])) {
-            $sanitized_metadata['name'] = sanitize_text_field($metadata['name']);
-        }
-        if (isset($metadata['about'])) {
-            $sanitized_metadata['about'] = sanitize_textarea_field($metadata['about']);
-        }
-        if (isset($metadata['nip05'])) {
-            $sanitized_metadata['nip05'] = sanitize_text_field($metadata['nip05']);
-            // Optionally validate nip05 format
-        }
-        if (isset($metadata['image'])) {
-            $sanitized_metadata['image'] = esc_url_raw($metadata['image']);
-            // Optionally validate URL
-        }
-        if (isset($metadata['website'])) {
-            $sanitized_metadata['website'] = esc_url_raw($metadata['website']);
-            // Optionally validate URL
-        }
-        if (isset($metadata['email'])) {
-            $sanitized_metadata['email'] = sanitize_email($metadata['email']);
-            if (!is_email($sanitized_metadata['email'])) {
-                // Handle invalid email
-                $sanitized_metadata['email'] = '';
-            }
-        }
-
         // Check if a user with this public key already exists
+        $public_key = $nip98->pubkey;
         $user = $this->get_user_by_public_key($public_key);
-
-        if (!$user) {
-            // Create a new user if one doesn't exist
-            $user_id = $this->create_new_user($public_key, $sanitized_metadata);
-            if (is_wp_error($user_id)) {
-                nostrly_debug_log('Failed to create new user: '.$user_id->get_error_message());
-                wp_send_json_error(['message' => $user_id->get_error_message()]);
-            }
-            $user = get_user_by('ID', $user_id);
-            nostrly_debug_log('New user created with ID: '.$user_id);
-        } else {
-            // Update existing user's metadata
-            $this->update_user_metadata($user->ID, $sanitized_metadata);
-            nostrly_debug_log('Updated metadata for user ID: '.$user->ID);
-        }
-
         if ($user) {
+            // Update existing user's metadata
+            $this->update_user_metadata($user->ID, $metadata_json);
+
+            // Login user
             wp_set_current_user($user->ID);
             wp_set_auth_cookie($user->ID);
             nostrly_debug_log('User logged in successfully: '.$user->ID);
+
+            // Redirect
             $redirect_type = get_option('nostrly_redirect', 'admin');
             $redirect_url = match ($redirect_type) {
                 'home' => home_url(),
@@ -328,19 +240,19 @@ class Nostrly
 
     public function enqueue_scripts($hook = '')
     {
+        $enqueue = false;
         // Check if we're on the login page
         if (in_array($GLOBALS['pagenow'], ['wp-login.php']) || did_action('login_enqueue_scripts')) {
-            wp_enqueue_script('nostrly', plugin_dir_url(dirname(__FILE__)).'assets/js/nostrly.min.js', ['jquery'], '1.0', true);
-
-            wp_localize_script('nostrly', 'nostrly_ajax', [
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('nostrly-nonce'),
-                'relays' => $this->get_relay_urls(),
-            ]);
+            $enqueue = true;
         }
 
         // For profile page
         if (in_array($hook, ['profile.php', 'user-edit.php'])) {
+            $enqueue = true;
+        }
+
+        // Do enqueue
+        if ($enqueue) {
             wp_enqueue_script('nostrly', plugin_dir_url(dirname(__FILE__)).'assets/js/nostrly.min.js', ['jquery'], '1.0', true);
 
             wp_localize_script('nostrly', 'nostrly_ajax', [
@@ -429,18 +341,11 @@ class Nostrly
                 throw new Exception(__('This Nostr account is already linked to another user.', 'nostrly'));
             }
 
-            // Update Nostr-specific data
+            // Update Nostr Public Key
             update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($metadata['public_key']));
 
-            if (!empty($metadata['nip05'])) {
-                update_user_meta($user_id, 'nip05', sanitize_text_field($metadata['nip05']));
-            }
-
-            if (!empty($metadata['image'])) {
-                $avatar_url = esc_url_raw($metadata['image']);
-                update_user_meta($user_id, 'nostr_avatar', $avatar_url);
-                nostrly_debug_log("Updated avatar for user {$user_id}: {$avatar_url}");
-            }
+            // Update the other fields
+            $this->update_user_metadata($user_id, $raw_metadata);
 
             wp_send_json_success(['message' => __('Nostr data successfully synced!', 'nostrly')]);
         } catch (Exception $e) {
@@ -500,7 +405,7 @@ class Nostrly
         return !empty($users) ? $users[0] : false;
     }
 
-    private function create_new_user($public_key, $sanitized_metadata)
+    private function create_new_user($public_key, $metadata_json)
     {
         $username = !empty($sanitized_metadata['name']) ? sanitize_user($sanitized_metadata['name'], true) : 'nostr_'.substr(sanitize_text_field($public_key), 0, 8);
         if (username_exists($username)) {
@@ -515,7 +420,6 @@ class Nostrly
         }
 
         $user_id = wp_create_user($username, wp_generate_password(), $email);
-
         if (!is_wp_error($user_id)) {
             update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
             $this->update_user_metadata($user_id, $sanitized_metadata);
@@ -524,30 +428,39 @@ class Nostrly
         return $user_id;
     }
 
-    private function update_user_metadata($user_id, $sanitized_metadata)
+    private function update_user_metadata($user_id, $metadata_json)
     {
-        if (!empty($sanitized_metadata['name'])) {
-            wp_update_user(['ID' => $user_id, 'display_name' => sanitize_text_field($sanitized_metadata['name'])]);
+        // Decode and sanitize metadata
+        $metadata = json_decode($metadata_json, true);
+        if (JSON_ERROR_NONE !== json_last_error()) {
+            nostrly_debug_log('Invalid metadata JSON: '.json_last_error_msg());
+
+            return;
         }
-        if (!empty($sanitized_metadata['about'])) {
-            update_user_meta($user_id, 'description', sanitize_textarea_field($sanitized_metadata['about']));
+
+        if (!empty($metadata['name'])) {
+            wp_update_user(['ID' => $user_id, 'display_name' => sanitize_text_field($metadata['name'])]);
         }
-        if (!empty($sanitized_metadata['nip05'])) {
-            update_user_meta($user_id, 'nip05', sanitize_text_field($sanitized_metadata['nip05']));
+        if (!empty($metadata['about'])) {
+            update_user_meta($user_id, 'description', sanitize_textarea_field($metadata['about']));
         }
-        if (!empty($sanitized_metadata['image'])) {
-            $avatar_url = esc_url_raw($sanitized_metadata['image']);
-            update_user_meta($user_id, 'nostr_avatar', $avatar_url);
-            $saved_avatar_url = get_user_meta($user_id, 'nostr_avatar', true);
-            nostrly_debug_log("Saved Nostr avatar URL for user {$user_id}: ".esc_url($saved_avatar_url));
+        if (!empty($metadata['nip05'])) {
+            update_user_meta($user_id, 'nip05', sanitize_text_field($metadata['nip05']));
         }
-        if (!empty($sanitized_metadata['website'])) {
+        if (!empty($metadata['image'])) {
+            update_user_meta($user_id, 'nostr_avatar', esc_url_raw($metadata['image']));
+            nostrly_debug_log("Saved Nostr avatar for user {$user_id}: ".esc_url(metadata['image']));
+        }
+        if (!empty($metadata['website'])) {
             wp_update_user([
                 'ID' => $user_id,
-                'user_url' => esc_url_raw($sanitized_metadata['website']),
+                'user_url' => esc_url_raw($metadata['website']),
             ]);
         }
         // Add more metadata fields as needed
+        // ...
+        //
+        nostrly_debug_log('Updated metadata for user ID: '.$user->ID);
     }
 
     private function get_relay_urls()
