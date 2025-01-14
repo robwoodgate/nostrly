@@ -449,7 +449,7 @@ class Nostrly
         }
         if (!empty($metadata['image'])) {
             update_user_meta($user_id, 'nostr_avatar', esc_url_raw($metadata['image']));
-            nostrly_debug_log("Saved Nostr avatar for user {$user_id}: ".esc_url(metadata['image']));
+            nostrly_debug_log("Saved Nostr avatar for user {$user_id}: ".esc_url($metadata['image']));
         }
         if (!empty($metadata['website'])) {
             wp_update_user([
