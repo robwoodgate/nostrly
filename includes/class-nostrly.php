@@ -138,7 +138,7 @@ class Nostrly
                             <?php esc_html_e('Disconnect Nostr', 'nostrly'); ?>
                         </button>
                     <?php } ?>
-                    <div id="nostr-connect-feedback" style="display:none; margin-top:10px;"></div>
+                    <div id="nostr-connect-feedback" style="display:none; margin-top:10px;border-left-style: solid ;border-left-width: 4px;padding-left:4px;"></div>
                 </td>
             </tr>
 
@@ -154,10 +154,12 @@ class Nostrly
             <tr>
                 <th><label><?php esc_html_e('Nostr NIP-05', 'nostrly'); ?></label></th>
                 <td>
-                    <input type="text" id="nip05"
+                    <input type="text" id="nostr_nip05"
                        value="<?php echo esc_attr(get_user_meta($user->ID, 'nip05', true)); ?>"
                        class="regular-text" readonly />
-                    <?php if ($user->ID == $user_id && get_user_meta($user->ID, 'nip05', true) !== $user->user_login.'@nostrly.com') { ?>
+                    <?php
+                    $nip05 = get_user_meta($user->ID, 'nip05', true);
+                    if ($user->ID == $user_id && $nip05 && $nip05 !== $user->user_login.'@nostrly.com') { ?>
                     <button type="button" id="nostr-set-nip05" class="button" data-nip05="<?php echo $user->user_login; ?>@nostrly.com">
                         <?php esc_html_e('Use your Nostrly identifier', 'nostrly'); ?>
                     </button>
@@ -331,18 +333,18 @@ class Nostrly
             }
 
             // Validate public key
-            if (empty($metadata['public_key']) || !$this->is_valid_public_key($metadata['public_key'])) {
+            if (empty($metadata['pubkey']) || !$this->is_valid_public_key($metadata['pubkey'])) {
                 throw new Exception(__('Invalid public key.', 'nostrly'));
             }
 
             // Check for existing public key
-            $existing_user = $this->get_user_by_public_key($metadata['public_key']);
+            $existing_user = $this->get_user_by_public_key($metadata['pubkey']);
             if ($existing_user && $existing_user->ID !== $user_id) {
                 throw new Exception(__('This Nostr account is already linked to another user.', 'nostrly'));
             }
 
             // Update Nostr Public Key
-            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($metadata['public_key']));
+            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($metadata['pubkey']));
 
             // Update the other fields
             $this->update_user_metadata($user_id, $raw_metadata);

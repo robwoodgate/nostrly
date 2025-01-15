@@ -185,56 +185,40 @@ import { nip19, nip98 } from "nostr-tools";
       try {
         // Check for extension if privateKey not provided
         if (!privateKey && typeof window.nostr === 'undefined') {
-            console.error("Nostr extension not found.:", error);
+            console.error("Nostr extension not found:", error);
             alert('Nostr extension not found. Please install a Nostr extension.');
         }
 
-        // Get user publicKey from private key or NOSTR extension
-        let publicKey = (privateKey) ? getPublicKey(privateKey) : await window.nostr.getPublicKey();
+        // Get user public key from private key or NIP-07 user
+        var publicKey;
+        if (privateKey) {
+          publicKey = getPublicKey(privateKey);
+        } else {
+          let user = await signer.user(); // NDKUser
+          if (!user || !user.pubkey) {
+              throw new Error('Failed to get public key from extension.');
+          }
+          publicKey = user.pubkey;
+        }
         console.log("user pubkey:", publicKey);
 
-        // Connect to relays with timeout
-        const connectPromise = ndk.connect();
-        const connectTimeout = new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Connection to relays timed out")),
-            TIMEOUT_DURATION
-          )
-        );
-
+        // Ensure NDK is connected
         try {
-          await Promise.race([connectPromise, connectTimeout]);
-          console.log("connected to relays", ndk);
+            await ndk.connect();
+            console.log("connected to relays", ndk);
         } catch (error) {
-          console.error("Failed to connect to relays:", error);
-          alert("Failed to connect to Nostr relays. Please try again later.");
-          return;
+            throw new Error('Failed to connect to relays. Please try again.');
         }
 
-        // Create user object with the public key and signer if available
-        let user = ndk.getUser({ pubkey: publicKey });
-        // console.log("set user:", user);
-
-        // Fetch user profile with timeout
-        const fetchProfilePromise = user.fetchProfile();
-        const fetchProfileTimeout = new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Fetching user profile timed out")),
-            TIMEOUT_DURATION
-          )
-        );
-
-        try {
-          await Promise.race([fetchProfilePromise, fetchProfileTimeout]);
-        } catch (error) {
-          console.error("Failed to fetch user profile:", error);
-          alert(
-            "Failed to fetch user profile from Nostr. Proceeding with login using available information."
-          );
+        // Fetch profile with explicit error handling
+        let usermeta = await ndk.fetchEvent({ kinds: [0], authors: [publicKey]});
+        if (typeof usermeta?.content === 'undefined') {
+          console.warn('No profile data found, proceeding with public key only');
+          usermeta = {content: JSON.stringify({pubkey: publicKey})};
         }
 
         // Get user metadata
-        const metadata = user.profile || {};
+        let metadata = JSON.parse(usermeta.content);
         console.log("stored user metadata:", metadata);
 
         // Create signed authtoken event
@@ -279,6 +263,7 @@ import { nip19, nip98 } from "nostr-tools";
         e.preventDefault();
         const $feedback = $('#nostr-connect-feedback');
         const $button = $(e.target);
+        const synctype = $button.attr('id');
 
         try {
             // Disable button and show loading state
@@ -286,15 +271,9 @@ import { nip19, nip98 } from "nostr-tools";
             $feedback.removeClass('notice-error notice-success').addClass('notice-info')
                 .html('Connecting to Nostr...').show();
 
-            // Check for extension
-            if (typeof window.nostr === 'undefined') {
-                throw new Error('Nostr extension not found. Please install a Nostr extension.');
-            }
-
-            // Get user publicKey from NOSTR extension
-            let publicKey = await window.nostr.getPublicKey();
-            console.log("user pubkey:", publicKey);
-            if (!publicKey) {
+            // Get NIP-07 user
+            var user = await signer.user(); // NDKUser
+            if (!user || !user.pubkey) {
                 throw new Error('Failed to get public key from extension.');
             }
 
@@ -311,67 +290,52 @@ import { nip19, nip98 } from "nostr-tools";
 
             $feedback.html('Fetching Nostr profile...');
 
-            // Create NDK user and fetch profile with explicit error handling
-            const ndkUser = ndk.getUser({ pubkey: publicKey });
-
-            try {
-                // Set a timeout for profile fetching
-                const profilePromise = ndkUser.fetchProfile();
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Profile fetch timeout')), 15000)
-                );
-
-                await Promise.race([profilePromise, timeoutPromise]);
-
-                if (!ndkUser.profile) {
-                    console.warn('No profile data found, proceeding with public key only');
-                }
-            } catch (error) {
-                console.warn('Profile fetch failed:', error);
-                // Continue with just the public key if profile fetch fails
+            // Fetch profile with explicit error handling
+            let usermeta = await ndk.fetchEvent({ kinds: [0], authors: [user.pubkey]});
+            if (typeof usermeta?.content === 'undefined') {
+              console.warn('No profile data found, proceeding with public key only');
+              usermeta = {content: JSON.stringify({pubkey: user.pubkey})};
+              $feedback.html('No profile data found, updating public key only...');
+            } else {
+              $feedback.html('Updating profile...');
             }
 
-            // Prepare metadata with at least the public key
-            const metadata = {
-                public_key: publicKey,
-                nip05: ndkUser.profile?.nip05 || '',
-                image: ndkUser.profile?.image || ''
-            };
-
-            console.log('Sending metadata to WordPress:', metadata);
-
-            $feedback.html('Updating profile...');
-
             // Send to WordPress
+            let metadata = JSON.parse(usermeta.content);
+            console.log('Sending metadata to WordPress:', metadata);
             const response = await $.ajax({
                 url: nostrly_ajax.ajax_url,
                 type: 'POST',
                 data: {
                     action: 'nostr_sync_profile',
-                    metadata: JSON.stringify(metadata),
+                    metadata: usermeta.content,
                     nonce: nostrly_ajax.nonce
                 }
             });
 
             if (response.success) {
-                $feedback.removeClass('notice-info').addClass('notice-success')
-                    .html('Successfully synced Nostr data!');
+              $feedback.removeClass('notice-info')
+                .addClass('notice-success')
+                .html('Successfully synced Nostr data!')
+                .delay(3000).fadeOut('slow');
 
-                // Update displayed values
-                $('#nostr-public-key').val(metadata.public_key);
-                $('#nostr-nip05').val(metadata.nip05);
-
-                // Refresh page if avatar updated
-                if (metadata.image) {
-                    setTimeout(() => location.reload(), 1500);
-                }
+              // Update displayed values
+              $('#nostr_public_key').val(user.npub);
+              $('#nostr_nip05').val(metadata.nip05 || '');
+              $('.user-profile-picture img').attr({"src":metadata.picture,"srcset":metadata.picture});
+              if ('nostr-connect-extension' == synctype) {
+                // Reload page to update buttons
+                setTimeout(() => location.reload(), 1500);
+              }
             } else {
                 throw new Error(response.data.message || 'Failed to update profile');
             }
         } catch (error) {
             console.error('Sync error:', error);
-            $feedback.removeClass('notice-info').addClass('notice-error')
-                .html(`Error: ${error.message}`);
+            $feedback.removeClass('notice-info')
+              .addClass('notice-error')
+              .html(`Error: ${error.message}`)
+              .delay(3000).fadeOut('slow');;
         } finally {
             $button.prop('disabled', false);
         }
@@ -379,44 +343,90 @@ import { nip19, nip98 } from "nostr-tools";
 
     async function handleUpdateNip05(e) {
       e.preventDefault();
+      const $feedback = $('#nostr-connect-feedback');
+      const $button = $(e.target);
       const nip05 = e.target.getAttribute("data-nip05") || '';
-
-      // Ensure NDK is connected
       try {
-          await ndk.connect();
-          console.log("connected to relays", ndk);
+        // Disable button and show loading state
+        $button.prop('disabled', true);
+        $feedback.removeClass('notice-error notice-success').addClass('notice-info')
+            .html('Updating NIP-05 identifier...').show();
+
+        // Get NIP-07 user
+        var user = await signer.user(); // NDKUser
+        if (!user || !user.pubkey) {
+            throw new Error('Failed to get public key from extension.');
+        }
+
+        // Update feedback
+        $feedback.html('Connecting to Nostr relays...');
+
+        // Ensure NDK is connected
+        try {
+            await ndk.connect();
+            console.log("connected to relays", ndk);
+        } catch (error) {
+            throw new Error('Failed to connect to relays. Please try again.');
+        }
+
+        // Get user profile metadata
+        $feedback.html('Fetching Nostr profile data...');
+        let usermeta = await ndk.fetchEvent({ kinds: [0], authors: [user.pubkey]});
+        if (typeof usermeta?.content === 'undefined') {
+          throw new Error('Failed to get profile from relays.');
+        }
+
+        try {
+          // Update NIP-05
+          var metadata = JSON.parse(usermeta.content);
+          metadata.nip05 = nip05;
+          const update = new NDKEvent(ndk, {kind: NDKKind.Metadata});
+          update.content = JSON.stringify(metadata);
+          console.log("Unsigned update", update.rawEvent());
+          $feedback.html('Updating Nostr Profile...');
+          await update.sign(signer);
+          await update.publish();
+        } catch (error) {
+          console.error("Failed to set NIP-05 identifier:", error);
+          throw new Error('Failed to set NIP-05 identifier!');
+        }
+
+        // Send to WordPress
+        console.log('Sending metadata to WordPress:', metadata);
+        $feedback.html('Resyncing Nostr profile...');
+        const response = await $.ajax({
+            url: nostrly_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'nostr_sync_profile',
+                metadata: JSON.stringify(metadata),
+                nonce: nostrly_ajax.nonce
+            }
+        });
+
+        if (response.success) {
+          $feedback.removeClass('notice-info')
+            .addClass('notice-success')
+            .html('Successfully set NIP-05!')
+            .delay(3000).fadeOut('slow');;
+
+          // Update displayed values
+          $('#nostr_public_key').val(user.npub);
+          $('#nostr_nip05').val(metadata.nip05 || '');
+          $('.user-profile-picture img').attr({"src":metadata.picture,"srcset":metadata.picture});
+        } else {
+            throw new Error(response.data.message || 'Failed to update profile');
+        }
+
       } catch (error) {
-          throw new Error('Failed to connect to relays. Please try again.');
+          console.error('Update NIP-05 error:', error);
+          $feedback.removeClass('notice-info')
+            .addClass('notice-error')
+            .html(`Error: ${error.message}`)
+            .delay(3000).fadeOut('slow');;
+      } finally {
+          $button.prop('disabled', false);
       }
-
-      // Get NIP-07 user
-      var user = await signer.user(); // NDKUser
-      if (!user || !user.pubkey) {
-          throw new Error('Failed to get public key from extension.');
-      }
-
-      // Get user profile metadata
-      let usermeta = await ndk.fetchEvent({ kinds: [0], authors: [user.pubkey]});
-      let profile = JSON.parse(usermeta.content);
-
-      try {
-        // Update NIP-05
-        profile.nip05 = nip05;
-        const update = new NDKEvent(ndk, {kind: NDKKind.Metadata});
-        update.content = JSON.stringify(profile);
-        console.log("Unsigned update", update.rawEvent());
-        await update.sign(signer);
-        await update.publish();
-      } catch (error) {
-        console.error("Failed to set NIP-05 identifier:", error);
-        alert(
-          "Failed to set NIP-05 identifier."
-        );
-        return;
-      }
-
-      $('#nostr-nip05').val(nip05);
-      handleNostrSync(e);
     }
 
     async function handleNostrDisconnect(e) {
@@ -443,20 +453,26 @@ import { nip19, nip98 } from "nostr-tools";
             });
 
             if (response.success) {
-                $feedback.removeClass('notice-info').addClass('notice-success')
-                    .html('Successfully disconnected Nostr');
+                $feedback.removeClass('notice-info')
+                  .addClass('notice-success')
+                  .html('Successfully disconnected Nostr')
+                  .delay(3000).fadeOut('slow');
 
                 // Update displayed values
-                $('#nostr-public-key').val('');
-                $('#nostr-nip05').val('');
+                $('#nostr_public_key').val('');
+                $('#nostr_nip05').val('');
+
+                // Reload page to update buttons
                 setTimeout(() => location.reload(), 1500);
             } else {
                 throw new Error(response.data.message || 'Failed to disconnect Nostr. Please try again.');
             }
         } catch (error) {
             console.error('Disconnect error:', error);
-            $feedback.removeClass('notice-info').addClass('notice-error')
-                .html(`Error: ${error.message}`);
+            $feedback.removeClass('notice-info')
+              .addClass('notice-error')
+              .html(`Error: ${error.message}`)
+              .delay(3000).fadeOut('slow');;
         } finally {
             $button.prop('disabled', false);
         }
