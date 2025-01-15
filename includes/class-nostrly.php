@@ -121,18 +121,18 @@ class Nostrly
                 <td>
                     <?php if (!get_user_meta($user->ID, 'nostr_public_key', true)) { ?>
                         <?php if ($user->ID == $user_id) { ?>
-                        <button type="button" id="nostr-connect-extension" class="button">
-                            <?php esc_html_e('Sync with Nostr Extension', 'nostrly'); ?>
-                        </button>
-                        <p class="description">
+                            <button type="button" id="nostr-connect-extension" class="button">
+                                <?php esc_html_e('Sync with Nostr Extension', 'nostrly'); ?>
+                            </button>
+                            <p class="description">
                             <?php esc_html_e('Connect your Nostr account to sync your public key, NIP-05, and avatar', 'nostrly'); ?>
                         </p>
                         <?php } ?>
                     <?php } else { ?>
                         <?php if ($user->ID == $user_id) { ?>
-                        <button type="button" id="nostr-resync-extension" class="button">
-                            <?php esc_html_e('Resync Nostr Data', 'nostrly'); ?>
-                        </button>
+                            <button type="button" id="nostr-resync-extension" class="button">
+                                <?php esc_html_e('Resync Nostr Data', 'nostrly'); ?>
+                            </button>
                         <?php } ?>
                         <button type="button" id="nostr-disconnect" class="button" data-user="<?php echo $user->ID; ?>">
                             <?php esc_html_e('Disconnect Nostr', 'nostrly'); ?>
@@ -157,12 +157,11 @@ class Nostrly
                     <input type="text" id="nostr_nip05"
                        value="<?php echo esc_attr(get_user_meta($user->ID, 'nip05', true)); ?>"
                        class="regular-text" readonly />
-                    <?php
-                    $nip05 = get_user_meta($user->ID, 'nip05', true);
-                    if ($user->ID == $user_id && $nip05 && $nip05 !== $user->user_login.'@nostrly.com') { ?>
-                    <button type="button" id="nostr-set-nip05" class="button" data-nip05="<?php echo $user->user_login; ?>@nostrly.com">
-                        <?php esc_html_e('Use your Nostrly identifier', 'nostrly'); ?>
-                    </button>
+                    <?php $nip05 = get_user_meta($user->ID, 'nip05', true); ?>
+                    <?php if ($user->ID == $user_id && $nip05 && $nip05 !== $user->user_login.'@nostrly.com') { ?>
+                        <button type="button" id="nostr-set-nip05" class="button" data-nip05="<?php echo $user->user_login; ?>@nostrly.com">
+                            <?php esc_html_e('Use your Nostrly identifier', 'nostrly'); ?>
+                        </button>
                     <?php } ?>
                     <p class="description">
                         <?php esc_html_e('This is your currently set NIP-05 internet identifier.', 'nostrly'); ?>
@@ -470,6 +469,9 @@ class Nostrly
         $relays_option = get_option('nostrly_relays', implode("\n", $this->default_relays));
         $relays_array = explode("\n", $relays_option);
 
-        return array_filter(array_map('esc_url', array_map('trim', $relays_array)));
+        // Filter and escape URLs, allowing only wss protocol
+        $fn = function ($v) {return esc_url($v, ['wss']); };
+
+        return array_filter(array_map($fn, array_map('trim', $relays_array)));
     }
 }

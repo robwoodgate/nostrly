@@ -6,19 +6,9 @@ import { nip19, nip98 } from "nostr-tools";
 (function ($) {
   $(document).ready(function () {
 
-    const TIMEOUT_DURATION = 15000; // 15 seconds timeout
     const signer = new NDKNip07Signer();
     window.ndk = new NDK({
-      explicitRelayUrls: [
-        "wss://purplepag.es",
-        "wss://relay.nostr.band",
-        "wss://relay.primal.net",
-        "wss://relay.damus.io",
-        "wss://relay.snort.social",
-        "wss://nostr.bitcoiner.social"
-
-        // Add more relay URLs as needed
-      ],
+      explicitRelayUrls: nostrly_ajax.relays,
     });
 
     var $loginForm = $("#loginform");
