@@ -14,4 +14,4 @@ Powers the Cogmentis Nostrly SaaS
 
 1. Upload `nostrly` to the `/wp-content/plugins/` directory
 2. Activate the plugin through the 'Plugins' menu
-3. Go to Settings > Nostr Login to configure relay settings
+3. Go to Settings > Nostrly to configure relay settings
