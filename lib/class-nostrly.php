@@ -78,7 +78,7 @@ class Nostrly
                     <tr valign="top">
                         <th scope="row"><?php esc_html_e('Nostr Relays', 'nostrly'); ?></th>
                         <td>
-                            <textarea name="nostrly_relays" rows="5" cols="50"><?php echo esc_textarea(get_option('nostrly_relays', implode("\n", $this->default_relays))); ?></textarea>
+                            <textarea name="nostrly_relays" rows="5" cols="50"><?php echo esc_textarea(implode("\n", $this->get_relay_urls())); ?></textarea>
                             <p class="description"><?php esc_html_e('Enter one relay URL per line.', 'nostrly'); ?></p>
                         </td>
                     </tr>
@@ -390,7 +390,7 @@ class Nostrly
      */
     public function action_links($links)
     {
-        $settings_link = '<a href="'.admin_url('options-general.php').'#coglm_settings"> '.__('Settings', 'cogems').'</a>';
+        $settings_link = '<a href="'.admin_url('options-general.php').'?page=nostrly"> '.__('Settings', 'nostrly').'</a>';
 
         array_unshift(
             $links,
@@ -521,14 +521,15 @@ class Nostrly
         $this->log_debug('Updated metadata for user ID: '.$user->ID);
     }
 
-    private function get_relay_urls()
+    private function get_relay_urls(): array
     {
         $relays_option = get_option('nostrly_relays', implode("\n", $this->default_relays));
         $relays_array = explode("\n", $relays_option);
 
         // Filter and escape URLs, allowing only wss protocol
         $fn = function ($v) {return esc_url($v, ['wss']); };
+        $relays_array = array_filter(array_map($fn, array_map('trim', $relays_array)));
 
-        return array_filter(array_map($fn, array_map('trim', $relays_array)));
+        return empty($relays_array) ? $this->default_relays : $relays_array;
     }
 }
