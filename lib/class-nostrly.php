@@ -44,6 +44,12 @@ class Nostrly
 
     public function options_page()
     {
+        // Convert hex key to NPUB
+        $key = new Key();
+        $root_hexkey = get_option('nostrly_rootkey');
+        if (!empty($root_hexkey)) {
+            $root_hexkey = $key->convertPublicKeyToBech32($root_hexkey);
+        }
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Nostrly Settings', 'nostrly'); ?></h1>
@@ -74,6 +80,13 @@ class Nostrly
                             </select>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('NIP-05: Root Domain NPUB', 'nostrly'); ?></th>
+                        <td>
+                         <input type="text" name="nostrly_rootkey"  value="<?php echo esc_html($root_hexkey); ?>" placeholder="npub..." />
+                         <p class="description"><?php esc_html_e('Optional. This is the Nostr public key associated with the root domain (_@domain).', 'nostrly'); ?></p>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button(); ?>
             </form>
@@ -93,6 +106,15 @@ class Nostrly
             ]
         );
         register_setting('nostrly_options', 'nostrly_relays');
+        register_setting(
+            'nostrly_options',
+            'nostrly_rootkey',
+            [
+                'type' => 'string',
+                'sanitize_callback' => [$this, 'sanitize_rootkey_setting'],
+                // 'default' => '',
+            ]
+        );
     }
 
     public function sanitize_redirect_setting($value)
@@ -100,6 +122,24 @@ class Nostrly
         $allowed_values = ['admin', 'home', 'profile'];
 
         return in_array($value, $allowed_values) ? $value : 'admin';
+    }
+
+    public function sanitize_rootkey_setting($value)
+    {
+        if (empty($value) || 0 !== strpos($value, 'npub')) {
+            return '';
+        }
+
+        try {
+            $key = new Key();
+            $hex = $key->convertToHex($value);
+
+            return (string) $hex;
+        } catch (Exception $e) {
+            error_log($e->getMessage());
+
+            return '';
+        }
     }
 
     public function add_custom_user_profile_fields($user)
