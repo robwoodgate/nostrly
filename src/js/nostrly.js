@@ -7,7 +7,7 @@ import { nip19, nip98 } from "nostr-tools";
   $(document).ready(function () {
 
     const signer = new NDKNip07Signer();
-    window.ndk = new NDK({
+    const ndk = new NDK({
       explicitRelayUrls: nostrly_ajax.relays,
     });
 
