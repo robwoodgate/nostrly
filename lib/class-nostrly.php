@@ -34,13 +34,15 @@ class Nostrly
         add_action('wp_ajax_nostr_sync_profile', [$this, 'ajax_nostr_sync_profile']);
         add_action('wp_ajax_nostr_disconnect', [$this, 'ajax_nostr_disconnect']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
+        add_filter('plugin_action_links_'.NOSTRLY_FILE, [$this, 'action_links']);
+        add_filter('get_avatar_url', [$this, 'get_nostr_avatar_url'], 10, 3);
 
-        nostrly_debug_log('Nostrly_Handler class initialized');
+        $this->log_debug('Nostrly_Handler class initialized');
     }
 
     public function add_admin_menu()
     {
-        add_options_page(__('Nostr Login Settings', 'nostrly'), __('Nostr Login', 'nostrly'), 'manage_options', 'nostrly', [$this, 'options_page']);
+        add_options_page(__('Nostrly Settings', 'nostrly'), __('Nostrly', 'nostrly'), 'manage_options', 'nostrly', [$this, 'options_page']);
     }
 
     public function register_settings()
@@ -68,7 +70,7 @@ class Nostrly
     {
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Nostr Login Settings', 'nostrly'); ?></h1>
+            <h1><?php esc_html_e('Nostrly Settings', 'nostrly'); ?></h1>
             <form method="post" action="options.php">
                 <?php settings_fields('nostrly_options'); ?>
                 <?php do_settings_sections('nostrly_options'); ?>
@@ -190,7 +192,7 @@ class Nostrly
         // Verify authtoken event signature and format
         $event = new Event();
         if (!$event->verify($authtoken)) {
-            nostrly_debug_log('Authtoken failed verification');
+            $this->log_debug('Authtoken failed verification');
             wp_send_json_error(['message' => __('Invalid authtoken.', 'nostrly')]);
         }
 
@@ -198,18 +200,18 @@ class Nostrly
         // @see https://github.com/nostr-protocol/nips/blob/master/98.md
         $nip98 = json_decode($authtoken);
         if (JSON_ERROR_NONE !== json_last_error()) {
-            nostrly_debug_log('Invalid authtoken JSON: '.json_last_error_msg());
+            $this->log_debug('Invalid authtoken JSON: '.json_last_error_msg());
             wp_send_json_error(['message' => __('Invalid authtoken: ', 'nostrly').json_last_error_msg()]);
         }
-        // nostrly_debug_log('AUTH: '.print_r($nip98, true));
+        $this->log_debug('AUTH: '.print_r($nip98, true));
         $valid = ('27235' == $nip98->kind) ? true : false;              // NIP98 event
         $valid = (time() - $nip98->created_at <= 60) ? $valid : false;  // <60 secs old
         $tags = array_column($nip98->tags, 1, 0);                       // Expected Tags
-        // nostrly_debug_log(print_r($tags, true));
+        $this->log_debug(print_r($tags, true));
         $valid = (admin_url('admin-ajax.php') == $tags['u']) ? $valid : false;
         $valid = ('post' == $tags['method']) ? $valid : false;
         if (!$valid) {
-            nostrly_debug_log('Authorisation is invalid or expired');
+            $this->log_debug('Authorisation is invalid or expired');
             wp_send_json_error(['message' => __('Authorisation is invalid or expired.', 'nostrly')]);
         }
 
@@ -223,7 +225,7 @@ class Nostrly
             // Login user
             wp_set_current_user($user->ID);
             wp_set_auth_cookie($user->ID);
-            nostrly_debug_log('User logged in successfully: '.$user->ID);
+            $this->log_debug('User logged in successfully: '.$user->ID);
 
             // Redirect
             $redirect_type = get_option('nostrly_redirect', 'admin');
@@ -234,7 +236,7 @@ class Nostrly
             };
             wp_send_json_success(['redirect' => $redirect_url]);
         } else {
-            nostrly_debug_log('Login failed for public key: '.$public_key);
+            $this->log_debug('Login failed for public key: '.$public_key);
             wp_send_json_error(['message' => __('Login failed. Please try again.', 'nostrly')]);
         }
     }
@@ -381,6 +383,61 @@ class Nostrly
         }
     }
 
+    /**
+     * Add settings page link with plugin.
+     *
+     * @param mixed $links
+     */
+    public function action_links($links)
+    {
+        $settings_link = '<a href="'.admin_url('options-general.php').'#coglm_settings"> '.__('Settings', 'cogems').'</a>';
+
+        array_unshift(
+            $links,
+            $settings_link
+        );
+
+        return $links;
+    }
+
+    public function get_nostr_avatar_url($url, $id_or_email, $args)
+    {
+        $user = false;
+        if (is_numeric($id_or_email)) {
+            $user = get_user_by('id', $id_or_email);
+        } elseif (is_object($id_or_email)) {
+            if (!empty($id_or_email->user_id)) {
+                $user = get_user_by('id', $id_or_email->user_id);
+            }
+        } else {
+            $user = get_user_by('email', $id_or_email);
+        }
+
+        if ($user && is_object($user)) {
+            $nostr_avatar = get_user_meta($user->ID, 'nostr_avatar', true);
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log("Attempting to use Nostr avatar for user {$user->ID}: ".$nostr_avatar);
+            }
+            if ($nostr_avatar) {
+                return $nostr_avatar;
+            }
+        }
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Using default avatar URL: '.$url);
+        }
+
+        return $url;
+    }
+
+    // Add a debug logging function
+    private function log_debug($message)
+    {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Nostrly: '.$message);
+        }
+    }
+
     private function is_valid_public_key($key)
     {
         // Implement your validation logic for Nostr public keys
@@ -434,7 +491,7 @@ class Nostrly
         // Decode and sanitize metadata
         $metadata = json_decode($metadata_json, true);
         if (JSON_ERROR_NONE !== json_last_error()) {
-            nostrly_debug_log('Invalid metadata JSON: '.json_last_error_msg());
+            $this->log_debug('Invalid metadata JSON: '.json_last_error_msg());
 
             return;
         }
@@ -448,9 +505,9 @@ class Nostrly
         if (!empty($metadata['nip05'])) {
             update_user_meta($user_id, 'nip05', sanitize_text_field($metadata['nip05']));
         }
-        if (!empty($metadata['image'])) {
-            update_user_meta($user_id, 'nostr_avatar', esc_url_raw($metadata['image']));
-            nostrly_debug_log("Saved Nostr avatar for user {$user_id}: ".esc_url($metadata['image']));
+        if (!empty($metadata['picture'])) {
+            update_user_meta($user_id, 'nostr_avatar', esc_url_raw($metadata['picture']));
+            $this->log_debug("Saved Nostr avatar for user {$user_id}: ".esc_url($metadata['picture']));
         }
         if (!empty($metadata['website'])) {
             wp_update_user([
@@ -461,7 +518,7 @@ class Nostrly
         // Add more metadata fields as needed
         // ...
         //
-        nostrly_debug_log('Updated metadata for user ID: '.$user->ID);
+        $this->log_debug('Updated metadata for user ID: '.$user->ID);
     }
 
     private function get_relay_urls()
