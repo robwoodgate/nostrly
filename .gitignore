@@ -8,7 +8,7 @@ node_modules/
 dist/
 vendor/
 assets/
-build/
+build/*
 
 # Compiled Java class files
 *.class
