@@ -5,9 +5,6 @@ if (!defined('ABSPATH')) {
 use swentel\nostr\Event\Event;
 use swentel\nostr\Key\Key;
 
-// Include the file containing the debug log function
-require_once plugin_dir_path(__FILE__).'../nostrly.php';
-
 class Nostrly
 {
     private static $field_added = false;
