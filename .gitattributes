@@ -4,3 +4,4 @@ webpack.config.js export-ignore
 README.md export-ignore
 node_modules export-ignore
 src export-ignore
+build.sh export-ignore
