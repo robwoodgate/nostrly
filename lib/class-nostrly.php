@@ -19,18 +19,18 @@ class Nostrly
 
     public function init()
     {
+        add_action('admin_menu', [$this, 'add_admin_menu']);
+        add_action('admin_init', [$this, 'register_settings']);
+        add_action('show_user_profile', [$this, 'add_custom_user_profile_fields']);
+        add_action('edit_user_profile', [$this, 'add_custom_user_profile_fields']);
         add_action('login_enqueue_scripts', [$this, 'enqueue_scripts']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_action('login_form', [$this, 'add_nostrly_field']);
         add_action('wp_ajax_nostrly_login', [$this, 'ajax_nostrly_login']);
         add_action('wp_ajax_nopriv_nostrly_login', [$this, 'ajax_nostrly_login']);
         add_action('wp_ajax_nostrly_register', [$this, 'ajax_nostrly_register']);
-        add_action('show_user_profile', [$this, 'add_custom_user_profile_fields']);
-        add_action('edit_user_profile', [$this, 'add_custom_user_profile_fields']);
-        add_action('admin_menu', [$this, 'add_admin_menu']);
-        add_action('admin_init', [$this, 'register_settings']);
         add_action('wp_ajax_nostr_sync_profile', [$this, 'ajax_nostr_sync_profile']);
         add_action('wp_ajax_nostr_disconnect', [$this, 'ajax_nostr_disconnect']);
-        add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('plugin_action_links_'.NOSTRLY_FILE, [$this, 'action_links']);
         add_filter('get_avatar_url', [$this, 'get_nostr_avatar_url'], 10, 3);
 
@@ -40,27 +40,6 @@ class Nostrly
     public function add_admin_menu()
     {
         add_options_page(__('Nostrly Settings', 'nostrly'), __('Nostrly', 'nostrly'), 'manage_options', 'nostrly', [$this, 'options_page']);
-    }
-
-    public function register_settings()
-    {
-        register_setting(
-            'nostrly_options',
-            'nostrly_redirect',
-            [
-                'type' => 'string',
-                'sanitize_callback' => [$this, 'sanitize_redirect_setting'],
-                'default' => 'admin',
-            ]
-        );
-        register_setting('nostrly_options', 'nostrly_relays');
-    }
-
-    public function sanitize_redirect_setting($value)
-    {
-        $allowed_values = ['admin', 'home', 'profile'];
-
-        return in_array($value, $allowed_values) ? $value : 'admin';
     }
 
     public function options_page()
@@ -100,6 +79,27 @@ class Nostrly
             </form>
         </div>
         <?php
+    }
+
+    public function register_settings()
+    {
+        register_setting(
+            'nostrly_options',
+            'nostrly_redirect',
+            [
+                'type' => 'string',
+                'sanitize_callback' => [$this, 'sanitize_redirect_setting'],
+                'default' => 'admin',
+            ]
+        );
+        register_setting('nostrly_options', 'nostrly_relays');
+    }
+
+    public function sanitize_redirect_setting($value)
+    {
+        $allowed_values = ['admin', 'home', 'profile'];
+
+        return in_array($value, $allowed_values) ? $value : 'admin';
     }
 
     public function add_custom_user_profile_fields($user)
@@ -172,6 +172,58 @@ class Nostrly
         <?php
     }
 
+    public function enqueue_scripts($hook = '')
+    {
+        $enqueue = false;
+        // Check if we're on the login page
+        if (in_array($GLOBALS['pagenow'], ['wp-login.php']) || did_action('login_enqueue_scripts')) {
+            $enqueue = true;
+        }
+
+        // For profile page
+        if (in_array($hook, ['profile.php', 'user-edit.php'])) {
+            $enqueue = true;
+        }
+
+        // Do enqueue
+        if ($enqueue) {
+            wp_enqueue_script('nostrly', plugin_dir_url(dirname(__FILE__)).'assets/js/nostrly.min.js', ['jquery'], '1.0', true);
+
+            wp_localize_script('nostrly', 'nostrly_ajax', [
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('nostrly-nonce'),
+                'relays' => $this->get_relay_urls(),
+            ]);
+        }
+    }
+
+    public function add_nostrly_field()
+    {
+        if (self::$field_added) {
+            return;
+        }
+        self::$field_added = true;
+        ?>
+        <div class="nostrly-container">
+            <label for="nostrly_toggle" class="nostr-toggle-label">
+                <input type="checkbox" id="nostrly_toggle">
+                <span><?php esc_html_e('Use Nostr Login', 'nostrly'); ?></span>
+            </label>
+            <?php wp_nonce_field('nostrly-nonce', 'nostrly_nonce'); ?>
+        </div>
+        <p class="nostrly-field" style="display:none;">
+            <label for="nostr_private_key"><?php esc_html_e('Nostr Private Key (starting with “nsec”)', 'nostrly'); ?></label>
+            <input type="password" name="nostr_private_key" id="nostr_private_key" class="input" size="20" autocapitalize="off"/>
+        </p>
+        <p class="nostrly-buttons" style="display:none;">
+            <button type="button" id="use_nostr_extension" class="button"><?php esc_html_e('Use Nostr Extension', 'nostrly'); ?></button>
+            <input type="submit" name="wp-submit" id="nostr-wp-submit" class="button button-primary" value="<?php esc_attr_e('Log In with Nostr', 'nostrly'); ?>">
+        </p>
+        <div id="nostrly-feedback" style="display:none;"></div>
+        <?php
+        remove_action('login_form', [$this, 'add_nostrly_field']);
+    }
+
     public function ajax_nostrly_login()
     {
         // Sanitize and verify nonce
@@ -236,64 +288,6 @@ class Nostrly
             $this->log_debug('Login failed for public key: '.$public_key);
             wp_send_json_error(['message' => __('Login failed. Please try again.', 'nostrly')]);
         }
-    }
-
-    public function enqueue_scripts($hook = '')
-    {
-        $enqueue = false;
-        // Check if we're on the login page
-        if (in_array($GLOBALS['pagenow'], ['wp-login.php']) || did_action('login_enqueue_scripts')) {
-            $enqueue = true;
-        }
-
-        // For profile page
-        if (in_array($hook, ['profile.php', 'user-edit.php'])) {
-            $enqueue = true;
-        }
-
-        // Do enqueue
-        if ($enqueue) {
-            wp_enqueue_script('nostrly', plugin_dir_url(dirname(__FILE__)).'assets/js/nostrly.min.js', ['jquery'], '1.0', true);
-
-            wp_localize_script('nostrly', 'nostrly_ajax', [
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('nostrly-nonce'),
-                'relays' => $this->get_relay_urls(),
-            ]);
-        }
-    }
-
-    public function add_nostrly_field()
-    {
-        if (self::$field_added) {
-            return;
-        }
-        self::$field_added = true;
-        ?>
-        <div class="nostrly-container">
-            <label for="nostrly_toggle" class="nostr-toggle-label">
-                <input type="checkbox" id="nostrly_toggle">
-                <span><?php esc_html_e('Use Nostr Login', 'nostrly'); ?></span>
-            </label>
-            <?php wp_nonce_field('nostrly-nonce', 'nostrly_nonce'); ?>
-        </div>
-        <p class="nostrly-field" style="display:none;">
-            <label for="nostr_private_key"><?php esc_html_e('Nostr Private Key (starting with “nsec”)', 'nostrly'); ?></label>
-            <input type="password" name="nostr_private_key" id="nostr_private_key" class="input" size="20" autocapitalize="off"/>
-        </p>
-        <p class="nostrly-buttons" style="display:none;">
-            <button type="button" id="use_nostr_extension" class="button"><?php esc_html_e('Use Nostr Extension', 'nostrly'); ?></button>
-            <input type="submit" name="wp-submit" id="nostr-wp-submit" class="button button-primary" value="<?php esc_attr_e('Log In with Nostr', 'nostrly'); ?>">
-        </p>
-        <div id="nostrly-feedback" style="display:none;"></div>
-        <?php
-        remove_action('login_form', [$this, 'add_nostrly_field']);
-    }
-
-    public function authenticate_nostr_user($user, $username, $password)
-    {
-        // We'll implement this method later
-        return $user;
     }
 
     public function ajax_nostrly_register()

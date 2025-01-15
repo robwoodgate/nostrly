@@ -1,4 +1,5 @@
 <?php
+
 /*
 Plugin Name: Nostrly SaaS
 Plugin URI: https://www.nostrly.com/
