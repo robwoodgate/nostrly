@@ -6,4 +6,9 @@ pkg="build/${pfx}.zip"
 composer install
 npm run build
 
-git archive --format zip --prefix=${pfx}/ --output $pkg main
+rm -fr build/*
+git archive --format zip --worktree-attribute --prefix=${pfx}/ --output $pkg main
+unzip ${pkg} -d build/ && rm ${pkg}
+cp -r vendor/ build/${pfx}/vendor/
+cd build/
+zip -r "${pfx}.zip" "${pfx}"
