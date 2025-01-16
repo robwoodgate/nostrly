@@ -1,15 +1,12 @@
 #!/bin/bash
 
-pfx="nostrly" # plugin name
-pkg="build/${pfx}.zip"
+pkg="nostrly.zip" # plugin name
 
-composer install
+# Build packages
+composer install --no-dev
 npm run build
 
-rm -fr build/*
-git archive --format zip --worktree-attribute --prefix=${pfx}/ --output $pkg main
-unzip ${pkg} -d build/ && rm ${pkg}
-cp -r vendor/ build/${pfx}/vendor/
-cp -r assets/ build/${pfx}/assets/
-cd build/
-zip -r "${pfx}.zip" "${pfx}"
+# Create plugin
+rm ${pkg}
+zip -r ${pkg} . -x='.git/*' -x="src/*" -x="node_modules/*" -x="README.md" -x="webpack.config.js" -x="build.sh" -x=".DS_Store"
+echo "Done"
