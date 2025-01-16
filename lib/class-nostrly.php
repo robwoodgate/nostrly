@@ -19,6 +19,7 @@ class Nostrly
 
     public function init()
     {
+        add_action('init', [$this, 'gmp_check_extension']);
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('show_user_profile', [$this, 'add_custom_user_profile_fields']);
@@ -35,6 +36,21 @@ class Nostrly
         add_filter('get_avatar_url', [$this, 'get_nostr_avatar_url'], 10, 3);
 
         $this->log_debug('Nostrly_Handler class initialized');
+    }
+
+    public function gmp_check_extension()
+    {
+        if (!extension_loaded('gmp')) {
+            add_action('admin_notices', function () {
+                wp_admin_notice(
+                    __('Nostr Login is currently disabled because the GMP extension is not installed on your server. Please contact your hosting provider to enable it.', 'gmp-check'),
+                    [
+                        'type' => 'error',
+                        'additional_classes' => ['is-dismissible'],
+                    ]
+                );
+            });
+        }
     }
 
     public function add_admin_menu()
@@ -279,10 +295,14 @@ class Nostrly
         $authtoken = base64_decode($authtoken); // now a json encoded string
 
         // Verify authtoken event signature and format
-        $event = new Event();
-        if (!$event->verify($authtoken)) {
-            $this->log_debug('Authtoken failed verification');
-            wp_send_json_error(['message' => __('Invalid authtoken.', 'nostrly')]);
+        try {
+            $event = new Event();
+            if (!$event->verify($authtoken)) {
+                $this->log_debug('Authtoken failed verification');
+                wp_send_json_error(['message' => __('Invalid authtoken.', 'nostrly')]);
+            }
+        } catch (Throwable $e) {
+            wp_send_json_error(['message' => __('Sorry, Nostr Login is currently disabled.', 'nostrly')]);
         }
 
         // Do NIP98 specific authtoken validation checks
