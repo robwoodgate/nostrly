@@ -466,17 +466,13 @@ class Nostrly
 
         if ($user && is_object($user)) {
             $nostr_avatar = get_user_meta($user->ID, 'nostr_avatar', true);
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log("Attempting to use Nostr avatar for user {$user->ID}: ".$nostr_avatar);
-            }
+            $this->log_debug("Attempting to use Nostr avatar for user {$user->ID}: ".$nostr_avatar);
             if ($nostr_avatar) {
                 return $nostr_avatar;
             }
         }
 
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Using default avatar URL: '.$url);
-        }
+        $this->log_debug('Using default avatar URL: '.$url);
 
         return $url;
     }
