@@ -31,3 +31,7 @@ define('NOSTRLY_VERSION', '1.0.0');
 // * Instantiate main plugin
 require_once NOSTRLY_PATH.'lib/class-nostrly.php';
 (new Nostrly())->init();
+
+// * Instantiate main plugin
+require_once NOSTRLY_PATH.'lib/class-nostrly-register.php';
+(new NostrlyRegister())->init();
