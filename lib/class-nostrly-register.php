@@ -79,7 +79,7 @@ class NostrlyRegister
             <div class="wrap">
                 <h1>{$headline}</h1>
 
-                <div class="registration-area">
+                <div id="pick-name">
                     <label for="reg-username">{$title_n}</label>
                     <div class="username-input">
                         <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 12rem;"> @{$sitedom}
@@ -95,6 +95,12 @@ class NostrlyRegister
                     </div>
                     <p class="center description">By continuing, you agree to our <a href="/terms">Terms of Service</a>.
                     </p>
+                </div>
+                <div id="pay-invoice">
+                    <p>Please pay this invoice to register <span id="registering-name"></span>.</p>
+                    <p><a id="invoice-link"><img id="invoice-img"></a></p>
+                    <p><button id="invoice-copy">copy</button></p>
+                    <p><button id="cancel-registration">Cancel Registration</button></p>
                 </div>
 
             </div>

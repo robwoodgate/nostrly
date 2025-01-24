@@ -50,6 +50,21 @@ jQuery(function($) {
         }
     }
 
+    // Start the registration process based on localStorage state
+    function startRegistrationProcess() {
+        let registerState;
+        try {
+            registerState = localStorage.getItem("register-state");
+        } catch {}
+
+        if (registerState) {
+            const item = JSON.parse(registerState);
+            if (item[3] > Date.now()) {
+                initPaymentProcessing(...item);
+            }
+        }
+    }
+
     // Handle username input
     function handleUsernameInput() {
         if (stage !== 0) return;
@@ -184,7 +199,7 @@ jQuery(function($) {
                 const data = [res.data, `${$username.val()}@${config.name}`, res.data.price, Date.now() + (8 * 60 * 60 * 1000)];
                 localStorage.setItem("register-state", JSON.stringify(data));
             } catch {}
-            initStage1(res.data, `${$username.val()}@${config.name}`, res.data.price);
+            initPaymentProcessing(res.data, `${$username.val()}@${config.name}`, res.data.price);
         }
     }
 
@@ -229,11 +244,11 @@ jQuery(function($) {
     }
 
     // Initialize stage 1 for payment processing
-    function initStage1(data, name, price) {
+    window.function initPaymentProcessing(data, name, price) {
         const { token, invoice, paymentHash, img } = data;
 
-        $("#stage0").hide();
-        $("#stage1").show();
+        $("#pick-name").hide();
+        $("#pay-invoice").show();
 
         $("#invoice-link").attr("href", `lightning:${invoice}`);
         $("#registering-name, #registering-name-2").text(name);
@@ -306,25 +321,6 @@ jQuery(function($) {
     function copyTextToClipboard(text) {
         if (navigator.clipboard) {
             navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy:', e));
-        }
-    }
-
-    // Start the registration process based on localStorage state
-    function startRegistrationProcess() {
-        let registerState;
-        try {
-            registerState = localStorage.getItem("register-state");
-        } catch {}
-
-        if (registerState) {
-            const item = JSON.parse(registerState);
-            if (item[3] < Date.now()) {
-                initStage0();
-            } else {
-                initStage1(...item);
-            }
-        } else {
-            initStage0();
         }
     }
 
