@@ -7,7 +7,7 @@
 node_modules/
 dist/
 vendor/
-assets/js/nostrly.min*
+assets/js/nostrly*
 
 # Compiled Java class files
 *.class

@@ -9,82 +9,45 @@ use swentel\nostr\Key\Key;
 class NostrlyRegister
 {
     public const ERRORS = [
-        'TOO_SHORT' => 'name is too short (min 2 chars)',
-        'TOO_LONG' => 'name is too long (max 20 chars)',
+        'SHORT' => 'name is too short (min 2 chars)',
+        'LONG' => 'name is too long (max 20 chars)',
         'INVALID' => 'name contains invalid characters',
         'REGISTERED' => 'name is already registered',
-        'DISALLOWED' => 'name is blocked',
+        'BLOCKED' => 'name is blocked',
         'RESERVED' => 'name may become available later',
     ];
 
-    protected const DISALLOWED = [
-        'rob', 'ben', 'sam', 'heidi',
-        'admin',
-        'administrator',
-        'root',
-        'sysadmin',
-        'webmaster',
-        'master',
-        'owner',
-        'superuser',
-        'superadmin',
-        'support',
-        'help',
-        'contact',
-        'enquires',
-        'press',
-        'pr',
-        'staff',
-        'moderator',
-        'mod',
-        'operator',
-        'ops',
-        'security',
-        'secure',
-        'manager',
-        'control',
-        'boss',
-        'chief',
-        'head',
-        'lead',
-        'director',
-        'ceo',
-        'founder',
-        'creator',
+    public const DOMAINS = [
+        [
+            'name' => 'nostrly.com',
+            'regex' => ['^[a-z0-9]+$', ''],
+            'regexChars' => ['[^a-z0-9]', 'g'],
+            'length' => [2, 20],
+            'default' => true,
+        ],
     ];
 
+    public const PRICES = [
+        '2' => '65000',
+        '3' => '45000',
+        '4' => '25000',
+        'default' => '12500', // default
+    ];
+
+    protected const BLOCKED = [
+        'admin', 'administrator', 'ceo', 'founder', 'root', 'sysadmin', 'webmaster',
+        'master', 'owner', 'superuser', 'superadmin', 'support', 'help', 'contact',
+        'enquires', 'press', 'pr', 'staff', 'moderator', 'mod', 'operator', 'ops',
+        'security', 'secure', 'manager', 'control', 'boss', 'chief', 'head', 'lead',
+        'director'];
+
     protected const RESERVED = [
-        'rob', 'ben', 'sam', 'heidi',
-        'satoshi',
-        'nakamoto',
-        'bitcoin',
-        'btc',
-        'crypto',
-        'blockchain',
-        'hodl',
-        'satoshinakamoto',
-        'cryptoking',
-        'bitcoinmax',
-        'coinmaster',
-        'hashrate',
-        'proofofwork',
-        'cryptoqueen',
-        'bitcoinminer',
-        'satoshivision',
-        'blockchain',
-        'bitcoinjesus',
-        'cryptoanarchist',
-        'hodler',
-        'mstr',
-        'ver',
-        'shrem',
-        'voorhees',
-        'antonopoulos',
-        'winklevoss',
-        'saylor',
-        'dorsey',
-        'mcafee',
-        'szabo',
+        'rob', 'ben', 'sam', 'heidi', 'satoshi', 'nakamoto', 'bitcoin', 'btc',
+        'crypto', 'blockchain', 'hodl', 'satoshinakamoto', 'cryptoking', 'bitcoinmax',
+        'coinmaster', 'hashrate', 'proofofwork', 'cryptoqueen', 'bitcoinminer',
+        'satoshivision', 'blockchain', 'bitcoinjesus', 'cryptoanarchist', 'hodler',
+        'mstr', 'ver', 'shrem', 'voorhees', 'antonopoulos', 'winklevoss', 'saylor',
+        'dorsey', 'mcafee', 'szabo',
     ];
 
     public function init(): void
@@ -152,6 +115,7 @@ class NostrlyRegister
         wp_localize_script('nostrly-register', 'nostrly_ajax', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('nostrly-nonce'),
+            'domains' => self::DOMAINS
         ]);
     }
 
@@ -168,7 +132,7 @@ class NostrlyRegister
         // return
         // {
         //     "available": false,
-        //     "why": "DISALLOWED",
+        //     "why": "BLOCKED",
         //     "reasonTag": "later"
         // }
         // {
@@ -200,10 +164,10 @@ class NostrlyRegister
         $resp = ['available' => false]; // no!
         $length = strlen($name);
         if ($length < 2) {
-            $resp['why'] = self::ERRORS['TOO_SHORT'];
+            $resp['why'] = self::ERRORS['SHORT'];
             wp_send_json_success($resp);
         } elseif ($length > 20) {
-            $resp['why'] = self::ERRORS['TOO_LONG'];
+            $resp['why'] = self::ERRORS['LONG'];
             wp_send_json_success($resp);
         } elseif (preg_match('/[^a-z0-9]/', $name) > 0) {
             $resp['why'] = self::ERRORS['INVALID'];
@@ -211,8 +175,8 @@ class NostrlyRegister
         } elseif (in_array($name, self::RESERVED)) {
             $resp['why'] = self::ERRORS['RESERVED'];
             wp_send_json_success($resp);
-        } elseif (in_array($name, self::DISALLOWED)) {
-            $resp['why'] = self::ERRORS['DISALLOWED'];
+        } elseif (in_array($name, self::BLOCKED)) {
+            $resp['why'] = self::ERRORS['BLOCKED'];
             wp_send_json_success($resp);
         } elseif (username_exists($name)) {
             $resp['why'] = self::ERRORS['REGISTERED'];
@@ -220,14 +184,9 @@ class NostrlyRegister
         }
 
         // All good, get pricing
-        $sats = '12500'; // Base price
-        $fees = [
-            '2' => '65000',
-            '3' => '45000',
-            '4' => '25000',
-        ];
-        if (array_key_exists((string) $length, $fees)) {
-            $sats = $fees[$length];
+        $sats = self::PRICES['default']; // Base price
+        if (array_key_exists($length, self::PRICES)) {
+            $sats = self::PRICES[$length];
         }
 
         // Send pricing

@@ -1,20 +1,12 @@
 
 // Imports
 // import NDK from "@nostr-dev-kit/ndk";
-import { NDKEvent, NDKKind, NDKNip07Signer, NDKUser } from "@nostr-dev-kit/ndk";
-import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
+// import { NDKEvent, NDKKind, NDKNip07Signer, NDKUser } from "@nostr-dev-kit/ndk";
+// import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19'
 
 jQuery(function($) {
-    const nip05Config = {
-        domains: [{
-            name: "nostrly.com",
-            regex: ["^[a-z0-9]+$", ""],
-            regexChars: ["[^a-z0-9]", "g"],
-            length: [2, 20],
-            default: true
-        }]
-    };
+    const nip05Config = nostrly_ajax.domains;
 
     let stage = 0;
     let firstNameEntry = true;
@@ -22,14 +14,6 @@ jQuery(function($) {
     let price = 0;
     let activeDomain;
     let valid = { name: false, pubkey: false };
-    const whyMap = {
-        TOO_SHORT: "name too short",
-        TOO_LONG: "name too long",
-        REGEX: "name has disallowed characters",
-        REGISTERED: "name is registered",
-        DISALLOWED_null: "name is blocked",
-        DISALLOWED_later: "name may be available later",
-    };
 
     const $username = $("#reg-username");
     const $status = $("#reg-status");
@@ -137,18 +121,18 @@ jQuery(function($) {
 
     function handleRegistrationResponse(res) {
         if (res.error) {
-            displayError(`error ${res.error}. please contact @semisol.dev`);
+            displayError(`error ${res.error}. please contact us`);
         } else {
             try {
-                const data = [res, `${$username.val()}@${activeDomain.name}`, res.quote.price, Date.now() + (8 * 60 * 60 * 1000)];
+                const data = [res, `${$username.val()}@${activeDomain.name}`, res.data.price, Date.now() + (8 * 60 * 60 * 1000)];
                 localStorage.setItem("register-state", JSON.stringify(data));
             } catch {}
-            initStage1(res, `${$username.val()}@${activeDomain.name}`, res.quote.price);
+            initStage1(res, `${$username.val()}@${activeDomain.name}`, res.data.price);
         }
     }
 
     function handleRegistrationError(e) {
-        displayError(`${e.toString()}\n please contact @semisol.dev`);
+        displayError(`${e.toString()}\n please contact us`);
         console.log(e.stack);
     }
 
