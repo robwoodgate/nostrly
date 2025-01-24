@@ -1,12 +1,9 @@
-
 // Imports
-// import NDK from "@nostr-dev-kit/ndk";
 import { NDKNip07Signer } from "@nostr-dev-kit/ndk";
-// import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
-import * as nip19 from 'nostr-tools/nip19'
+import * as nip19 from 'nostr-tools/nip19';
 
 jQuery(function($) {
-
+    const config = nostrly_ajax.domain;
     let stage = 0;
     let firstNameEntry = true;
     let timeout;
@@ -14,7 +11,7 @@ jQuery(function($) {
     let valid = { name: false, pubkey: false };
     let currentAjax = null;
 
-    const config = nostrly_ajax.domain;
+    // DOM elements
     const $username = $("#reg-username");
     const $status = $("#reg-status");
     const $pubkey = $("#reg-pubkey");
@@ -24,11 +21,14 @@ jQuery(function($) {
     const $errorText = $("#reg-errortext");
     const $nip07Button = $("#use-nip07");
 
-    function initStage0() {
+    // Initialization
+    function initialize() {
         setupEventListeners();
         checkUrlParams();
+        startRegistrationProcess();
     }
 
+    // Event listeners setup
     function setupEventListeners() {
         $username.on("input", handleUsernameInput);
         $pubkey.on("input", validatePk);
@@ -39,6 +39,7 @@ jQuery(function($) {
         if ($pubkey.val()) validatePk();
     }
 
+    // Check for URL parameters
     function checkUrlParams() {
         if (window.URLSearchParams) {
             const params = new URLSearchParams(location.search);
@@ -49,41 +50,41 @@ jQuery(function($) {
         }
     }
 
+    // Handle username input
     function handleUsernameInput() {
         if (stage !== 0) return;
-        const sanitizedValue = $username.val().toLowerCase().replace(new RegExp("[^a-z0-9]", "g"), "");
+        const sanitizedValue = $username.val().toLowerCase().replace(/[^a-z0-9]/g, '');
         $username.val(sanitizedValue);
         updateNameStatus();
     }
 
+    // Validate public key
     function validatePk() {
         if (stage !== 0) return;
         const sanitizedPk = $pubkey.val().trim().toLowerCase();
-
         let isValid = false;
         let hexWarn = false;
+
         try {
-            // Convert hex key to npub
             if (/^[0-9a-f]{64}$/.test(sanitizedPk)) {
                 $pubkey.val(nip19.npubEncode(sanitizedPk));
                 hexWarn = true;
             }
-            // Validate npub
             if (sanitizedPk.startsWith('npub1')) {
                 const { type, data } = nip19.decode(sanitizedPk);
-                if (type === 'npub' && data.length === 64) {
-                    isValid = true;
-                }
+                isValid = type === 'npub' && data.length === 32;
             }
         } catch (error) {
-            console.error("Validation error:", error);
+            console.error("Public Key Validation Error:", error);
         }
-        $pubkey.attr("data-valid", isValid ? "yes" : "no");
+
         valid.pubkey = isValid;
+        $pubkey.attr("data-valid", isValid ? "yes" : "no");
         $warning.css("display", hexWarn ? "inline-block" : "");
         updateValidity();
     }
 
+    // Update name status
     function updateNameStatus() {
         if (stage !== 0) return;
         $status.attr("data-available", "loading").text("loading...");
@@ -97,87 +98,84 @@ jQuery(function($) {
         timeout = setTimeout(fetchAvailability, 200);
     }
 
+    // Fetch name availability from server
     function fetchAvailability() {
-        // Abort current request
-        if (currentAjax) {
-            currentAjax.abort();
-        }
-
-        // No need to lookup names that are too short
+        if (currentAjax) currentAjax.abort();
         if ($username.val().length < $username.attr("minLength")) {
             $status.attr("data-available", "no").text("✖ name is too short (min 2 chars)");
             return;
         }
-        // Send availability request to WordPress
+
         currentAjax = $.ajax({
             url: nostrly_ajax.ajax_url,
             method: "POST",
             data: {
-              action: "nostrly_regcheck",
-              nonce: nostrly_ajax.nonce,
-              name: $username.val()
+                action: "nostrly_regcheck",
+                nonce: nostrly_ajax.nonce,
+                name: $username.val()
             },
             success: handleAvailabilityResponse,
             error: function(xhr, status, error) {
-                // Only handle errors if the request wasn't aborted
-                if (status !== 'abort') {
-                    handleAvailabilityError(error);
-                }
+                if (status !== 'abort') handleAvailabilityError(error);
             }
         });
     }
 
+    // Handle server response for name availability
     function handleAvailabilityResponse(res) {
-        console.log('Reg Check: ', res.data);
+        console.log('Reg Check:', res.data);
         if (res.data.available) {
             valid.name = true;
             updateValidity();
             $status.attr("data-available", "yes").text(`✔ name is available for ${shorten(res.data.price)} sats`);
             price = res.data.price;
-            return;
+        } else {
+            $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
+            firstNameEntry = false;
         }
-        $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
-        firstNameEntry = false;
     }
 
+    // Handle errors in name availability check
     function handleAvailabilityError(e) {
-        $status.attr("data-available", "no").text("✖ server error, try reloading");
+        $status.attr("data-available", "no").text("✖ server error, please try refreshing the page");
         console.error(e.stack);
         firstNameEntry = false;
     }
 
+    // Handle button click for proceeding to checkout
     function handleNextButtonClick(e) {
         if ($nextButton.prop("disabled") || stage !== 0) return;
         disableUI();
         performCheckout();
     }
 
+    // Disable UI elements
     function disableUI() {
         $nextButton.prop("disabled", true).text("loading...");
         $pubkey.prop("disabled", true);
         $username.prop("disabled", true);
     }
 
+    // Perform checkout process
     function performCheckout() {
         let pk = $pubkey.val().trim();
-        if (pk.startsWith('npub1')) {
-            pk = nip19.decode(pk).data;
-        }
+        if (pk.startsWith('npub1')) pk = nip19.decode(pk).data;
 
         $.ajax({
             url: nostrly_ajax.ajax_url,
             method: "POST",
             data: {
-              action: "nostrly_checkout",
-              nonce: nostrly_ajax.nonce,
-              name: $username.val(),
-              pubkey: pk
+                action: "nostrly_checkout",
+                nonce: nostrly_ajax.nonce,
+                name: $username.val(),
+                pubkey: pk
             },
             success: handleCheckoutResponse,
             error: handleCheckoutError
         });
     }
 
+    // Handle checkout response
     function handleCheckoutResponse(res) {
         if (res.error) {
             displayError(`error ${res.error}. please contact us`);
@@ -190,29 +188,34 @@ jQuery(function($) {
         }
     }
 
+    // Handle checkout errors
     function handleCheckoutError(e) {
         displayError(`${e.toString()}\n please contact us`);
         console.log(e.stack);
     }
 
+    // Display error messages
     function displayError(message) {
         $error.css("display", "");
         $errorText.text(message);
     }
 
+    // Shorten large numbers
     function shorten(amount) {
         return amount < 1000 ? amount.toString() : `${(amount / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}k`;
     }
 
+    // Update UI validity
     function updateValidity() {
         const isValid = Object.values(valid).every(Boolean);
         $nextButton.prop("disabled", !isValid);
     }
 
+    // Use NIP-07 to fetch public key
     async function useNip07() {
         try {
             const signer = new NDKNip07Signer();
-            const user = await signer.user(); // NDKUser
+            const user = await signer.user();
             if (user && user.npub) {
                 $pubkey.val(user.npub);
                 validatePk();
@@ -225,44 +228,41 @@ jQuery(function($) {
         }
     }
 
+    // Initialize stage 1 for payment processing
     function initStage1(data, name, price) {
         const { token, invoice, paymentHash, img } = data;
 
-        // Manage stages visibility
         $("#stage0").hide();
         $("#stage1").show();
 
-        // Set up UI elements
         $("#invoice-link").attr("href", `lightning:${invoice}`);
         $("#registering-name, #registering-name-2").text(name);
         $("#phash").text(paymentHash);
         $("#invoice-img").attr("src", img);
 
-        // Copy invoice to clipboard
         setupCopyButton("#invoice-copy", invoice);
-
-        // Cancel registration
-        $("#cancel-registration").on("click", () => {
-            try { localStorage.removeItem("register-state"); } catch {}
-            location.reload();
-        });
+        setupCancelButton();
 
         let done = false;
-        const checkPayment = () => {
+        const interval = setInterval(checkPaymentStatus, 5000);
+
+        $(window).on("focus", () => !done && checkPaymentStatus());
+
+        function checkPaymentStatus() {
             $.ajax({
                 url: nostrly_ajax.ajax_url,
                 method: "POST",
                 data: {
-                  action: "nostrly_pmtcheck",
-                  nonce: nostrly_ajax.nonce,
-                  token: token
+                    action: "nostrly_pmtcheck",
+                    nonce: nostrly_ajax.nonce,
+                    token: token
                 },
-                success: handlePaymentCheckResponse,
+                success: handlePaymentResponse,
                 error: (e) => console.error("Payment Check Error:", e.stack)
             });
-        };
+        }
 
-        const handlePaymentCheckResponse = (res) => {
+        function handlePaymentResponse(res) {
             if (!res.available && !res.error && !done) {
                 done = true;
                 transitionToStage("stage3", interval);
@@ -270,61 +270,64 @@ jQuery(function($) {
                 done = true;
                 handlePaymentSuccess(res);
             }
-        };
+        }
 
-        const handlePaymentSuccess = (res) => {
+        function handlePaymentSuccess(res) {
             try { localStorage.removeItem("register-state"); } catch {}
             transitionToStage("stage2", interval);
             $("#password").text(res.password);
             setupCopyButton("#password-copy", res.password);
             try { localStorage.setItem("login-password", res.password); } catch {}
-        };
+        }
 
-        // Helper to manage stage transitions
-        const transitionToStage = (stage, intervalToClear) => {
+        function transitionToStage(stage, intervalToClear) {
             $("#stage1").hide();
             $(`#${stage}`).show();
             clearInterval(intervalToClear);
-        };
+        }
 
-        // Helper to set up copy buttons
-        const setupCopyButton = (selector, text) => {
+        function setupCopyButton(selector, text) {
             $(selector).on("click", function() {
                 copyTextToClipboard(text);
-                const $button = $(this);
-                $button.text("copied!");
-                setTimeout(() => $button.text("copy"), 1000);
+                $(this).text("copied!");
+                setTimeout(() => $(this).text("copy"), 1000);
             });
-        };
+        }
 
-        // Set up periodic check
-        const interval = setInterval(checkPayment, 5000);
-
-        // Check payment status when window regains focus
-        $(window).on("focus", () => !done && checkPayment());
+        function setupCancelButton() {
+            $("#cancel-registration").on("click", () => {
+                try { localStorage.removeItem("register-state"); } catch {}
+                location.reload();
+            });
+        }
     }
 
+    // Copy text to clipboard
     function copyTextToClipboard(text) {
         if (navigator.clipboard) {
-            navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy: ', e));
+            navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy:', e));
         }
     }
 
-    function start() {
-        let rs
+    // Start the registration process based on localStorage state
+    function startRegistrationProcess() {
+        let registerState;
         try {
-            rs = localStorage.getItem("register-state")
-        } catch { }
-        if (rs) {
-            let item = JSON.parse(rs)
+            registerState = localStorage.getItem("register-state");
+        } catch {}
+
+        if (registerState) {
+            const item = JSON.parse(registerState);
             if (item[3] < Date.now()) {
-                initStage0()
+                initStage0();
             } else {
-                initStage1(...item)
+                initStage1(...item);
             }
         } else {
-            initStage0()
+            initStage0();
         }
     }
-    start();
+
+    // Initial call to start the application
+    initialize();
 });
