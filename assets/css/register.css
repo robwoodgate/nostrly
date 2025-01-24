@@ -52,10 +52,6 @@
     color: rgb(55, 204, 60);
 }
 
-.reg-status[data-available="premium"] {
-    color: rgb(214, 206, 53);
-}
-
 .reg-status[data-available="no"] {
     color: rgb(204, 55, 55);
 }

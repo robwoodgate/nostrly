@@ -13,18 +13,8 @@ class NostrlyRegister
         'LONG' => 'name is too long (max 20 chars)',
         'INVALID' => 'name contains invalid characters',
         'REGISTERED' => 'name is already registered',
-        'BLOCKED' => 'name is blocked',
+        'BLOCKED' => 'name is not allowed',
         'RESERVED' => 'name may become available later',
-    ];
-
-    public const DOMAINS = [
-        [
-            'name' => 'nostrly.com',
-            'regex' => ['^[a-z0-9]+$', ''],
-            'regexChars' => ['[^a-z0-9]', 'g'],
-            'length' => [2, 20],
-            'default' => true,
-        ],
     ];
 
     public const PRICES = [
@@ -77,6 +67,7 @@ class NostrlyRegister
         $title_k = esc_html('Enter your PUBLIC Key (NPUB or HEX)', 'nostrly');
         $warn_pk = esc_html('NB: HEX key entered. Double check this is your public key (NPUB).', 'nostrly');
         $cbutton = esc_html('Proceed to Checkout', 'nostrly');
+        $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
 
         return <<<EOL
             <div class="wrap">
@@ -85,8 +76,8 @@ class NostrlyRegister
                 <div class="registration-area">
                     <label for="reg-username">{$title_n}</label>
                     <div class="username-input">
-                        <input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 12rem;"> @nostrly.com
-                        <p id="reg-status" class="reg-status"></p>
+                        <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 12rem;"> @{$sitedom}
+                        <span id="reg-status" class="reg-status"></span></p>
                     </div>
                     <label for="reg-pubkey">{$title_k}</label>
                     <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64" data-valid="no">&nbsp;
@@ -115,7 +106,7 @@ class NostrlyRegister
         wp_localize_script('nostrly-register', 'nostrly_ajax', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('nostrly-nonce'),
-            'domains' => self::DOMAINS
+            'domain' => parse_url(get_site_url(), PHP_URL_HOST),
         ]);
     }
 
@@ -179,7 +170,12 @@ class NostrlyRegister
         }
 
         // Send pricing
-        $resp = ['available' => 'true', 'price' => $sats, 'length' => $length];
+        $resp = [
+            'name' => $name,
+            'available' => 'true',
+            'price' => $sats,
+            'length' => $length
+        ];
         wp_send_json_success($resp);
     }
 

@@ -1,20 +1,20 @@
 
 // Imports
 // import NDK from "@nostr-dev-kit/ndk";
-// import { NDKEvent, NDKKind, NDKNip07Signer, NDKUser } from "@nostr-dev-kit/ndk";
+import { NDKNip07Signer } from "@nostr-dev-kit/ndk";
 // import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19'
 
 jQuery(function($) {
-    const nip05Config = nostrly_ajax.domains;
 
     let stage = 0;
     let firstNameEntry = true;
     let timeout;
     let price = 0;
-    let activeDomain;
     let valid = { name: false, pubkey: false };
+    let currentAjax = null;
 
+    const config = nostrly_ajax.domain;
     const $username = $("#reg-username");
     const $status = $("#reg-status");
     const $pubkey = $("#reg-pubkey");
@@ -25,15 +25,8 @@ jQuery(function($) {
     const $nip07Button = $("#use-nip07");
 
     function initStage0() {
-        applyConfig();
         setupEventListeners();
         checkUrlParams();
-    }
-
-    function applyConfig() {
-        const config = nip05Config.domains.find(el => el.name === 'nostrly.com');
-        $username.attr({ minLength: config.length[0], maxLength: config.length[1] });
-        activeDomain = config;
     }
 
     function setupEventListeners() {
@@ -58,7 +51,7 @@ jQuery(function($) {
 
     function handleUsernameInput() {
         if (stage !== 0) return;
-        const sanitizedValue = $username.val().toLowerCase().replace(new RegExp(activeDomain.regexChars[0], activeDomain.regexChars[1]), "");
+        const sanitizedValue = $username.val().toLowerCase().replace(new RegExp("[^a-z0-9]", "g"), "");
         $username.val(sanitizedValue);
         updateNameStatus();
     }
@@ -113,7 +106,7 @@ jQuery(function($) {
             url: "/api/v1/registration/register",
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            data: JSON.stringify({ domain: activeDomain.name, name: $username.val(), pk: pk }),
+            data: JSON.stringify({ name: $username.val(), pubkey: pk }),
             success: handleRegistrationResponse,
             error: handleRegistrationError
         });
@@ -124,10 +117,10 @@ jQuery(function($) {
             displayError(`error ${res.error}. please contact us`);
         } else {
             try {
-                const data = [res, `${$username.val()}@${activeDomain.name}`, res.data.price, Date.now() + (8 * 60 * 60 * 1000)];
+                const data = [res.data, `${$username.val()}@${config.name}`, res.data.price, Date.now() + (8 * 60 * 60 * 1000)];
                 localStorage.setItem("register-state", JSON.stringify(data));
             } catch {}
-            initStage1(res, `${$username.val()}@${activeDomain.name}`, res.data.price);
+            initStage1(res.data, `${$username.val()}@${config.name}`, res.data.price);
         }
     }
 
@@ -155,36 +148,46 @@ jQuery(function($) {
     }
 
     function fetchAvailability() {
+        // Abort current request
+        if (currentAjax) {
+            currentAjax.abort();
+        }
+
+        // No need to lookup names that are too short
         if ($username.val().length < $username.attr("minLength")) {
-            $status.attr("data-available", "no").text("✖ name too short");
+            $status.attr("data-available", "no").text("✖ name is too short (min 2 chars)");
             return;
         }
         // Send availability request to WordPress
-        $.ajax({
+        currentAjax = $.ajax({
             url: nostrly_ajax.ajax_url,
             method: "POST",
             data: {
               action: "nostrly_regcheck",
               nonce: nostrly_ajax.nonce,
-              domain: activeDomain.name,
               name: $username.val()
             },
             success: handleAvailabilityResponse,
-            error: handleAvailabilityError
+            error: function(xhr, status, error) {
+                // Only handle errors if the request wasn't aborted
+                if (status !== 'abort') {
+                    handleAvailabilityError(error);
+                }
+            }
         });
     }
 
     function handleAvailabilityResponse(res) {
-        if (!res.data.available) {
-            $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
-            firstNameEntry = false;
-        } else {
+        console.log('Reg Check: ', res.data);
+        if (res.data.available) {
             valid.name = true;
             updateValidity();
-            const status = $username.val().length < 4 ? "premium" : "yes";
-            $status.attr("data-available", status).text(`✔ for ${shorten(res.data.price)} sats`);
+            $status.attr("data-available", "yes").text(`✔ name is available for ${shorten(res.data.price)} sats`);
             price = res.data.price;
+            return;
         }
+        $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
+        firstNameEntry = false;
     }
 
     function handleAvailabilityError(e) {
