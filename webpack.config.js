@@ -6,9 +6,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  entry: './src/js/nostrly.js',
+  entry: {
+    'nostrly': './src/js/nostrly.js',
+    'nostrly-register': './src/js/nostrly-register.js',
+  },
   output: {
-    filename: 'nostrly.min.js',
+    filename: '[name].min.js',
     path: path.resolve(__dirname, 'assets/js'),
   },
   mode: 'production',

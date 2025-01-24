@@ -1,0 +1,73 @@
+/* Registration */
+
+#reg-username {
+    text-align: right;
+}
+
+#reg-pubkey {
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+    max-width: 32rem;
+    text-align: center;
+    width:100%;
+}
+
+#reg-pubkey[data-valid="yes"] {
+    border: 2px solid rgb(49, 194, 54);
+}
+
+#reg-pubkey[data-valid="no"] {
+    border: 2px solid rgb(204, 55, 55);
+}
+
+#reg-pubkey[data-valid="yes"]:focus {
+    border: 2px solid rgb(80, 192, 164) !important;
+}
+
+#reg-pubkey[data-valid="no"]:focus {
+    border: 2px solid rgb(235, 35, 65) !important;
+}
+
+#reg-errortext {
+    color: rgb(204, 55, 55);
+    font-size: 1.2rem;
+    user-select: all;
+}
+
+#pubkey-warning {
+    display: none;
+    font-size: 0.9rem;
+    margin-top: 0;
+    color: rgb(224, 224, 61);
+}
+
+.reg-status {
+    color: rgb(170, 170, 170);
+    display: block;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.reg-status[data-available="yes"] {
+    color: rgb(55, 204, 60);
+}
+
+.reg-status[data-available="premium"] {
+    color: rgb(214, 206, 53);
+}
+
+.reg-status[data-available="no"] {
+    color: rgb(204, 55, 55);
+}
+
+a {
+    color: #709dff;
+}
+
+code {
+    background-color: rgb(74, 74, 74);
+    border-radius: 8px;
+    font-size: 1rem;
+    padding: 0.15rem;
+    user-select: text;
+}
