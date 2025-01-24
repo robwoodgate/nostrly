@@ -44,9 +44,15 @@ class NostrlyRegister
     {
         add_shortcode('nostrly_register', [$this, 'registration_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
+        // Check name availability
         add_action('wp_ajax_nostrly_regcheck', [$this, 'ajax_nostrly_regcheck']);
         add_action('wp_ajax_nopriv_nostrly_regcheck', [$this, 'ajax_nostrly_regcheck']);
-        add_action('wp_ajax_nopriv_nostrly_register', [$this, 'ajax_nostrly_register']);
+        // Checkout and raise invoice
+        add_action('wp_ajax_nostrly_checkout', [$this, 'ajax_nostrly_checkout']);
+        add_action('wp_ajax_nopriv_nostrly_checkout', [$this, 'ajax_nostrly_checkout']);
+        // Check payment status and register user
+        add_action('wp_ajax_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
+        add_action('wp_ajax_nopriv_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
     }
 
     /**
@@ -117,7 +123,6 @@ class NostrlyRegister
         // data: {
         //       action: "nostrly_regcheck",
         //       nonce: nostrly_ajax.nonce,
-        //       domain: activeDomain.name,
         //       name: $username.val()
         //     }
         //
@@ -127,9 +132,13 @@ class NostrlyRegister
         //     "reason": "BLOCKED""
         // }
         // {
-        //     "available": true,
-        //     "price": 12500,
-        //     "length": 6
+        //     "success": true,
+        //     "data": {
+        //         "name": "scooby",
+        //         "available": "true",
+        //         "price": "12500",
+        //         "length": 6
+        //     }
         // }
         // {"error": "blah"}
 
@@ -145,22 +154,22 @@ class NostrlyRegister
         $length = strlen($name);
         if ($length < 2) {
             $resp['reason'] = self::ERRORS['SHORT'];
-            wp_send_json_success($resp);
+            wp_send_json_error($resp);
         } elseif ($length > 20) {
             $resp['reason'] = self::ERRORS['LONG'];
-            wp_send_json_success($resp);
+            wp_send_json_error($resp);
         } elseif (preg_match('/[^a-z0-9]/', $name) > 0) {
             $resp['reason'] = self::ERRORS['INVALID'];
-            wp_send_json_success($resp);
+            wp_send_json_error($resp);
         } elseif (in_array($name, self::RESERVED)) {
             $resp['reason'] = self::ERRORS['RESERVED'];
-            wp_send_json_success($resp);
+            wp_send_json_error($resp);
         } elseif (in_array($name, self::BLOCKED)) {
             $resp['reason'] = self::ERRORS['BLOCKED'];
-            wp_send_json_success($resp);
+            wp_send_json_error($resp);
         } elseif (username_exists($name)) {
             $resp['reason'] = self::ERRORS['REGISTERED'];
-            wp_send_json_success($resp);
+            wp_send_json_error($resp);
         }
 
         // All good, get pricing
@@ -179,7 +188,12 @@ class NostrlyRegister
         wp_send_json_success($resp);
     }
 
-    public function ajax_nostrly_register()
+    public function ajax_nostrly_checkout()
+    {
+        // todo
+    }
+
+    public function ajax_nostrly_pmtcheck()
     {
         // Sanitize and verify nonce
         $nonce = sanitize_text_field(wp_unslash($_POST['nonce'] ?? ''));
