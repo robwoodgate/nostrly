@@ -129,27 +129,16 @@ class NostrlyRegister
         //       domain: activeDomain.name,
         //       name: $username.val()
         //     }
+        //
         // return
         // {
         //     "available": false,
-        //     "why": "BLOCKED",
-        //     "reasonTag": "later"
+        //     "reason": "BLOCKED""
         // }
         // {
         //     "available": true,
-        //     "quote": {
-        //         "price": 12500,
-        //         "data": {}
-        //     }
-        // }
-        // {
-        //     "available": true,
-        //     "quote": {
-        //         "price": 65000,
-        //         "data": {
-        //             "type": "short"
-        //         }
-        //     }
+        //     "price": 12500,
+        //     "length": 6
         // }
         // {"error": "blah"}
 
@@ -164,22 +153,22 @@ class NostrlyRegister
         $resp = ['available' => false]; // no!
         $length = strlen($name);
         if ($length < 2) {
-            $resp['why'] = self::ERRORS['SHORT'];
+            $resp['reason'] = self::ERRORS['SHORT'];
             wp_send_json_success($resp);
         } elseif ($length > 20) {
-            $resp['why'] = self::ERRORS['LONG'];
+            $resp['reason'] = self::ERRORS['LONG'];
             wp_send_json_success($resp);
         } elseif (preg_match('/[^a-z0-9]/', $name) > 0) {
-            $resp['why'] = self::ERRORS['INVALID'];
+            $resp['reason'] = self::ERRORS['INVALID'];
             wp_send_json_success($resp);
         } elseif (in_array($name, self::RESERVED)) {
-            $resp['why'] = self::ERRORS['RESERVED'];
+            $resp['reason'] = self::ERRORS['RESERVED'];
             wp_send_json_success($resp);
         } elseif (in_array($name, self::BLOCKED)) {
-            $resp['why'] = self::ERRORS['BLOCKED'];
+            $resp['reason'] = self::ERRORS['BLOCKED'];
             wp_send_json_success($resp);
         } elseif (username_exists($name)) {
-            $resp['why'] = self::ERRORS['REGISTERED'];
+            $resp['reason'] = self::ERRORS['REGISTERED'];
             wp_send_json_success($resp);
         }
 
@@ -190,7 +179,7 @@ class NostrlyRegister
         }
 
         // Send pricing
-        $resp = ['available' => 'true', 'price' => $sats]; // no!
+        $resp = ['available' => 'true', 'price' => $sats, 'length' => $length];
         wp_send_json_success($resp);
     }
 

@@ -176,7 +176,7 @@ jQuery(function($) {
 
     function handleAvailabilityResponse(res) {
         if (!res.data.available) {
-            $status.attr("data-available", "no").text(`✖ ${res.data.why}`);
+            $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
             firstNameEntry = false;
         } else {
             valid.name = true;
