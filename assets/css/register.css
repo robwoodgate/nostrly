@@ -1,5 +1,9 @@
 /* Registration */
 
+#nostrly-register h2 {
+    text-align: center;
+}
+
 #reg-username {
     text-align: right;
 }
@@ -60,10 +64,30 @@ a {
     color: #709dff;
 }
 
-code {
+pre {
     background-color: rgb(74, 74, 74);
     border-radius: 8px;
     font-size: 1rem;
+    margin: 0 auto;
     padding: 0.15rem;
     user-select: text;
+    width: 30rem;
+}
+
+#pay-invoice {
+    text-align: center;
+}
+
+#phash {
+    margin: 0 auto;
+    text-align: center;
+}
+
+#pay-invoice > p {
+    font-weight: bold;
+}
+
+#name-to-register {
+    color: rgb(55, 204, 60);
+    font-weight: bold;
 }

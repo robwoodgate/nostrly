@@ -68,39 +68,46 @@ class NostrlyRegister
         wp_enqueue_style('nostrly-register');
 
         $headline = esc_html('Register a Nostrly NIP-05 identifier', 'nostrly');
-        $xbutton = esc_html('Use Nostr Extension', 'nostrly');
-        $title_n = esc_html('Pick a name to register', 'nostrly');
-        $title_k = esc_html('Enter your PUBLIC Key (NPUB or HEX)', 'nostrly');
-        $warn_pk = esc_html('NB: HEX key entered. Double check this is your public key (NPUB).', 'nostrly');
-        $cbutton = esc_html('Proceed to Checkout', 'nostrly');
+        $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
+        $title_nr = esc_html('Pick a name to register', 'nostrly');
+        $title_pk = esc_html('Enter your PUBLIC Key (NPUB or HEX)', 'nostrly');
+        $warn_hpk = esc_html('NB: HEX key entered. Double check this is your public key (NPUB).', 'nostrly');
+        $cobutton = esc_html('Proceed to Checkout', 'nostrly');
+        $copy_inv = esc_html('Copy', 'nostrly');
+        $cancelrg = esc_html('Cancel Registration', 'nostrly');
         $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
 
         return <<<EOL
-            <div class="wrap">
-                <h1>{$headline}</h1>
+            <div id="nostrly-register" class="wrap">
+                <h2>{$headline}</h2>
 
                 <div id="pick-name">
-                    <label for="reg-username">{$title_n}</label>
+                    <label for="reg-username">{$title_nr}</label>
                     <div class="username-input">
                         <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 12rem;"> @{$sitedom}
                         <span id="reg-status" class="reg-status">type in a name to see info...</span></p>
                     </div>
-                    <label for="reg-pubkey">{$title_k}</label>
+                    <label for="reg-pubkey">{$title_pk}</label>
                     <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64" data-valid="no">&nbsp;
-                    <button type="button" id="use-nip07" class="button">{$xbutton}</button>
-                    <br><span id="pubkey-warning">{$warn_pk}&nbsp;</span>
-                    <p><button disabled id="register-next" class="button">{$cbutton}</button></p>
+                    <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
+                    <br><span id="pubkey-warning">{$warn_hpk}&nbsp;</span>
+                    <p><button disabled id="register-next" class="button">{$cobutton}</button></p>
                     <div id="reg-error" style="display: none">
                         <span id="reg-errortext"></span>
                     </div>
                     <p class="center description">By continuing, you agree to our <a href="/terms">Terms of Service</a>.
                     </p>
                 </div>
-                <div id="pay-invoice">
-                    <p>Please pay this invoice to register <span id="registering-name"></span>.</p>
-                    <p><a id="invoice-link"><img id="invoice-img"></a></p>
-                    <p><button id="invoice-copy">copy</button></p>
-                    <p><button id="cancel-registration">Cancel Registration</button></p>
+                <div id="pay-invoice" style="display:none;">
+                    <p>Please pay this invoice to register <span id="name-to-register"></span></p>
+                    <p><a id="invoice-link"><img id="invoice-img"/></a></p>
+                    <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
+                    <p><button id="cancel-registration" class="button">{$cancelrg}</button></p>
+                </div>
+                <div id="payment-failed" style="display:none;">
+                    <p>Eek! Looks like someone beat you to it, or registration failed for some reason.</p>
+                    <p>Please contact us to get a refund WITH the NPUB you used to register, and the payment hash below if you completed payment.</p>
+                    <p><pre id="phash"></pre></p
                 </div>
 
             </div>
@@ -122,59 +129,64 @@ class NostrlyRegister
         ]);
     }
 
+    public function username_isvalid($name, array &$resp = []): bool
+    {
+        $valid = true; // Optimism
+        $length = strlen($name);
+        if (preg_match('/[^a-z0-9]/', $name) > 0) {
+            $resp['reason'] = self::ERRORS['INVALID'];
+            $valid = false;
+        } elseif ($length < 2) {
+            $resp['reason'] = self::ERRORS['SHORT'];
+            $valid = false;
+        } elseif ($length > 20) {
+            $resp['reason'] = self::ERRORS['LONG'];
+            $valid = false;
+        } elseif (in_array($name, self::RESERVED)) {
+            $resp['reason'] = self::ERRORS['RESERVED'];
+            $valid = false;
+        } elseif (in_array($name, self::BLOCKED)) {
+            $resp['reason'] = self::ERRORS['BLOCKED'];
+            $valid = false;
+        } elseif (username_exists($name)) {
+            $resp['reason'] = self::ERRORS['REGISTERED'];
+            $valid = false;
+        }
+
+        return $valid;
+    }
+
+    /**
+     * Checks username is available.
+     *
+     * @return JSON
+     *
+     * {"success": true,
+     *  "data": {
+     *     "name": "scooby",
+     *     "available": true,
+     *     "price": "12500",
+     *     "length": 6
+     * }}
+     *
+     * {"success": false,
+     *  "data": {
+     *     "name": "scooby",
+     *     "available": false,
+     *     "reason": "BLOCKED"
+     * }}
+     */
     public function ajax_nostrly_regcheck()
     {
-        // receive
-        //
-        // data: {
-        //       action: "nostrly_regcheck",
-        //       nonce: nostrly_ajax.nonce,
-        //       name: $username.val()
-        //     }
-        //
-        // return
-        // {
-        //     "available": false,
-        //     "reason": "BLOCKED""
-        // }
-        // {
-        //     "success": true,
-        //     "data": {
-        //         "name": "scooby",
-        //         "available": "true",
-        //         "price": "12500",
-        //         "length": 6
-        //     }
-        // }
-        // {"error": "blah"}
-
         // Sanitize and verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'nostrly-nonce')) {
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
             wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
-            wp_die();
         }
 
         // Sanitize and validate input data
         $name = sanitize_user(wp_unslash($_POST['name'] ?? ''));
-        $resp = ['available' => false]; // no!
-        $length = strlen($name);
-        if ($length < 2) {
-            $resp['reason'] = self::ERRORS['SHORT'];
-            wp_send_json_error($resp);
-        } elseif ($length > 20) {
-            $resp['reason'] = self::ERRORS['LONG'];
-            wp_send_json_error($resp);
-        } elseif (preg_match('/[^a-z0-9]/', $name) > 0) {
-            $resp['reason'] = self::ERRORS['INVALID'];
-            wp_send_json_error($resp);
-        } elseif (in_array($name, self::RESERVED)) {
-            $resp['reason'] = self::ERRORS['RESERVED'];
-            wp_send_json_error($resp);
-        } elseif (in_array($name, self::BLOCKED)) {
-            $resp['reason'] = self::ERRORS['BLOCKED'];
-            wp_send_json_error($resp);
-        } elseif (username_exists($name)) {
-            $resp['reason'] = self::ERRORS['REGISTERED'];
+        $resp = ['name' => $name.'@nostrly.com', 'available' => false]; // no!
+        if (!$this->username_isvalid($name, $resp)) {
             wp_send_json_error($resp);
         }
 
@@ -186,27 +198,37 @@ class NostrlyRegister
 
         // Send pricing
         $resp = [
-            'name' => $name,
-            'available' => 'true',
+            'name' => $name.'@nostrly.com',
+            'available' => true,
             'price' => $sats,
-            'length' => $length
+            'length' => $length,
         ];
         wp_send_json_success($resp);
     }
 
     public function ajax_nostrly_checkout()
     {
-        // todo
+        // Sanitize and verify nonce
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
+            wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
+        }
     }
 
     public function ajax_nostrly_pmtcheck()
     {
         // Sanitize and verify nonce
-        $nonce = sanitize_text_field(wp_unslash($_POST['nonce'] ?? ''));
-        if (!wp_verify_nonce($nonce, 'nostrly-nonce')) {
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
             wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
-            wp_die();
         }
+
+        // @TESTING
+        $resp = [
+            'name' => $name,
+            'available' => false,
+            'price' => $sats,
+            'length' => $length,
+        ];
+        wp_send_json_error($resp);
 
         // Sanitize input data
         $metadata_json = sanitize_text_field(wp_unslash($_POST['metadata'] ?? ''));

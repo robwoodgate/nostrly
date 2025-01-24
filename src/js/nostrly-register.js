@@ -3,7 +3,7 @@ import { NDKNip07Signer } from "@nostr-dev-kit/ndk";
 import * as nip19 from 'nostr-tools/nip19';
 
 jQuery(function($) {
-    const config = nostrly_ajax.domain;
+    const domain = nostrly_ajax.domain;
     let stage = 0;
     let firstNameEntry = true;
     let timeout;
@@ -60,7 +60,11 @@ jQuery(function($) {
         if (registerState) {
             const item = JSON.parse(registerState);
             if (item[3] > Date.now()) {
+                console.log('Continuing registration session');
                 initPaymentProcessing(...item);
+            } else {
+                try { localStorage.removeItem("register-state") } catch { }
+                console.log('Registration session expired');
             }
         }
     }
@@ -196,10 +200,10 @@ jQuery(function($) {
             displayError(`error ${res.error}. please contact us`);
         } else {
             try {
-                const data = [res.data, `${$username.val()}@${config.name}`, res.data.price, Date.now() + (8 * 60 * 60 * 1000)];
+                const data = [res.data, `${$username.val()}@${domain}`, res.data.price, Date.now() + (8 * 60 * 60 * 1000)];
                 localStorage.setItem("register-state", JSON.stringify(data));
             } catch {}
-            initPaymentProcessing(res.data, `${$username.val()}@${config.name}`, res.data.price);
+            initPaymentProcessing(res.data, `${$username.val()}@${domain}`, res.data.price);
         }
     }
 
@@ -244,14 +248,14 @@ jQuery(function($) {
     }
 
     // Initialize stage 1 for payment processing
-    window.function initPaymentProcessing(data, name, price) {
-        const { token, invoice, paymentHash, img } = data;
-
+    function initPaymentProcessing(data, name, price) {
+        const [token, invoice, paymentHash, img ] = data;
+        // console.log([token, invoice, paymentHash, img ]);
         $("#pick-name").hide();
         $("#pay-invoice").show();
 
         $("#invoice-link").attr("href", `lightning:${invoice}`);
-        $("#registering-name, #registering-name-2").text(name);
+        $("#name-to-register").text(name);
         $("#phash").text(paymentHash);
         $("#invoice-img").attr("src", img);
 
@@ -278,32 +282,26 @@ jQuery(function($) {
         }
 
         function handlePaymentResponse(res) {
-            if (!res.available && !res.error && !done) {
+            clearInterval(interval);
+            $("#pick-name").hide();
+            if (!res.data.available && !res.success && !done) {
                 done = true;
-                transitionToStage("stage3", interval);
-            } else if (res.paid && !done) {
+                $("#pay-invoice").hide();
+                $("#payment-failed").show();
+            } else if (res.data.paid && !done) {
                 done = true;
-                handlePaymentSuccess(res);
+                try { localStorage.removeItem("register-state"); } catch {}
+                $("#payment-failed").hide();
+                $("#pay-invoice").show();
+                $("#password").text(res.password);
+                setupCopyButton("#password-copy", res.password);
+                try { localStorage.setItem("login-password", res.password); } catch {}
             }
-        }
-
-        function handlePaymentSuccess(res) {
-            try { localStorage.removeItem("register-state"); } catch {}
-            transitionToStage("stage2", interval);
-            $("#password").text(res.password);
-            setupCopyButton("#password-copy", res.password);
-            try { localStorage.setItem("login-password", res.password); } catch {}
-        }
-
-        function transitionToStage(stage, intervalToClear) {
-            $("#stage1").hide();
-            $(`#${stage}`).show();
-            clearInterval(intervalToClear);
         }
 
         function setupCopyButton(selector, text) {
             $(selector).on("click", function() {
-                copyTextToClipboard(text);
+                navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy:', e));
                 $(this).text("copied!");
                 setTimeout(() => $(this).text("copy"), 1000);
             });
@@ -314,13 +312,6 @@ jQuery(function($) {
                 try { localStorage.removeItem("register-state"); } catch {}
                 location.reload();
             });
-        }
-    }
-
-    // Copy text to clipboard
-    function copyTextToClipboard(text) {
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy:', e));
         }
     }
 
