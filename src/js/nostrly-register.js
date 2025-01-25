@@ -91,7 +91,7 @@ jQuery(function($) {
             }
             if (sanitizedPk.startsWith('npub1')) {
                 const { type, data } = nip19.decode(sanitizedPk);
-                isValid = type === 'npub' && data.length === 32;
+                isValid = type === 'npub' && data.length === 64;
             }
         } catch (error) {
             console.error("Public Key Validation Error:", error);
@@ -279,22 +279,24 @@ jQuery(function($) {
                 data: {
                     action: "nostrly_pmtcheck",
                     nonce: nostrly_ajax.nonce,
-                    token: token
+                    token: data.token
                 },
                 success: handlePaymentResponse,
-                error: (e) => console.error("Payment Check Error:", e.stack)
+                error: (e) => console.error("Payment Check Error:", e)
             });
         }
 
         function handlePaymentResponse(res) {
-            clearInterval(interval);
             $("#pick-name").hide();
+            console.log(res);
             if (!res.data.available && !res.success && !done) {
                 done = true;
+                clearInterval(interval);
                 $("#pay-invoice").hide();
                 $("#payment-failed").show();
             } else if (res.data.paid && !done) {
                 done = true;
+                clearInterval(interval);
                 try { localStorage.removeItem("nostrly-order"); } catch {}
                 $("#payment-failed").hide();
                 $("#pay-invoice").show();

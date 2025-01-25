@@ -20,7 +20,7 @@ class NostrlyRegister
         '2' => '65000',
         '3' => '45000',
         '4' => '25000',
-        'default' => '12500', // default
+        'default' => '1', // default
     ];
 
     protected const BLOCKED = [
@@ -102,7 +102,7 @@ class NostrlyRegister
                     </p>
                 </div>
                 <div id="pay-invoice" style="display:none;">
-                    <p>$subtitle <span id="name-to-register"></span></p>
+                    <p>{$subtitle} <span id="name-to-register"></span></p>
                     <p id="amount_to_pay"></p>
                     <p><a id="invoice-link"><img id="invoice-img"/></a></p>
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
@@ -184,6 +184,7 @@ class NostrlyRegister
             $resp['available'] = false;
         }
         $resp['name'] = sanitize_text_field($name).'@'.$this->domain;
+        $resp['length'] = $length;
 
         return (false == $resp['available']) ? false : true;
     }
@@ -222,13 +223,8 @@ class NostrlyRegister
             wp_send_json_error($resp);
         }
 
-        // Return pricing
-        $resp = [
-            'name' => $name.'@'.$this->domain,
-            'available' => true,
-            'price' => $this->get_price($name),
-            'length' => $length,
-        ];
+        // Add in pricing
+        $resp['price'] = $this->get_price($name);
         wp_send_json_success($resp);
     }
 
@@ -253,12 +249,12 @@ class NostrlyRegister
         // Validate name
         $resp = [];
         if (!$this->username_isvalid($name, $resp)) {
-            wp_send_json_error(['message' =>$resp['reason']]);
+            wp_send_json_error(['message' => $resp['reason']]);
         }
 
         // Validate pubkey
         if (empty($pubkey)) {
-            wp_send_json_error(['message' =>'Invalid public key']);
+            wp_send_json_error(['message' => 'Invalid public key']);
         }
 
         // Check pubkey does not already have an account
@@ -304,18 +300,51 @@ class NostrlyRegister
 
         // Use WP REST API internally
         // @see https://wpscholar.com/blog/internal-wp-rest-api-calls/
-        $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices/verify');
-        $request->set_body_params(['token' => $token]);
-        $response = rest_do_request($request);
-        if ($response->is_error()) {
-            wp_send_json_error(['message' => $response->get_error_message()]);
+        // try {
+        //     $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices/verify');
+        //     $request->set_body_params(['token' => $token]);
+        //     $response = rest_do_request($request);
+        //     if ($response->is_error()) {
+        //         wp_send_json_error(['message' => $response->get_error_message()]);
+        //     }
+        //     $server = rest_get_server();
+        //     $data = $server->response_to_data($response, false); // array
+        // } catch (Throwable $e) {
+        //     error_log($e->getMessage());
+        //     wp_send_json_error(['message' => $e->getMessage()]);
+        // }
+        // Request an invoice from the Alby endpoint
+        $api_url = get_rest_url() . 'lnp-alby/v1/invoices/verify';
+        $response = wp_remote_post($api_url, [
+            'headers' => [
+                'Content-Type' => 'application/json',
+            ],
+            'body' => json_encode(['token' => $token]),
+            'data_format' => 'body'
+        ]);
+
+        // Check for errors in the API response
+        if (is_wp_error($response)) {
+            wp_send_json_error($response->get_error_message());
+            return;
         }
-        $server = rest_get_server();
-        $data = $server->response_to_data($response, false); // array
 
-        /// TODO
-        wp_send_json_success($data);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        error_log("BTCPAY: ".print_r($body, true));
+        // if (wp_remote_retrieve_response_code($response) != 200) {
+        //     error_log("BTCPAY FAILED: ".print_r($response, true));
+        //     wp_send_json_error(__('Failed to validate invoice: ' . ($body['message'] ?? 'Unknown error'), 'nostrly'));
+        //     return;
+        // }
 
+        // Check LN response
+        if (empty($body['settled'])) {
+            wp_send_json_error(['not paid yet']);
+        }
+
+        // / TODO
+        wp_send_json_success($body);
+return;
         // Check if a user with this public key already exists
         $public_key = $nip98->pubkey;
         $user = $this->get_user_by_public_key($public_key);
@@ -378,14 +407,15 @@ class NostrlyRegister
         return $user_id;
     }
 
-    private function sanitize_pubkey($value)
+    private function sanitize_pubkey($hexpub)
     {
-        if (empty($value) || 0 !== strpos($value, 'npub')) {
-            return '';
-        }
-
         try {
             $key = new Key();
+
+            $value = $key->convertPublicKeyToBech32($hexpub);
+            if (empty($value) || 0 !== strpos($value, 'npub')) {
+                return '';
+            }
             $hex = $key->convertToHex($value);
 
             return (string) $hex;
@@ -395,6 +425,4 @@ class NostrlyRegister
             return '';
         }
     }
-
-
 }
