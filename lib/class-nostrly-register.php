@@ -120,7 +120,7 @@ class NostrlyRegister
                     <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
                     <p><input type="text" id="nip05-password" value="" /></p>
                     <p><button id="password-button" class="button">{$copypass}</button></p>
-                    <p>Please store this password securely. You can change this password and optionally add an email address by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
+                    <p style="text-align:center;">Please store this password securely. You can change this password and optionally add an email address by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
                 </div>
 
             </div>
