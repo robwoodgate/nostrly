@@ -263,7 +263,7 @@ jQuery(function($) {
         $("#pay-invoice").show();
 
         $("#invoice-link").attr("href", `lightning:${data.payment_request}`);
-        $("#name-to-register").text(`${name}@${domain}`);
+        $("#name-to-register, #name-registered").text(`${name}@${domain}`);
         $("#amount-to-pay").text(shorten(data.amount)+' sats');
         $("#phash").text(data.token);
         $("#invoice-img").attr("src", img);
@@ -295,23 +295,19 @@ jQuery(function($) {
             $("#pick-name").hide();
             console.log(res);
             if (!res.success && res.data.message) {
+                done = true;
+                $("#pick-name").show();
+                $("#pay-invoice").hide();
                 displayError(`Error: ${res.data.message}.`);
             }
-            // if (!res.data.available && !res.success && !done) {
-            //     done = true;
-            //     clearInterval(interval);
-            //     $("#pay-invoice").hide();
-            //     $("#payment-failed").show();
-            // } else
             if (res.success && res.data.paid && !done) {
                 done = true;
                 clearInterval(interval);
                 try { localStorage.removeItem("nostrly-order"); } catch {}
-                $("#payment-failed").hide();
-                $("#pay-invoice").show();
+                $("#payment-suceeded").show();
+                $("#pay-invoice").hide();
                 $("#password").text(res.password);
-                setupCopyButton("#password-copy", res.password);
-                try { localStorage.setItem("login-password", res.password); } catch {}
+                setupCopyButton("#password-button", res.password);
             }
         }
 

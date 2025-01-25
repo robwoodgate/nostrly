@@ -78,6 +78,7 @@ class NostrlyRegister
         $copy_inv = esc_html('Copy', 'nostrly');
         $cancelrg = esc_html('Cancel Registration', 'nostrly');
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
+        $copypass = esc_html('Copy Password', 'nostrly');
         $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
 
         return <<<EOL
@@ -109,9 +110,17 @@ class NostrlyRegister
                     <p><button id="cancel-registration" class="button">{$cancelrg}</button></p>
                 </div>
                 <div id="payment-failed" style="display:none;">
-                    <p>Eek! Looks like someone beat you to it, or registration failed for some reason.</p>
+                    <p>Eek! Looks like registration failed for some reason.</p>
                     <p>Please contact us to get a refund WITH the NPUB you used to register, and the payment hash below if you completed payment.</p>
                     <p><pre id="phash"></pre></p
+                </div>
+                <div id="payment-suceeded" style="display:none;">
+                    <p>You have successfully registered your NIP-05 ID: <pre id="name-registered"></pre>!</p>
+                    <p>You can login to manage your account at any time using your NOSTR details at <a href="https://www.{$sitedom}/login">www.{$sitedom}/login</a>.</p>
+                    <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
+                    <p>Password: <input type="text" id="password" /></p>
+                    <p>Please store this password securely. You can change this password and optionally add an email address by <a href="https"//www.{$sitedom}/login">logging in here.</a></p>
+                    <p><button id="password-button" class="button">{$copypass}</button></p>
                 </div>
 
             </div>
@@ -381,29 +390,6 @@ class NostrlyRegister
         ]);
 
         return !empty($users) ? $users[0] : false;
-    }
-
-    private function create_new_user($name, $public_key)
-    {
-        $username = !empty($sanitized_metadata['name']) ? sanitize_user($sanitized_metadata['name'], true) : 'nostr_'.substr(sanitize_text_field($public_key), 0, 8);
-        if (username_exists($username)) {
-            $username .= '_'.wp_generate_password(4, false); // Append random characters
-        }
-
-        $email = !empty($sanitized_metadata['email']) ? sanitize_email($sanitized_metadata['email']) : sanitize_text_field($public_key).'@nostr.local';
-
-        if (!is_email($email)) {
-            // Handle invalid email, perhaps generate a default one
-            $email = sanitize_text_field($public_key).'@nostr.local';
-        }
-
-        $user_id = wp_create_user($username, wp_generate_password(), $email);
-        if (!is_wp_error($user_id)) {
-            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
-            $this->update_user_metadata($user_id, $sanitized_metadata);
-        }
-
-        return $user_id;
     }
 
     private function sanitize_pubkey($hexpub)
