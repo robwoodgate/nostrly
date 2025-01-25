@@ -294,12 +294,16 @@ jQuery(function($) {
         function handlePaymentResponse(res) {
             $("#pick-name").hide();
             console.log(res);
-            if (!res.data.available && !res.success && !done) {
-                done = true;
-                clearInterval(interval);
-                $("#pay-invoice").hide();
-                $("#payment-failed").show();
-            } else if (res.data.paid && !done) {
+            if (!res.success && res.data.message) {
+                displayError(`Error: ${res.data.message}.`);
+            }
+            // if (!res.data.available && !res.success && !done) {
+            //     done = true;
+            //     clearInterval(interval);
+            //     $("#pay-invoice").hide();
+            //     $("#payment-failed").show();
+            // } else
+            if (res.data.paid && !done) {
                 done = true;
                 clearInterval(interval);
                 try { localStorage.removeItem("nostrly-order"); } catch {}

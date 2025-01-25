@@ -334,7 +334,7 @@ class NostrlyRegister
 
         // Check for errors in the API response
         if (is_wp_error($response)) {
-            wp_send_json_error($response->get_error_message());
+            wp_send_json_error(['message' => $response->get_error_message()]);
 
             return;
         }
@@ -349,7 +349,7 @@ class NostrlyRegister
                 wp_send_json_success($body);
             }
             // Bad news
-            wp_send_json_error(['message' => __('Invoice not found.', 'nostrly')]);
+            wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
         }
 
         // TODO
