@@ -272,14 +272,20 @@ class NostrlyRegister
 
         // Use WP REST API internally
         // @see https://wpscholar.com/blog/internal-wp-rest-api-calls/
-        $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices');
-        $request->set_body_params($payload);
-        $response = rest_do_request($request);
-        if ($response->is_error()) {
-            wp_send_json_error(['message' => $response->get_error_message()]);
+        // We catch exceptions as the endpoint contacts an external LN server
+        try {
+            $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices');
+            $request->set_body_params($payload);
+            $response = rest_do_request($request);
+            if ($response->is_error()) {
+                wp_send_json_error(['message' => $response->get_error_message()]);
+            }
+            $server = rest_get_server();
+            $data = $server->response_to_data($response, false); // array
+        } catch (Exception $e) {
+            error_log($e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()]);
         }
-        $server = rest_get_server();
-        $data = $server->response_to_data($response, false); // array
 
         // Return the invoice data
         wp_send_json_success($data);
@@ -298,53 +304,41 @@ class NostrlyRegister
             wp_send_json_error(['message' => __('Invalid token.', 'nostrly')]);
         }
 
-        // Use WP REST API internally
-        // @see https://wpscholar.com/blog/internal-wp-rest-api-calls/
-        // try {
-        //     $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices/verify');
-        //     $request->set_body_params(['token' => $token]);
-        //     $response = rest_do_request($request);
-        //     if ($response->is_error()) {
-        //         wp_send_json_error(['message' => $response->get_error_message()]);
-        //     }
-        //     $server = rest_get_server();
-        //     $data = $server->response_to_data($response, false); // array
-        // } catch (Throwable $e) {
-        //     error_log($e->getMessage());
-        //     wp_send_json_error(['message' => $e->getMessage()]);
-        // }
-        // Request an invoice from the Alby endpoint
-        $api_url = get_rest_url() . 'lnp-alby/v1/invoices/verify';
+        // Check invoice payment status
+        // We can't use WP REST API internally as the endpoint uses wp_send_json
+        // and this terminates script execution immediately
+        $api_url = get_rest_url().'lnp-alby/v1/invoices/verify';
         $response = wp_remote_post($api_url, [
             'headers' => [
                 'Content-Type' => 'application/json',
             ],
             'body' => json_encode(['token' => $token]),
-            'data_format' => 'body'
+            'data_format' => 'body',
         ]);
 
         // Check for errors in the API response
         if (is_wp_error($response)) {
             wp_send_json_error($response->get_error_message());
+
             return;
         }
 
+        // Check invoice payment status
+        // Will be 200 (paid), 402 (not paid), or 404 (not found)
         $body = json_decode(wp_remote_retrieve_body($response), true);
-        error_log("BTCPAY: ".print_r($body, true));
-        // if (wp_remote_retrieve_response_code($response) != 200) {
-        //     error_log("BTCPAY FAILED: ".print_r($response, true));
-        //     wp_send_json_error(__('Failed to validate invoice: ' . ($body['message'] ?? 'Unknown error'), 'nostrly'));
-        //     return;
-        // }
-
-        // Check LN response
-        if (empty($body['settled'])) {
-            wp_send_json_error(['not paid yet']);
+        $code = wp_remote_retrieve_response_code($response);
+        if (empty($body['settled']) && 200 != $code) {
+            if (402 == $code) {
+                wp_send_json_success($body); // not paid yet, but ok to wait
+            }
+            // Bad news
+            wp_send_json_error(['message' => __('Invoice not found.', 'nostrly')]);
         }
 
-        // / TODO
+        // TODO
         wp_send_json_success($body);
-return;
+
+        return;
         // Check if a user with this public key already exists
         $public_key = $nip98->pubkey;
         $user = $this->get_user_by_public_key($public_key);
