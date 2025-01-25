@@ -303,7 +303,7 @@ jQuery(function($) {
             //     $("#pay-invoice").hide();
             //     $("#payment-failed").show();
             // } else
-            if (res.data.paid && !done) {
+            if (res.success && res.data.paid && !done) {
                 done = true;
                 clearInterval(interval);
                 try { localStorage.removeItem("nostrly-order"); } catch {}

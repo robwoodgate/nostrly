@@ -352,34 +352,22 @@ class NostrlyRegister
             wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
         }
 
-        // TODO
-        wp_send_json_success($body);
-
-        return;
-        // Check if a user with this public key already exists
-        $public_key = $nip98->pubkey;
-        $user = $this->get_user_by_public_key($public_key);
-        if ($user) {
-            // Update existing user's metadata
-            $this->update_user_metadata($user->ID, $metadata_json);
+        // Create user
+        $password = wp_generate_password();
+        $user_id = wp_create_user($name, $password);
+        $public_key = get_transient('nostrly_'.$name);
+        if (!is_wp_error($user_id) && false !== $existing_pk) {
+            // Set public key
+            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
 
             // Login user
-            wp_set_current_user($user->ID);
-            wp_set_auth_cookie($user->ID);
-            $this->log_debug('User logged in successfully: '.$user->ID);
-
-            // Redirect
-            $redirect_type = get_option('nostrly_redirect', 'admin');
-            $redirect_url = match ($redirect_type) {
-                'home' => home_url(),
-                'profile' => get_edit_profile_url($user->ID),
-                default => admin_url()
-            };
-            wp_send_json_success(['redirect' => $redirect_url]);
-        } else {
-            $this->log_debug('Login failed for public key: '.$public_key);
-            wp_send_json_error(['message' => __('Login failed. Please try again.', 'nostrly')]);
+            wp_set_current_user($user_id);
+            wp_set_auth_cookie($user_id);
+            wp_send_json_success(['paid' => true, 'password' => $password]);
         }
+
+        // Still here... bad!
+        wp_send_json_error(['message' => 'Account creation failed. Please contact us.']);
     }
 
     private function get_user_by_public_key($public_key)
@@ -395,7 +383,7 @@ class NostrlyRegister
         return !empty($users) ? $users[0] : false;
     }
 
-    private function create_new_user($public_key, $metadata_json)
+    private function create_new_user($name, $public_key)
     {
         $username = !empty($sanitized_metadata['name']) ? sanitize_user($sanitized_metadata['name'], true) : 'nostr_'.substr(sanitize_text_field($public_key), 0, 8);
         if (username_exists($username)) {
