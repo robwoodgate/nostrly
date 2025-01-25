@@ -119,7 +119,7 @@ class NostrlyRegister
                     <p>You can login to manage your account at any time using your NOSTR details at <a href="https://www.{$sitedom}/login">www.{$sitedom}/login</a>.</p>
                     <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
                     <p><input type="text" id="nip05-password" value="" /></p>
-                    <p><button id="password-button" class="button">{$copypass}</button></p>
+                    <p style="text-align:center;"><button id="password-button" class="button">{$copypass}</button></p>
                     <p style="text-align:center;">Please store this password securely. You can change this password and optionally add an email address by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
                 </div>
 
@@ -355,10 +355,10 @@ class NostrlyRegister
         if (empty($body['settled']) && 200 != $code) {
             if (402 == $code) {
                 // not paid yet, but ok to wait
-                // wp_send_json_success($body);
+                wp_send_json_success($body);
             }
             // Bad news
-            // wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
+            wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
         }
 
         // Create user
