@@ -35,6 +35,7 @@
 #reg-errortext {
     color: rgb(204, 55, 55);
     font-size: 1.2rem;
+    font-weight: bold;
     user-select: all;
 }
 

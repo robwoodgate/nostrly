@@ -263,11 +263,17 @@ class NostrlyRegister
             wp_send_json_error(['message' => 'Your NPUB is already associated with an account']);
         }
 
+        // Check for orders in progress
+        $existing_pk = get_transient('nostrly_'.$name, $pubkey);
+        if (false !== $existing_pk && $existing_pk != $pubkey) {
+            wp_send_json_error(['message' => 'This name is currently being ordered. Try again in 10 minutes.']);
+        }
+
         // Prepare invoice request payload
         $payload = [
             'amount' => $this->get_price($name),
             'currency' => 'btc',
-            'memo' => "Payment for NIP-05 identifier: {$name}@{$this->domain}",
+            'memo' => "NIP-05 identifier: {$name}@{$this->domain}",
         ];
 
         // Use WP REST API internally
@@ -287,6 +293,9 @@ class NostrlyRegister
             wp_send_json_error(['message' => $e->getMessage()]);
         }
 
+        // Save pubkey transient to prevent overlapping orders
+        set_transient('nostrly_'.$name, $pubkey, 720); // 12 minutes
+
         // Return the invoice data
         wp_send_json_success($data);
     }
@@ -298,10 +307,17 @@ class NostrlyRegister
             wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
         }
 
-        // Sanitize input
+        // Validate token
         $token = sanitize_text_field($_POST['token'] ?? '');
         if (!$token) {
             wp_send_json_error(['message' => __('Invalid token.', 'nostrly')]);
+        }
+
+        // Validate name
+        $resp = [];
+        $name = sanitize_text_field($_POST['name'] ?? '');
+        if (!$this->username_isvalid($name, $resp)) {
+            wp_send_json_error(['message' => $resp['reason']]);
         }
 
         // Check invoice payment status
@@ -324,12 +340,13 @@ class NostrlyRegister
         }
 
         // Check invoice payment status
-        // Will be 200 (paid), 402 (not paid), or 404 (not found)
+        // Expected: 200 (paid), 402 (not paid), or 404 (not found)
         $body = json_decode(wp_remote_retrieve_body($response), true);
         $code = wp_remote_retrieve_response_code($response);
         if (empty($body['settled']) && 200 != $code) {
             if (402 == $code) {
-                wp_send_json_success($body); // not paid yet, but ok to wait
+                // not paid yet, but ok to wait
+                wp_send_json_success($body);
             }
             // Bad news
             wp_send_json_error(['message' => __('Invoice not found.', 'nostrly')]);

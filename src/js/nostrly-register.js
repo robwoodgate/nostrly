@@ -4,10 +4,9 @@ import * as nip19 from 'nostr-tools/nip19';
 
 jQuery(function($) {
     const domain = nostrly_ajax.domain;
-    let stage = 0;
+    let stage = 0; // used to disable listener functions
     let firstNameEntry = true;
     let timeout;
-    let price = 0;
     let valid = { name: false, pubkey: false };
     let currentAjax = null;
 
@@ -59,7 +58,7 @@ jQuery(function($) {
 
         if (registerState) {
             const item = JSON.parse(registerState);
-            if (item[3] > Date.now()) {
+            if (item[2] > Date.now()) {
                 console.log('Continuing registration session');
                 initPaymentProcessing(...item);
             } else {
@@ -147,7 +146,6 @@ jQuery(function($) {
             valid.name = true;
             updateValidity();
             $status.attr("data-available", "yes").text(`✔ name is available for ${shorten(res.data.price)} sats`);
-            price = res.data.price;
         } else {
             $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
             firstNameEntry = false;
@@ -196,14 +194,15 @@ jQuery(function($) {
 
     // Handle checkout response
     function handleCheckoutResponse(res) {
-        if (!res.success) {
+        if (!res.success && res.data.message) {
             displayError(`error: ${res.data.message}. please contact us`);
         } else {
             try {
-                const data = [res.data, `${$username.val()}@${domain}`, res.data.amount, Date.now() + (10 * 60 * 1000)];
+                // invoices expire in 10 mins...
+                const data = [res.data, $username.val(), Date.now() + (10 * 60 * 1000)];
                 localStorage.setItem("nostrly-order", JSON.stringify(data));
             } catch {}
-            initPaymentProcessing(res.data, `${$username.val()}@${domain}`, res.data.amount);
+            initPaymentProcessing(res.data, $username.val());
         }
     }
 
@@ -218,9 +217,9 @@ jQuery(function($) {
         $error.css("display", "");
         $errorText.text(message);
         setTimeout(function(){
-            $error.css("display", "none");
+            $error.hide('3000');
             $errorText.text('');
-        },5000);
+        }, 7000);
     }
 
     // Shorten large numbers
@@ -236,6 +235,7 @@ jQuery(function($) {
 
     // Use NIP-07 to fetch public key
     async function useNip07() {
+        if (stage !== 0) return;
         try {
             const signer = new NDKNip07Signer();
             const user = await signer.user();
@@ -252,7 +252,8 @@ jQuery(function($) {
     }
 
     // Initialize stage 1 for payment processing
-    function initPaymentProcessing(data, name, price) {
+    function initPaymentProcessing(data, name) {
+        stage = 1;
         const img = 'https://quickchart.io/chart?cht=qr&chs=200x200&chl='+data.payment_request;
         console.log(data);
         $("#pick-name").hide();
@@ -279,7 +280,8 @@ jQuery(function($) {
                 data: {
                     action: "nostrly_pmtcheck",
                     nonce: nostrly_ajax.nonce,
-                    token: data.token
+                    token: data.token,
+                    name: name
                 },
                 success: handlePaymentResponse,
                 error: (e) => console.error("Payment Check Error:", e)
