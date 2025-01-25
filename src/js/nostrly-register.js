@@ -307,7 +307,7 @@ jQuery(function($) {
                 try { localStorage.removeItem("nostrly-order"); } catch {}
                 $("#payment-suceeded").show();
                 $("#pay-invoice").hide();
-                $("#password").val(res.data.password);
+                $("#nip05-password").val(res.data.password);
                 setupCopyButton("#password-button", res.data.password);
             }
         }

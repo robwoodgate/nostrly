@@ -118,9 +118,9 @@ class NostrlyRegister
                     <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span>!</p>
                     <p>You can login to manage your account at any time using your NOSTR details at <a href="https://www.{$sitedom}/login">www.{$sitedom}/login</a>.</p>
                     <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
-                    <p><input type="text" id="password" value="" /></p>
-                    <p>Please store this password securely. You can change this password and optionally add an email address by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
+                    <p><input type="text" id="nip05-password" value="" /></p>
                     <p><button id="password-button" class="button">{$copypass}</button></p>
+                    <p>Please store this password securely. You can change this password and optionally add an email address by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
                 </div>
 
             </div>

@@ -4,6 +4,11 @@
     text-align: center;
 }
 
+#nip05-password {
+    font-size: 1.25rem;
+    text-align: center;
+}
+
 #reg-username {
     text-align: right;
 }
@@ -88,7 +93,7 @@ pre {
     font-weight: bold;
 }
 
-#name-to-register {
+#name-to-register, #name-registered {
     color: rgb(55, 204, 60);
     font-weight: bold;
 }
