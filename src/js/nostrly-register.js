@@ -296,6 +296,7 @@ jQuery(function($) {
             console.log(res);
             if (!res.success && res.data.message) {
                 done = true;
+                clearInterval(interval);
                 $("#pick-name").show();
                 $("#pay-invoice").hide();
                 displayError(`Error: ${res.data.message}.`);
@@ -306,8 +307,8 @@ jQuery(function($) {
                 try { localStorage.removeItem("nostrly-order"); } catch {}
                 $("#payment-suceeded").show();
                 $("#pay-invoice").hide();
-                $("#password").text(res.password);
-                setupCopyButton("#password-button", res.password);
+                $("#password").val(res.data.password);
+                setupCopyButton("#password-button", res.data.password);
             }
         }
 

@@ -112,14 +112,14 @@ class NostrlyRegister
                 <div id="payment-failed" style="display:none;">
                     <p>Eek! Looks like registration failed for some reason.</p>
                     <p>Please contact us to get a refund WITH the NPUB you used to register, and the payment hash below if you completed payment.</p>
-                    <p><pre id="phash"></pre></p
+                    <p><pre id="phash"></pre></p>
                 </div>
                 <div id="payment-suceeded" style="display:none;">
-                    <p>You have successfully registered your NIP-05 ID: <pre id="name-registered"></pre>!</p>
+                    <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span>!</p>
                     <p>You can login to manage your account at any time using your NOSTR details at <a href="https://www.{$sitedom}/login">www.{$sitedom}/login</a>.</p>
                     <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
-                    <p>Password: <input type="text" id="password" /></p>
-                    <p>Please store this password securely. You can change this password and optionally add an email address by <a href="https"//www.{$sitedom}/login">logging in here.</a></p>
+                    <p><input type="text" id="password" value="" /></p>
+                    <p>Please store this password securely. You can change this password and optionally add an email address by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
                     <p><button id="password-button" class="button">{$copypass}</button></p>
                 </div>
 
@@ -355,10 +355,10 @@ class NostrlyRegister
         if (empty($body['settled']) && 200 != $code) {
             if (402 == $code) {
                 // not paid yet, but ok to wait
-                wp_send_json_success($body);
+                // wp_send_json_success($body);
             }
             // Bad news
-            wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
+            // wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
         }
 
         // Create user
@@ -370,8 +370,8 @@ class NostrlyRegister
             update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
 
             // Login user
-            wp_set_current_user($user_id);
-            wp_set_auth_cookie($user_id);
+            // wp_set_current_user($user_id);
+            // wp_set_auth_cookie($user_id);
             wp_send_json_success(['paid' => true, 'password' => $password]);
         }
 
