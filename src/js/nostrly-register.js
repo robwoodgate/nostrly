@@ -54,7 +54,7 @@ jQuery(function($) {
     function startRegistrationProcess() {
         let registerState;
         try {
-            registerState = localStorage.getItem("register-state");
+            registerState = localStorage.getItem("nostrly-order");
         } catch {}
 
         if (registerState) {
@@ -63,7 +63,7 @@ jQuery(function($) {
                 console.log('Continuing registration session');
                 initPaymentProcessing(...item);
             } else {
-                try { localStorage.removeItem("register-state") } catch { }
+                try { localStorage.removeItem("nostrly-order") } catch { }
                 console.log('Registration session expired');
             }
         }
@@ -129,7 +129,7 @@ jQuery(function($) {
             url: nostrly_ajax.ajax_url,
             method: "POST",
             data: {
-                action: "nostrly_regcheck",
+                action: "nostrly_usrcheck",
                 nonce: nostrly_ajax.nonce,
                 name: $username.val()
             },
@@ -196,14 +196,14 @@ jQuery(function($) {
 
     // Handle checkout response
     function handleCheckoutResponse(res) {
-        if (res.error) {
-            displayError(`error ${res.error}. please contact us`);
+        if (!res.success) {
+            displayError(`error: ${res.data.message}. please contact us`);
         } else {
             try {
-                const data = [res.data, `${$username.val()}@${domain}`, res.data.price, Date.now() + (8 * 60 * 60 * 1000)];
-                localStorage.setItem("register-state", JSON.stringify(data));
+                const data = [res.data, `${$username.val()}@${domain}`, res.data.amount, Date.now() + (10 * 60 * 1000)];
+                localStorage.setItem("nostrly-order", JSON.stringify(data));
             } catch {}
-            initPaymentProcessing(res.data, `${$username.val()}@${domain}`, res.data.price);
+            initPaymentProcessing(res.data, `${$username.val()}@${domain}`, res.data.amount);
         }
     }
 
@@ -249,21 +249,22 @@ jQuery(function($) {
 
     // Initialize stage 1 for payment processing
     function initPaymentProcessing(data, name, price) {
-        const [token, invoice, paymentHash, img ] = data;
-        // console.log([token, invoice, paymentHash, img ]);
+        const img = 'https://quickchart.io/chart?cht=qr&chs=200x200&chl='+data.payment_request;
+        console.log(data);
         $("#pick-name").hide();
         $("#pay-invoice").show();
 
-        $("#invoice-link").attr("href", `lightning:${invoice}`);
+        $("#invoice-link").attr("href", `lightning:${data.payment_request}`);
         $("#name-to-register").text(name);
-        $("#phash").text(paymentHash);
+        $("#amount-to-pay").text(shorten(data.amount)+' sats');
+        $("#phash").text(data.token);
         $("#invoice-img").attr("src", img);
 
-        setupCopyButton("#invoice-copy", invoice);
+        setupCopyButton("#invoice-copy", data.payment_request);
         setupCancelButton();
 
         let done = false;
-        const interval = setInterval(checkPaymentStatus, 5000);
+        const interval = setInterval(checkPaymentStatus, 10000);
 
         $(window).on("focus", () => !done && checkPaymentStatus());
 
@@ -290,7 +291,7 @@ jQuery(function($) {
                 $("#payment-failed").show();
             } else if (res.data.paid && !done) {
                 done = true;
-                try { localStorage.removeItem("register-state"); } catch {}
+                try { localStorage.removeItem("nostrly-order"); } catch {}
                 $("#payment-failed").hide();
                 $("#pay-invoice").show();
                 $("#password").text(res.password);
@@ -309,7 +310,7 @@ jQuery(function($) {
 
         function setupCancelButton() {
             $("#cancel-registration").on("click", () => {
-                try { localStorage.removeItem("register-state"); } catch {}
+                try { localStorage.removeItem("nostrly-order"); } catch {}
                 location.reload();
             });
         }

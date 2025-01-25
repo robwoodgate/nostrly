@@ -3,7 +3,6 @@
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
-use swentel\nostr\Event\Event;
 use swentel\nostr\Key\Key;
 
 class NostrlyRegister
@@ -39,20 +38,23 @@ class NostrlyRegister
         'mstr', 'ver', 'shrem', 'voorhees', 'antonopoulos', 'winklevoss', 'saylor',
         'dorsey', 'mcafee', 'szabo',
     ];
+    protected $domain;
 
     public function init(): void
     {
         add_shortcode('nostrly_register', [$this, 'registration_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         // Check name availability
-        add_action('wp_ajax_nostrly_regcheck', [$this, 'ajax_nostrly_regcheck']);
-        add_action('wp_ajax_nopriv_nostrly_regcheck', [$this, 'ajax_nostrly_regcheck']);
+        add_action('wp_ajax_nostrly_usrcheck', [$this, 'ajax_nostrly_usrcheck']);
+        add_action('wp_ajax_nopriv_nostrly_usrcheck', [$this, 'ajax_nostrly_usrcheck']);
         // Checkout and raise invoice
         add_action('wp_ajax_nostrly_checkout', [$this, 'ajax_nostrly_checkout']);
         add_action('wp_ajax_nopriv_nostrly_checkout', [$this, 'ajax_nostrly_checkout']);
         // Check payment status and register user
         add_action('wp_ajax_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
         add_action('wp_ajax_nopriv_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
+
+        $this->domain = parse_url(get_site_url(), PHP_URL_HOST);
     }
 
     /**
@@ -75,6 +77,7 @@ class NostrlyRegister
         $cobutton = esc_html('Proceed to Checkout', 'nostrly');
         $copy_inv = esc_html('Copy', 'nostrly');
         $cancelrg = esc_html('Cancel Registration', 'nostrly');
+        $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
 
         return <<<EOL
@@ -99,7 +102,8 @@ class NostrlyRegister
                     </p>
                 </div>
                 <div id="pay-invoice" style="display:none;">
-                    <p>Please pay this invoice to register <span id="name-to-register"></span></p>
+                    <p>$subtitle <span id="name-to-register"></span></p>
+                    <p id="amount_to_pay"></p>
                     <p><a id="invoice-link"><img id="invoice-img"/></a></p>
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
                     <p><button id="cancel-registration" class="button">{$cancelrg}</button></p>
@@ -129,31 +133,59 @@ class NostrlyRegister
         ]);
     }
 
+    /**
+     * Get price for username.
+     *
+     * @param string $name username to check
+     *
+     * @return string Price eg: '65000'
+     */
+    public function get_price($name): string
+    {
+        $length = strlen($name);
+        $sats = self::PRICES['default']; // Base price
+        if (array_key_exists($length, self::PRICES)) {
+            $sats = self::PRICES[$length];
+        }
+
+        return (string) $sats;
+    }
+
+    /**
+     * Checks username is valid and does not exist.
+     *
+     * @param string $name  username to check
+     * @param array  &$resp adds reason for failure
+     *
+     * @return bool True: username can be registered
+     */
     public function username_isvalid($name, array &$resp = []): bool
     {
-        $valid = true; // Optimism
         $length = strlen($name);
+        $resp['available'] = true; // optimism
         if (preg_match('/[^a-z0-9]/', $name) > 0) {
             $resp['reason'] = self::ERRORS['INVALID'];
+            $resp['available'] = false;
             $valid = false;
         } elseif ($length < 2) {
             $resp['reason'] = self::ERRORS['SHORT'];
-            $valid = false;
+            $resp['available'] = false;
         } elseif ($length > 20) {
             $resp['reason'] = self::ERRORS['LONG'];
-            $valid = false;
+            $resp['available'] = false;
         } elseif (in_array($name, self::RESERVED)) {
             $resp['reason'] = self::ERRORS['RESERVED'];
-            $valid = false;
+            $resp['available'] = false;
         } elseif (in_array($name, self::BLOCKED)) {
             $resp['reason'] = self::ERRORS['BLOCKED'];
-            $valid = false;
+            $resp['available'] = false;
         } elseif (username_exists($name)) {
             $resp['reason'] = self::ERRORS['REGISTERED'];
-            $valid = false;
+            $resp['available'] = false;
         }
+        $resp['name'] = sanitize_text_field($name).'@'.$this->domain;
 
-        return $valid;
+        return (false == $resp['available']) ? false : true;
     }
 
     /**
@@ -163,7 +195,7 @@ class NostrlyRegister
      *
      * {"success": true,
      *  "data": {
-     *     "name": "scooby",
+     *     "name": "scooby@nostrly.com",
      *     "available": true,
      *     "price": "12500",
      *     "length": 6
@@ -171,12 +203,12 @@ class NostrlyRegister
      *
      * {"success": false,
      *  "data": {
-     *     "name": "scooby",
+     *     "name": "scooby@nostrly.com",
      *     "available": false,
      *     "reason": "BLOCKED"
      * }}
      */
-    public function ajax_nostrly_regcheck()
+    public function ajax_nostrly_usrcheck()
     {
         // Sanitize and verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
@@ -184,34 +216,77 @@ class NostrlyRegister
         }
 
         // Sanitize and validate input data
+        $resp = [];
         $name = sanitize_user(wp_unslash($_POST['name'] ?? ''));
-        $resp = ['name' => $name.'@nostrly.com', 'available' => false]; // no!
         if (!$this->username_isvalid($name, $resp)) {
             wp_send_json_error($resp);
         }
 
-        // All good, get pricing
-        $sats = self::PRICES['default']; // Base price
-        if (array_key_exists($length, self::PRICES)) {
-            $sats = self::PRICES[$length];
-        }
-
-        // Send pricing
+        // Return pricing
         $resp = [
-            'name' => $name.'@nostrly.com',
+            'name' => $name.'@'.$this->domain,
             'available' => true,
-            'price' => $sats,
+            'price' => $this->get_price($name),
             'length' => $length,
         ];
         wp_send_json_success($resp);
     }
 
+    /**
+     * Creates a lightning invoice.
+     *
+     * @return JSON Lightning invoice
+     *
+     * {"post_id":0,"amount":65000,"token":"abc123...","payment_request":"lnbc1..."}
+     */
     public function ajax_nostrly_checkout()
     {
         // Sanitize and verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
             wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
         }
+
+        // Sanitize input
+        $name = sanitize_text_field($_POST['name'] ?? '');
+        $pubkey = $this->sanitize_pubkey($_POST['pubkey'] ?? ''); // now hex
+
+        // Validate name
+        $resp = [];
+        if (!$this->username_isvalid($name, $resp)) {
+            wp_send_json_error(['message' =>$resp['reason']]);
+        }
+
+        // Validate pubkey
+        if (empty($pubkey)) {
+            wp_send_json_error(['message' =>'Invalid public key']);
+        }
+
+        // Check pubkey does not already have an account
+        $user = $this->get_user_by_public_key($pubkey);
+        if ($user) {
+            wp_send_json_error(['message' => 'Your NPUB is already associated with an account']);
+        }
+
+        // Prepare invoice request payload
+        $payload = [
+            'amount' => $this->get_price($name),
+            'currency' => 'btc',
+            'memo' => "Payment for NIP-05 identifier: {$name}@{$this->domain}",
+        ];
+
+        // Use WP REST API internally
+        // @see https://wpscholar.com/blog/internal-wp-rest-api-calls/
+        $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices');
+        $request->set_body_params($payload);
+        $response = rest_do_request($request);
+        if ($response->is_error()) {
+            wp_send_json_error(['message' => $response->get_error_message()]);
+        }
+        $server = rest_get_server();
+        $data = $server->response_to_data($response, false); // array
+
+        // Return the invoice data
+        wp_send_json_success($data);
     }
 
     public function ajax_nostrly_pmtcheck()
@@ -221,49 +296,25 @@ class NostrlyRegister
             wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
         }
 
-        // @TESTING
-        $resp = [
-            'name' => $name,
-            'available' => false,
-            'price' => $sats,
-            'length' => $length,
-        ];
-        wp_send_json_error($resp);
-
-        // Sanitize input data
-        $metadata_json = sanitize_text_field(wp_unslash($_POST['metadata'] ?? ''));
-        $authtoken = sanitize_text_field(wp_unslash($_POST['authtoken'] ?? ''));
-        $authtoken = base64_decode($authtoken); // now a json encoded string
-
-        // Verify authtoken event signature and format
-        try {
-            $event = new Event();
-            if (!$event->verify($authtoken)) {
-                $this->log_debug('Authtoken failed verification');
-                wp_send_json_error(['message' => __('Invalid authtoken.', 'nostrly')]);
-            }
-        } catch (Throwable $e) {
-            wp_send_json_error(['message' => __('Sorry, Nostr Login is currently disabled.', 'nostrly')]);
+        // Sanitize input
+        $token = sanitize_text_field($_POST['token'] ?? '');
+        if (!$token) {
+            wp_send_json_error(['message' => __('Invalid token.', 'nostrly')]);
         }
 
-        // Do NIP98 specific authtoken validation checks
-        // @see https://github.com/nostr-protocol/nips/blob/master/98.md
-        $nip98 = json_decode($authtoken);
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            $this->log_debug('Invalid authtoken JSON: '.json_last_error_msg());
-            wp_send_json_error(['message' => __('Invalid authtoken: ', 'nostrly').json_last_error_msg()]);
+        // Use WP REST API internally
+        // @see https://wpscholar.com/blog/internal-wp-rest-api-calls/
+        $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices/verify');
+        $request->set_body_params(['token' => $token]);
+        $response = rest_do_request($request);
+        if ($response->is_error()) {
+            wp_send_json_error(['message' => $response->get_error_message()]);
         }
-        $this->log_debug('AUTH: '.print_r($nip98, true));
-        $valid = ('27235' == $nip98->kind) ? true : false;              // NIP98 event
-        $valid = (time() - $nip98->created_at <= 60) ? $valid : false;  // <60 secs old
-        $tags = array_column($nip98->tags, 1, 0);                       // Expected Tags
-        $this->log_debug(print_r($tags, true));
-        $valid = (admin_url('admin-ajax.php') == $tags['u']) ? $valid : false;
-        $valid = ('post' == $tags['method']) ? $valid : false;
-        if (!$valid) {
-            $this->log_debug('Authorisation is invalid or expired');
-            wp_send_json_error(['message' => __('Authorisation is invalid or expired.', 'nostrly')]);
-        }
+        $server = rest_get_server();
+        $data = $server->response_to_data($response, false); // array
+
+        /// TODO
+        wp_send_json_success($data);
 
         // Check if a user with this public key already exists
         $public_key = $nip98->pubkey;
@@ -327,50 +378,23 @@ class NostrlyRegister
         return $user_id;
     }
 
-    private function update_user_metadata($user_id, $metadata_json)
+    private function sanitize_pubkey($value)
     {
-        // Decode and sanitize metadata
-        $metadata = json_decode($metadata_json, true);
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            $this->log_debug('Invalid metadata JSON: '.json_last_error_msg());
-
-            return;
+        if (empty($value) || 0 !== strpos($value, 'npub')) {
+            return '';
         }
 
-        if (!empty($metadata['name'])) {
-            wp_update_user(['ID' => $user_id, 'display_name' => sanitize_text_field($metadata['name'])]);
+        try {
+            $key = new Key();
+            $hex = $key->convertToHex($value);
+
+            return (string) $hex;
+        } catch (Exception $e) {
+            error_log($e->getMessage());
+
+            return '';
         }
-        if (!empty($metadata['about'])) {
-            update_user_meta($user_id, 'description', sanitize_textarea_field($metadata['about']));
-        }
-        if (!empty($metadata['nip05'])) {
-            update_user_meta($user_id, 'nip05', sanitize_text_field($metadata['nip05']));
-        }
-        if (!empty($metadata['picture'])) {
-            update_user_meta($user_id, 'nostr_avatar', esc_url_raw($metadata['picture']));
-            $this->log_debug("Saved Nostr avatar for user {$user_id}: ".esc_url($metadata['picture']));
-        }
-        if (!empty($metadata['website'])) {
-            wp_update_user([
-                'ID' => $user_id,
-                'user_url' => esc_url_raw($metadata['website']),
-            ]);
-        }
-        // Add more metadata fields as needed
-        // ...
-        //
-        $this->log_debug('Updated metadata for user ID: '.$user->ID);
     }
 
-    private function get_relay_urls(): array
-    {
-        $relays_option = get_option('nostrly_relays', implode("\n", $this->default_relays));
-        $relays_array = explode("\n", $relays_option);
 
-        // Filter and escape URLs, allowing only wss protocol
-        $fn = function ($v) {return esc_url($v, ['wss']); };
-        $relays_array = array_filter(array_map($fn, array_map('trim', $relays_array)));
-
-        return empty($relays_array) ? $this->default_relays : $relays_array;
-    }
 }
