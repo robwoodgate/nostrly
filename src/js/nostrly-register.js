@@ -217,6 +217,10 @@ jQuery(function($) {
     function displayError(message) {
         $error.css("display", "");
         $errorText.text(message);
+        setTimeout(function(){
+            $error.css("display", "none");
+            $errorText.text('');
+        },5000);
     }
 
     // Shorten large numbers
