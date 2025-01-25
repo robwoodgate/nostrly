@@ -195,7 +195,7 @@ jQuery(function($) {
     // Handle checkout response
     function handleCheckoutResponse(res) {
         if (!res.success && res.data.message) {
-            displayError(`error: ${res.data.message}. please contact us`);
+            displayError(`Error: ${res.data.message}.`);
         } else {
             try {
                 // invoices expire in 10 mins...
@@ -208,7 +208,7 @@ jQuery(function($) {
 
     // Handle checkout errors
     function handleCheckoutError(e) {
-        displayError(`${e.toString()}\n please contact us`);
+        displayError(`${e.toString()}\n Please contact us`);
         console.log(e.stack);
     }
 
@@ -219,6 +219,7 @@ jQuery(function($) {
         setTimeout(function(){
             $error.hide('3000');
             $errorText.text('');
+            updateValidity();
         }, 7000);
     }
 
@@ -231,6 +232,8 @@ jQuery(function($) {
     function updateValidity() {
         const isValid = Object.values(valid).every(Boolean);
         $nextButton.prop("disabled", !isValid);
+        $nextButton.text($nextButton.attr("data-orig"));
+
     }
 
     // Use NIP-07 to fetch public key
@@ -260,7 +263,7 @@ jQuery(function($) {
         $("#pay-invoice").show();
 
         $("#invoice-link").attr("href", `lightning:${data.payment_request}`);
-        $("#name-to-register").text(name);
+        $("#name-to-register").text(`${name}@${domain}`);
         $("#amount-to-pay").text(shorten(data.amount)+' sats');
         $("#phash").text(data.token);
         $("#invoice-img").attr("src", img);

@@ -94,7 +94,7 @@ class NostrlyRegister
                     <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64" data-valid="no">&nbsp;
                     <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                     <br><span id="pubkey-warning">{$warn_hpk}&nbsp;</span>
-                    <p><button disabled id="register-next" class="button">{$cobutton}</button></p>
+                    <p><button disabled id="register-next" class="button" data-orig="{$cobutton}">{$cobutton}</button></p>
                     <div id="reg-error" style="display: none">
                         <span id="reg-errortext"></span>
                     </div>
@@ -266,7 +266,7 @@ class NostrlyRegister
         // Check for orders in progress
         $existing_pk = get_transient('nostrly_'.$name, $pubkey);
         if (false !== $existing_pk && $existing_pk != $pubkey) {
-            wp_send_json_error(['message' => 'This name is currently being ordered. Try again in 10 minutes.']);
+            wp_send_json_error(['message' => 'This name is currently reserved. Try again later.']);
         }
 
         // Prepare invoice request payload
