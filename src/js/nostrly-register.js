@@ -280,9 +280,8 @@ jQuery(function($) {
         setupCancelButton();
 
         let done = false;
-        $(window).on("focus", () => !done && checkPaymentStatus());
-
         function checkPaymentStatus() {
+            if (done) return;
             $.ajax({
                 url: nostrly_ajax.ajax_url,
                 method: "POST",
@@ -300,6 +299,7 @@ jQuery(function($) {
                 }
             });
         }
+        checkPaymentStatus()
 
         function handlePaymentResponse(res) {
             $("#pick-name").hide();
