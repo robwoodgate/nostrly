@@ -80,7 +80,7 @@ class NostrlyRegister
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
         $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
-        $profile = admin_url('profile.php#nostr');
+        $profile = admin_url('profile.php');
 
         return <<<EOL
             <div id="nostrly-register" class="wrap">
@@ -118,7 +118,7 @@ class NostrlyRegister
                 <div id="payment-suceeded" style="display:none;">
                     <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span></p>
                     <p><strong>YOUR NEXT STEP:</strong> is to add it as the Verified Nostr Address (NIP-05) in your NOSTR profile.</p>
-                    <p>You can do this in your favourite NOSTR client, or in <a href="{$profile}">your Nostrly account</a>.</p>
+                    <p>You can do this in your favourite NOSTR client, or in <a href="{$profile}#nostr">your Nostrly account</a>.</p>
                     <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
                     <p><input type="text" id="nip05-password" value="" /></p>
                     <p style="text-align:center;"><button id="password-button" class="button">{$copypass}</button></p>
