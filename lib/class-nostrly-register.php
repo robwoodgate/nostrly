@@ -333,14 +333,19 @@ class NostrlyRegister
         // Check invoice payment status
         // We can't use WP REST API internally as the endpoint uses wp_send_json
         // and this terminates script execution immediately
-        $api_url = get_rest_url().'lnp-alby/v1/invoices/verify';
-        $response = wp_remote_post($api_url, [
-            'headers' => [
-                'Content-Type' => 'application/json',
-            ],
-            'body' => json_encode(['token' => $token]),
-            'data_format' => 'body',
-        ]);
+        try {
+            $api_url = get_rest_url().'lnp-alby/v1/invoices/verify';
+            $response = wp_remote_post($api_url, [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode(['token' => $token]),
+                'data_format' => 'body',
+            ]);
+        } catch (Exception $e) {
+            error_log($e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
 
         // Check for errors in the API response
         if (is_wp_error($response)) {
@@ -404,9 +409,10 @@ class NostrlyRegister
                 return '';
             }
             $hex = $key->convertToHex($value);
-            if (!ctype_xdigit($hex) || strlen($hex) !== 64) {
+            if (!ctype_xdigit($hex) || 64 !== strlen($hex)) {
                 return ''; // Ensure it's exactly 64 hex characters
             }
+
             return (string) $hex;
         } catch (Exception $e) {
             error_log($e->getMessage());
