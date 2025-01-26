@@ -272,7 +272,7 @@ jQuery(function($) {
         setupCancelButton();
 
         let done = false;
-        const interval = setInterval(checkPaymentStatus, 10000);
+        const interval = setInterval(checkPaymentStatus, 5000);
 
         $(window).on("focus", () => !done && checkPaymentStatus());
 
