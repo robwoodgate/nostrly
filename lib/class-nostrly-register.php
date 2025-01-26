@@ -284,7 +284,7 @@ class NostrlyRegister
         $payload = [
             'amount' => $this->get_price($name),
             'currency' => 'btc',
-            'memo' => "NIP-05 identifier: {$name}@{$this->domain}",
+            'memo' => "{$name}_{$this->domain} NIP-05 ID",
         ];
 
         // Use WP REST API internally
