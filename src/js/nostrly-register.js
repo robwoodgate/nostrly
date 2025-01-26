@@ -22,9 +22,12 @@ jQuery(function($) {
 
     // Initialization
     function initialize() {
-        setupEventListeners();
-        checkUrlParams();
-        startRegistrationProcess();
+        if (!window.nostrlyInitialized) {
+            setupEventListeners();
+            checkUrlParams();
+            startRegistrationProcess();
+            window.nostrlyInitialized = true;
+        }
     }
 
     // Event listeners setup
@@ -178,18 +181,20 @@ jQuery(function($) {
         let pk = $pubkey.val().trim();
         if (pk.startsWith('npub1')) pk = nip19.decode(pk).data;
 
-        $.ajax({
-            url: nostrly_ajax.ajax_url,
-            method: "POST",
-            data: {
-                action: "nostrly_checkout",
-                nonce: nostrly_ajax.nonce,
-                name: $username.val(),
-                pubkey: pk
-            },
-            success: handleCheckoutResponse,
-            error: handleCheckoutError
-        });
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: nostrly_ajax.ajax_url,
+                method: "POST",
+                data: {
+                    action: "nostrly_checkout",
+                    nonce: nostrly_ajax.nonce,
+                    name: $username.val(),
+                    pubkey: pk
+                },
+                success: resolve,
+                error: reject
+            });
+        }).then(handleCheckoutResponse, handleCheckoutError);
     }
 
     // Handle checkout response
@@ -217,8 +222,9 @@ jQuery(function($) {
         $error.css("display", "");
         $errorText.text(message);
         setTimeout(function(){
-            $error.hide('3000');
-            $errorText.text('');
+            $error.fadeOut('slow', function() {
+                $errorText.text('');
+            });
             $pubkey.prop("disabled", false);
             $username.prop("disabled", false);
             updateValidity();
@@ -274,8 +280,6 @@ jQuery(function($) {
         setupCancelButton();
 
         let done = false;
-        const interval = setInterval(checkPaymentStatus, 5000);
-
         $(window).on("focus", () => !done && checkPaymentStatus());
 
         function checkPaymentStatus() {
@@ -290,6 +294,10 @@ jQuery(function($) {
                 },
                 success: handlePaymentResponse,
                 error: (e) => console.error("Payment Check Error:", e)
+            }).always(() => {
+                if (!done) {
+                    setTimeout(checkPaymentStatus, 5000); // poll every 5 seconds unless done
+                }
             });
         }
 
@@ -298,14 +306,12 @@ jQuery(function($) {
             console.log(res);
             if (!res.success && res.data.message) {
                 done = true;
-                clearInterval(interval);
                 $("#pick-name").show();
                 $("#pay-invoice").hide();
                 displayError(`Error: ${res.data.message}.`);
             }
             if (res.success && res.data.paid && !done) {
                 done = true;
-                clearInterval(interval);
                 try { localStorage.removeItem("nostrly-order"); } catch {}
                 $("#payment-suceeded").show();
                 $("#pay-invoice").hide();

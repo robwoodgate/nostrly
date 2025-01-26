@@ -116,11 +116,12 @@ class NostrlyRegister
                 </div>
                 <div id="payment-suceeded" style="display:none;">
                     <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span></p>
-                    <p>You can login to manage your account at any time using your NOSTR details at <a href="https://www.{$sitedom}/login">www.{$sitedom}/login</a>.</p>
+                    <p><strong>YOUR NEXT STEP:</strong> is to add it as the Verified Nostr Address (NIP-05) in your NOSTR profile.</p>
+                    <p>You can do this in your favourite NOSTR client, or by <a href="https://www.{$sitedom}/login">logging in here.</a>.</p>
                     <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
                     <p><input type="text" id="nip05-password" value="" /></p>
                     <p style="text-align:center;"><button id="password-button" class="button">{$copypass}</button></p>
-                    <p style="text-align:center;">Please store this password securely. You can change this password and optionally add an email address by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
+                    <p style="text-align:center;">Please store this password securely. You can change this password and optionally add an email address for account recovery by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
                 </div>
 
             </div>
@@ -363,6 +364,7 @@ class NostrlyRegister
 
         // Create user
         $password = wp_generate_password();
+        $existing_user = get_user_by('login', $name);
         $user_id = wp_create_user($name, $password);
         $public_key = get_transient('nostrly_'.$name);
         if (!is_wp_error($user_id) && false !== $existing_pk) {
@@ -402,7 +404,9 @@ class NostrlyRegister
                 return '';
             }
             $hex = $key->convertToHex($value);
-
+            if (!ctype_xdigit($hex) || strlen($hex) !== 64) {
+                return ''; // Ensure it's exactly 64 hex characters
+            }
             return (string) $hex;
         } catch (Exception $e) {
             error_log($e->getMessage());
