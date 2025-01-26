@@ -111,7 +111,7 @@ class NostrlyRegister
                 </div>
                 <div id="payment-failed" style="display:none;">
                     <p>Eek! Looks like registration failed for some reason.</p>
-                    <p>Please contact us to get a refund WITH the NPUB you used to register, and the payment hash below if you completed payment.</p>
+                    <p>Please contact us to WITH the NPUB you used to register, and the payment hash below (if you completed payment).</p>
                     <p><pre id="phash"></pre></p>
                 </div>
                 <div id="payment-suceeded" style="display:none;">
