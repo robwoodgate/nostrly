@@ -34,8 +34,7 @@ class Nostrly
         add_action('wp_ajax_nostr_disconnect', [$this, 'ajax_nostr_disconnect']);
         add_filter('plugin_action_links_'.NOSTRLY_FILE, [$this, 'action_links']);
         add_filter('get_avatar_url', [$this, 'get_nostr_avatar_url'], 10, 3);
-
-        $this->log_debug('Nostrly_Handler class initialized');
+        add_filter('user_profile_update_errors', [$this, 'allow_empty_email']);
     }
 
     public function gmp_check_extension()
@@ -167,7 +166,7 @@ class Nostrly
             $bech32_public = $key->convertPublicKeyToBech32(get_user_meta($user->ID, 'nostr_public_key', true));
         }
         ?>
-        <h3><?php esc_html_e('Nostr Information', 'nostrly'); ?></h3>
+        <h3 id="nostr"><?php esc_html_e('Nostr Information', 'nostrly'); ?></h3>
         <?php wp_nonce_field('nostrly_save_profile', 'nostrly_nonce'); ?>
 
         <table class="form-table">
@@ -475,6 +474,16 @@ class Nostrly
         $this->log_debug('Using default avatar URL: '.$url);
 
         return $url;
+    }
+
+    /**
+     * Allows email to be left blank on profile save.
+     *
+     * @param mixed $errors
+     */
+    public function allow_empty_email($errors)
+    {
+        unset($errors->errors['empty_email']);
     }
 
     // Add a debug logging function
