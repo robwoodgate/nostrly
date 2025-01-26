@@ -80,6 +80,7 @@ class NostrlyRegister
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
         $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
+        $profile = admin_url('profile.php');
 
         return <<<EOL
             <div id="nostrly-register" class="wrap">
@@ -117,11 +118,11 @@ class NostrlyRegister
                 <div id="payment-suceeded" style="display:none;">
                     <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span></p>
                     <p><strong>YOUR NEXT STEP:</strong> is to add it as the Verified Nostr Address (NIP-05) in your NOSTR profile.</p>
-                    <p>You can do this in your favourite NOSTR client, or by <a href="https://www.{$sitedom}/login">logging in here.</a>.</p>
+                    <p>You can do this in your favourite NOSTR client, or by <a href="{$profile}">logging in here.</a>.</p>
                     <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
                     <p><input type="text" id="nip05-password" value="" /></p>
                     <p style="text-align:center;"><button id="password-button" class="button">{$copypass}</button></p>
-                    <p style="text-align:center;">Please store this password securely. You can change this password and optionally add an email address for account recovery by <a href="https://www.{$sitedom}/login">logging in here.</a></p>
+                    <p style="text-align:center;">Please store this password securely. You can change this password and optionally add an email address for account recovery by <a href="{$profile}">logging in here.</a></p>
                 </div>
 
             </div>
@@ -376,9 +377,10 @@ class NostrlyRegister
             // Set public key
             update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
 
-            // Login user
-            // wp_set_current_user($user_id);
-            // wp_set_auth_cookie($user_id);
+            // Login user. This is ok here because it will ONLY happen
+            // when the account is first being created (wp_create_user).
+            wp_set_current_user($user_id);
+            wp_set_auth_cookie($user_id);
             wp_send_json_success(['paid' => true, 'password' => $password]);
         }
 
