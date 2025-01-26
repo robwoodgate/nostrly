@@ -561,6 +561,9 @@ class Nostrly
         if (!empty($metadata['nip05'])) {
             update_user_meta($user_id, 'nip05', sanitize_text_field($metadata['nip05']));
         }
+        if (!empty($metadata['lud16'])) {
+            update_user_meta($user_id, '_lnp_ln_address', sanitize_text_field($metadata['lud16']));
+        }
         if (!empty($metadata['picture'])) {
             update_user_meta($user_id, 'nostr_avatar', esc_url_raw($metadata['picture']));
             $this->log_debug("Saved Nostr avatar for user {$user_id}: ".esc_url($metadata['picture']));

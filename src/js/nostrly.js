@@ -311,7 +311,9 @@ import { nip19, nip98 } from "nostr-tools";
 
               // Update displayed values
               $('#nostr_public_key').val(user.npub);
+              $('#description').val(metadata.about || '');
               $('#nostr_nip05').val(metadata.nip05 || '');
+              $('#_lnp_ln_address').val(metadata.lud16 || '');
               $('.user-profile-picture img').attr({"src":metadata.picture,"srcset":metadata.picture});
               if ('nostr-connect-extension' == synctype) {
                 // Reload page to update buttons
@@ -402,7 +404,9 @@ import { nip19, nip98 } from "nostr-tools";
 
           // Update displayed values
           $('#nostr_public_key').val(user.npub);
+          $('#description').val(metadata.about || '');
           $('#nostr_nip05').val(metadata.nip05 || '');
+          $('#_lnp_ln_address').val(metadata.lud16 || '');
           $('.user-profile-picture img').attr({"src":metadata.picture,"srcset":metadata.picture});
         } else {
             throw new Error(response.data.message || 'Failed to update profile');
