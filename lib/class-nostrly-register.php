@@ -20,7 +20,7 @@ class NostrlyRegister
         '2' => '65000',
         '3' => '45000',
         '4' => '25000',
-        'default' => '1', // default
+        'default' => '12500', // default
     ];
 
     protected const BLOCKED = [
