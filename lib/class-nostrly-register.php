@@ -17,10 +17,10 @@ class NostrlyRegister
     ];
 
     public const PRICES = [
-        '2' => '65000',
-        '3' => '45000',
-        '4' => '25000',
-        'default' => '12500', // default
+        '2' => '64000',
+        '3' => '42000',
+        '4' => '21000',
+        'default' => '12000', // default
     ];
 
     protected const BLOCKED = [
