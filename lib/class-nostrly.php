@@ -29,7 +29,6 @@ class Nostrly
         add_action('login_form', [$this, 'add_nostrly_field']);
         add_action('wp_ajax_nostrly_login', [$this, 'ajax_nostrly_login']);
         add_action('wp_ajax_nopriv_nostrly_login', [$this, 'ajax_nostrly_login']);
-        add_action('wp_ajax_nostrly_register', [$this, 'ajax_nostrly_register']);
         add_action('wp_ajax_nostr_sync_profile', [$this, 'ajax_nostr_sync_profile']);
         add_action('wp_ajax_nostr_disconnect', [$this, 'ajax_nostr_disconnect']);
         add_filter('plugin_action_links_'.NOSTRLY_FILE, [$this, 'action_links']);
@@ -166,10 +165,10 @@ class Nostrly
             $bech32_public = $key->convertPublicKeyToBech32(get_user_meta($user->ID, 'nostr_public_key', true));
         }
         ?>
-        <h3 id="nostr"><?php esc_html_e('Nostr Information', 'nostrly'); ?></h3>
+        <h3><?php esc_html_e('Nostr Information', 'nostrly'); ?></h3>
         <?php wp_nonce_field('nostrly_save_profile', 'nostrly_nonce'); ?>
 
-        <table class="form-table">
+        <table class="form-table" id="nostr">
             <tr>
                 <th><label><?php esc_html_e('Connect Nostr Account', 'nostrly'); ?></label></th>
                 <td>
@@ -349,12 +348,6 @@ class Nostrly
         }
     }
 
-    public function ajax_nostrly_register()
-    {
-        // We'll implement this method later
-        wp_die();
-    }
-
     public function ajax_nostr_sync_profile()
     {
         try {
@@ -517,29 +510,6 @@ class Nostrly
         ]);
 
         return !empty($users) ? $users[0] : false;
-    }
-
-    private function create_new_user($public_key, $metadata_json)
-    {
-        $username = !empty($sanitized_metadata['name']) ? sanitize_user($sanitized_metadata['name'], true) : 'nostr_'.substr(sanitize_text_field($public_key), 0, 8);
-        if (username_exists($username)) {
-            $username .= '_'.wp_generate_password(4, false); // Append random characters
-        }
-
-        $email = !empty($sanitized_metadata['email']) ? sanitize_email($sanitized_metadata['email']) : sanitize_text_field($public_key).'@nostr.local';
-
-        if (!is_email($email)) {
-            // Handle invalid email, perhaps generate a default one
-            $email = sanitize_text_field($public_key).'@nostr.local';
-        }
-
-        $user_id = wp_create_user($username, wp_generate_password(), $email);
-        if (!is_wp_error($user_id)) {
-            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
-            $this->update_user_metadata($user_id, $sanitized_metadata);
-        }
-
-        return $user_id;
     }
 
     private function update_user_metadata($user_id, $metadata_json)
