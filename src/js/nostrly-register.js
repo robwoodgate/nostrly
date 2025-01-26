@@ -219,6 +219,8 @@ jQuery(function($) {
         setTimeout(function(){
             $error.hide('3000');
             $errorText.text('');
+            $pubkey.prop("disabled", false);
+            $username.prop("disabled", false);
             updateValidity();
         }, 7000);
     }
@@ -249,7 +251,7 @@ jQuery(function($) {
                 throw new Error("Could not fetch public key from NIP-07 signer.");
             }
         } catch (error) {
-            displayError(`NIP-07 Error: ${error.message}`);
+            displayError(`Error: ${error.message}`);
             console.error(error);
         }
     }
