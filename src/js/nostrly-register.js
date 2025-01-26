@@ -299,7 +299,7 @@ jQuery(function($) {
                 }
             });
         }
-        checkPaymentStatus()
+        checkPaymentStatus(); // kick it off immediately
 
         function handlePaymentResponse(res) {
             $("#pick-name").hide();
