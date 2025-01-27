@@ -61,7 +61,7 @@ class NostrlyRegister
         add_action('wp_ajax_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
         add_action('wp_ajax_nopriv_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
 
-        $this->domain = parse_url(get_site_url(), PHP_URL_HOST);
+        $this->domain = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
     }
 
     /**
@@ -86,7 +86,7 @@ class NostrlyRegister
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
         $copiedta = esc_html('✔ Copied to clipboard', 'nostrly');
-        $sitedom = str_replace('www.', '', parse_url(get_site_url(), PHP_URL_HOST));
+        $sitedom = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
         $profile = admin_url('profile.php');
 
         return <<<EOL
@@ -147,7 +147,7 @@ class NostrlyRegister
         wp_localize_script('nostrly-register', 'nostrly_ajax', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('nostrly-nonce'),
-            'domain' => str_replace('www.', '', parse_url(get_site_url(), PHP_URL_HOST)),
+            'domain' => preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST)),
         ]);
     }
 
