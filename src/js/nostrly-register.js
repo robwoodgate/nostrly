@@ -332,7 +332,7 @@ jQuery(function($) {
             $(selector).focusin(function () {
                 $(this).select();
                 navigator.clipboard.writeText(text).then(function(){
-                    $('#copy_alert').slideDown().delay(1500).slideUp();
+                    $(selector).closest('.copy_alert').slideDown().delay(1500).slideUp();
                 }).catch(e => console.error('Failed to copy:', e));
             });
         }
