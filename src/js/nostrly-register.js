@@ -112,7 +112,7 @@ jQuery(function($) {
         updateValidity();
         clearTimeout(timeout);
         if (!$username.val()) {
-            $status.text("type in a name to see info...");
+            $status.text("type a name to see info...");
             return;
         }
         timeout = setTimeout(fetchAvailability, 200);
