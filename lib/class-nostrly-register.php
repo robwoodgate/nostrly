@@ -35,7 +35,7 @@ class NostrlyRegister
         'master', 'owner', 'superuser', 'superadmin', 'support', 'help', 'contact',
         'enquires', 'press', 'pr', 'staff', 'moderator', 'mod', 'operator', 'ops',
         'security', 'secure', 'manager', 'control', 'boss', 'chief', 'head', 'lead',
-        'director'];
+        'director', 'nostr', 'nostrly'];
 
     protected const RESERVED = [
         'rob', 'ben', 'sam', 'heidi', 'satoshi', 'nakamoto', 'bitcoin', 'btc',
@@ -94,7 +94,7 @@ class NostrlyRegister
                 <div id="pick-name">
                     <label for="reg-username">{$title_nr}</label>
                     <div class="username-input">
-                        <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 20rem;"> @{$sitedom}
+                        <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 20rem;"> <span style=font-size:1.5rem;">@{$sitedom}</span>
                         <span id="reg-status" class="reg-status">type in a name to see info...</span></p>
                     </div>
                     <label for="reg-pubkey">{$title_pk}</label>

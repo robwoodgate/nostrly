@@ -7,14 +7,14 @@
 }
 
 #reg-username {
-    text-align: right;
+    text-align: left;
 }
 
 #reg-pubkey {
     margin-bottom: 0.5rem;
     margin-right: 5px;
     max-width: 32rem;
-    text-align: center;
+    text-align: left;
     width:100%;
 }
 
