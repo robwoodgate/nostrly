@@ -52,6 +52,9 @@
 #register-next {
     margin-top: 1.5rem;
 }
+#register-next:disabled {
+    opacity: 0.6;
+}
 
 .reg-status {
     color: rgb(170, 170, 170);
