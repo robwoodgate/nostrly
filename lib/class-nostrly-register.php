@@ -75,7 +75,6 @@ class NostrlyRegister
         wp_enqueue_script('nostrly-register');
         wp_enqueue_style('nostrly-register');
 
-        $headline = esc_html('Register a Nostrly NIP-05 identifier', 'nostrly');
         $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
         $title_nr = esc_html('Pick a name to register', 'nostrly');
         $title_pk = esc_html('Enter your PUBLIC Key (NPUB or HEX)', 'nostrly');
@@ -90,8 +89,6 @@ class NostrlyRegister
 
         return <<<EOL
             <div id="nostrly-register" class="wrap">
-                <h2>{$headline}</h2>
-
                 <div id="pick-name">
                     <label for="reg-username">{$title_nr}</label>
                     <div class="username-input">
