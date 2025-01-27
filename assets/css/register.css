@@ -1,16 +1,17 @@
 /* Registration */
 
-#nostrly-register h2 {
-    text-align: center;
+#nostrly-register label {
+    display: block;
 }
+
 
 #reg-username {
     text-align: right;
 }
 
 #reg-pubkey {
-    font-size: 0.85rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 2.5rem;
+    margin-right: 2rem;
     max-width: 32rem;
     text-align: center;
     width:100%;

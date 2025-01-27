@@ -96,11 +96,11 @@ class NostrlyRegister
                         <span id="reg-status" class="reg-status">type in a name to see info...</span></p>
                     </div>
                     <label for="reg-pubkey">{$title_pk}</label>
-                    <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64" data-valid="no">&nbsp;
+                    <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64" data-valid="no">
                     <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                     <br><span id="pubkey-warning">{$warn_hpk}&nbsp;</span>
                     <p><button disabled id="register-next" class="button" data-orig="{$cobutton}">{$cobutton}</button></p>
-                    <div id="reg-error" style="display: none">
+                    <div id="reg-error">
                         <span id="reg-errortext"></span>
                     </div>
                     <p class="center description">By continuing, you agree to our <a href="/terms">Terms of Service</a>.
