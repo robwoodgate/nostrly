@@ -275,7 +275,7 @@ jQuery(function($) {
         $("#invoice-img").attr("src", img);
 
         setupCopyButton("#invoice-copy", data.payment_request);
-        setupCopyButton("#payment-hash", data.token);
+        setupCopyTextArea("#payment-hash", data.token);
         setupCancelButton();
 
         let done = false;
@@ -325,6 +325,15 @@ jQuery(function($) {
                 navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy:', e));
                 $(this).text("Copied!");
                 setTimeout(() => $(this).text(orig), 1000);
+            });
+        }
+
+        function setupCopyTextArea(selector, text) {
+            $(selector).focusin(function () {
+                $(this).select();
+                navigator.clipboard.writeText(text).then(function(){
+                    $('#copy_alert').slideDown().delay(1500).slideUp();
+                }).catch(e => console.error('Failed to copy:', e));
             });
         }
 

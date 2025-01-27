@@ -85,6 +85,7 @@ class NostrlyRegister
         $cancelrg = esc_html('Cancel Registration', 'nostrly');
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
+        $copiedta = esc_html('Copied to clipboard', 'nostrly');
         $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
         $profile = admin_url('profile.php');
 
@@ -118,6 +119,7 @@ class NostrlyRegister
                     <h2>Eek! Looks like registration failed for some reason.</h2>
                     <p>Please contact us to WITH the NPUB you used to register, and the payment hash below (if you completed payment).</p>
                     <p>We will get the registration completed or refund your payment if the name is not registerable.</p>
+                    <div style="display:none;" class="copy_alert">{$copiedta}</div>
                     <p><textarea id="payment-hash" rows="5" cols="50"></textarea></p>
                 </div>
                 <div id="payment-suceeded" style="display:none;">
@@ -306,7 +308,7 @@ class NostrlyRegister
             $data = $server->response_to_data($response, false); // array
         } catch (ClientException $e) {
             $response = $e->getResponse();
-            error_log('ajax_nostrly_checkout error:' . $response->getBody()->getContents());
+            error_log('ajax_nostrly_checkout error:'.$response->getBody()->getContents());
             wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
         } catch (Exception $e) {
             error_log($e->getMessage());
