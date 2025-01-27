@@ -332,8 +332,8 @@ jQuery(function($) {
             $(selector).on("click", function() {
                 $(this).select();
                 navigator.clipboard.writeText(text).then(function(){
-                    $(this).closest('.copy_alert').slideDown().delay(1500).slideUp();
-                }).catch(e => console.error('Failed to copy:', e));
+                    $(this).closest('div').find('.copy_alert').slideDown().delay(1500).slideUp();
+                }).catch(e => console.error('Failed to copy:', e););
             });
         }
 
