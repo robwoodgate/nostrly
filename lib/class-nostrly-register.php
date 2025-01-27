@@ -115,9 +115,10 @@ class NostrlyRegister
                     <p><button id="cancel-registration" class="button">{$cancelrg}</button></p>
                 </div>
                 <div id="payment-failed" style="display:none;">
-                    <p>Eek! Looks like registration failed for some reason.</p>
+                    <h2>Eek! Looks like registration failed for some reason.</h2>
                     <p>Please contact us to WITH the NPUB you used to register, and the payment hash below (if you completed payment).</p>
-                    <p><pre id="payment-hash"></pre></p>
+                    <p>We will get the registration completed or refund your payment if the name is not registerable.</p>
+                    <p><textarea id="payment-hash" rows="5" cols="50"></textarea></p>
                 </div>
                 <div id="payment-suceeded" style="display:none;">
                     <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span></p>

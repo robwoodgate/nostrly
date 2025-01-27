@@ -275,6 +275,7 @@ jQuery(function($) {
         $("#invoice-img").attr("src", img);
 
         setupCopyButton("#invoice-copy", data.payment_request);
+        setupCopyButton("#payment-hash", data.token);
         setupCancelButton();
 
         let done = false;
@@ -320,9 +321,10 @@ jQuery(function($) {
 
         function setupCopyButton(selector, text) {
             $(selector).on("click", function() {
+                let orig = $(this).text();
                 navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy:', e));
-                $(this).text("copied!");
-                setTimeout(() => $(this).text("copy"), 1000);
+                $(this).text("Copied!");
+                setTimeout(() => $(this).text(orig), 1000);
             });
         }
 
