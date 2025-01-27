@@ -98,7 +98,7 @@ class NostrlyRegister
                         <span id="reg-status" class="reg-status">type in a name to see info...</span></p>
                     </div>
                     <label for="reg-pubkey">{$title_pk}</label>
-                    <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64" data-valid="no">
+                    <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64">
                     <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                     <br><span id="pubkey-warning">{$warn_hpk}&nbsp;</span>
                     <div id="reg-error">

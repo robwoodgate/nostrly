@@ -99,7 +99,11 @@ jQuery(function($) {
         }
 
         valid.pubkey = isValid;
-        $pubkey.attr("data-valid", isValid ? "yes" : "no");
+        if ($pubkey.val()) {
+            $pubkey.attr("data-valid", isValid ? "yes" : "no");
+        } else {
+            $pubkey.attr("data-valid", "");
+        }
         $warning.css("display", hexWarn ? "inline-block" : "");
         updateValidity();
     }
@@ -113,6 +117,7 @@ jQuery(function($) {
         clearTimeout(timeout);
         if (!$username.val()) {
             $status.text("type a name to see info...");
+            $username.attr("data-valid", "");
             return;
         }
         timeout = setTimeout(fetchAvailability, 200);
@@ -122,6 +127,7 @@ jQuery(function($) {
     function fetchAvailability() {
         if (currentAjax) currentAjax.abort();
         if ($username.val().length < $username.attr("minLength")) {
+            $username.attr("data-valid", "no");
             $status.attr("data-available", "no").text("✖ name is too short (min 2 chars)");
             return;
         }
@@ -147,8 +153,10 @@ jQuery(function($) {
         if (res.data.available) {
             valid.name = true;
             updateValidity();
+            $username.attr("data-valid", "yes");
             $status.attr("data-available", "yes").text(`✔ name is available for ${shorten(res.data.price)} sats`);
         } else {
+            $username.attr("data-valid", "no");
             $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
             firstNameEntry = false;
         }

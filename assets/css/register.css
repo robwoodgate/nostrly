@@ -18,20 +18,31 @@
     width:100%;
 }
 
-#reg-pubkey[data-valid="yes"] {
+#reg-pubkey[data-valid="yes"],
+#reg-username[data-valid="yes"] {
     border: 2px solid rgb(49, 194, 54);
+    background-color: rgba(49, 194, 54, 0.3);
+    color: white;
 }
 
-#reg-pubkey[data-valid="no"] {
+#reg-pubkey[data-valid="no"],
+#reg-username[data-valid="no"] {
     border: 2px solid rgb(204, 55, 55);
+    background-color: rgba(204, 55, 55,0.3);
+    color: white;
+
 }
 
-#reg-pubkey[data-valid="yes"]:focus {
+#reg-pubkey[data-valid="yes"]:focus,
+#reg-username[data-valid="yes"]:focus {
     border: 2px solid rgb(80, 192, 164) !important;
+    background-color: rgba(49, 194, 54, 0.5);
 }
 
-#reg-pubkey[data-valid="no"]:focus {
+#reg-pubkey[data-valid="no"]:focus,
+#reg-username[data-valid="no"]:focus {
     border: 2px solid rgb(235, 35, 65) !important;
+    background-color: rgba(235, 35, 65, 0.5)
 }
 
 #reg-error {
