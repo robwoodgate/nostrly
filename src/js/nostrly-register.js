@@ -273,7 +273,7 @@ jQuery(function($) {
         $("#invoice-link").attr("href", `lightning:${data.payment_request}`);
         $("#name-to-register, #name-registered").text(`${name}@${domain}`);
         $("#amount-to-pay").text(shorten(data.amount)+' sats');
-        $("#phash").text(data.token);
+        $("#payment-hash").text(data.token);
         $("#invoice-img").attr("src", img);
 
         setupCopyButton("#invoice-copy", data.payment_request);

@@ -99,10 +99,10 @@ class NostrlyRegister
                     <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64" data-valid="no">
                     <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                     <br><span id="pubkey-warning">{$warn_hpk}&nbsp;</span>
-                    <p><button disabled id="register-next" class="button" data-orig="{$cobutton}">{$cobutton}</button></p>
                     <div id="reg-error">
                         <span id="reg-errortext"></span>
                     </div>
+                    <p><button disabled id="register-next" class="button" data-orig="{$cobutton}">{$cobutton}</button></p>
                     <p class="center description">By continuing, you agree to our <a href="/terms">Terms of Service</a>.
                     </p>
                 </div>
@@ -116,7 +116,7 @@ class NostrlyRegister
                 <div id="payment-failed" style="display:none;">
                     <p>Eek! Looks like registration failed for some reason.</p>
                     <p>Please contact us to WITH the NPUB you used to register, and the payment hash below (if you completed payment).</p>
-                    <p><pre id="phash"></pre></p>
+                    <p><pre id="payment-hash"></pre></p>
                 </div>
                 <div id="payment-suceeded" style="display:none;">
                     <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span></p>

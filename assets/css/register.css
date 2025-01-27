@@ -11,7 +11,7 @@
 
 #reg-pubkey {
     margin-bottom: 2.5rem;
-    margin-right: 2rem;
+    margin-right: 5px;
     max-width: 32rem;
     text-align: center;
     width:100%;
@@ -47,6 +47,10 @@
     color: rgb(224, 224, 61);
 }
 
+#register-next {
+    margin-top: 2.5rem;
+}
+
 .reg-status {
     color: rgb(170, 170, 170);
     display: block;
@@ -80,7 +84,7 @@ pre {
     text-align: center;
 }
 
-#phash {
+#payment-hash {
     margin: 0 auto;
     text-align: center;
 }
