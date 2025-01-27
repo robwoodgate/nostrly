@@ -16,7 +16,6 @@ jQuery(function($) {
     const $pubkey = $("#reg-pubkey");
     const $nextButton = $("#register-next");
     const $warning = $("#pubkey-warning");
-    const $error = $("#reg-error");
     const $errorText = $("#reg-errortext");
     const $nip07Button = $("#use-nip07");
 
@@ -219,10 +218,9 @@ jQuery(function($) {
 
     // Display error messages
     function displayError(message) {
-        $error.css("display", "");
-        $errorText.text(message);
+        $errorText.text(message).show();
         setTimeout(function(){
-            $error.fadeOut('slow', function() {
+            $errorText.fadeOut('slow', function() {
                 $errorText.text('');
             });
             $pubkey.prop("disabled", false);

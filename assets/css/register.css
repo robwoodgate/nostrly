@@ -3,15 +3,15 @@
 #nostrly-register label {
     display: block;
     font-weight: bold;
+    margin-bottom: 0.25rem;
 }
-
 
 #reg-username {
     text-align: right;
 }
 
 #reg-pubkey {
-    margin-bottom: 2.5rem;
+    margin-bottom: 0.5rem;
     margin-right: 5px;
     max-width: 32rem;
     text-align: center;
@@ -34,10 +34,11 @@
     border: 2px solid rgb(235, 35, 65) !important;
 }
 
-#reg-errortext {
+#reg-error {
     color: rgb(204, 55, 55);
     font-size: 1.2rem;
     font-weight: bold;
+    height:1rem;
     user-select: all;
 }
 
@@ -49,13 +50,13 @@
 }
 
 #register-next {
-    margin-top: 2.5rem;
+    margin-top: 1.5rem;
 }
 
 .reg-status {
     color: rgb(170, 170, 170);
     display: block;
-    font-size: 0.9rem;
+    font-weight: bold;
     margin-top: 0.5rem;
 }
 

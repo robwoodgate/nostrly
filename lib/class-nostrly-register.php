@@ -3,6 +3,7 @@
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
+use GuzzleHttp\Exception\ClientException;
 use swentel\nostr\Key\Key;
 
 class NostrlyRegister
@@ -302,9 +303,13 @@ class NostrlyRegister
             }
             $server = rest_get_server();
             $data = $server->response_to_data($response, false); // array
+        } catch (ClientException $e) {
+            $response = $e->getResponse();
+            error_log('ajax_nostrly_checkout error:' . $response->getBody()->getContents());
+            wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
         } catch (Exception $e) {
             error_log($e->getMessage());
-            wp_send_json_error(['message' => $e->getMessage()]);
+            wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
         }
 
         // Save pubkey transient to prevent overlapping orders
