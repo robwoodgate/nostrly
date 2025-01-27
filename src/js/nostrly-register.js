@@ -89,6 +89,7 @@ jQuery(function($) {
             if (/^[0-9a-f]{64}$/.test(sanitizedPk)) {
                 $pubkey.val(nip19.npubEncode(sanitizedPk));
                 hexWarn = true;
+                isValid = true;
             }
             if (sanitizedPk.startsWith('npub1')) {
                 const { type, data } = nip19.decode(sanitizedPk);
