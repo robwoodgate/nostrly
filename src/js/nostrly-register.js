@@ -329,7 +329,7 @@ jQuery(function($) {
         }
 
         function setupCopyTextArea(selector, text) {
-            $(selector).focusin(function () {
+            $(selector).on("click", function() {
                 $(this).select();
                 navigator.clipboard.writeText(text).then(function(){
                     $(selector).closest('.copy_alert').slideDown().delay(1500).slideUp();
