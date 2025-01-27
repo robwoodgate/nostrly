@@ -85,7 +85,7 @@ class NostrlyRegister
         $cancelrg = esc_html('Cancel Registration', 'nostrly');
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
-        $copiedta = esc_html('Copied to clipboard', 'nostrly');
+        $copiedta = esc_html('✔ Copied to clipboard', 'nostrly');
         $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
         $profile = admin_url('profile.php');
 

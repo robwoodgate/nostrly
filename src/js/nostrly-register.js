@@ -275,7 +275,7 @@ jQuery(function($) {
         $("#invoice-img").attr("src", img);
 
         setupCopyButton("#invoice-copy", data.payment_request);
-        setupCopyTextArea("#payment-hash", data.token);
+        setupCopyTextArea("#payment-hash");
         setupCancelButton();
 
         let done = false;
@@ -328,12 +328,22 @@ jQuery(function($) {
             });
         }
 
-        function setupCopyTextArea(selector, text) {
+        function setupCopyTextArea(selector) {
             $(selector).on("click", function() {
-                $(this).select();
-                navigator.clipboard.writeText(text).then(function(){
-                    $(this).closest('div').find('.copy_alert').slideDown().delay(1500).slideUp();
-                }).catch(e => console.error('Failed to copy:', e););
+                let $this = $(this);
+                $this.select();
+                navigator.clipboard.writeText($this.val()).then(() => {
+                    let $alert = $this.closest('div').find('.copy_alert');
+                    $alert.css({
+                        'position': 'absolute',
+                        'text-align': 'center',
+                        'z-index': '1000',
+                        // Positioning the alert at the top inside the textarea
+                        'top': $this.position().top + 'px',
+                        'left': $this.position().left + 'px',
+                        'width': $this.outerWidth() + 'px',
+                    }).slideDown().delay(1500).slideUp();
+                }).catch(e => console.error('Failed to copy:', e));
             });
         }
 
