@@ -7,10 +7,12 @@
 }
 
 #reg-username {
+    border-radius: 6px;
     text-align: left;
 }
 
 #reg-pubkey {
+    border-radius: 6px;
     margin-bottom: 0.5rem;
     margin-right: 5px;
     max-width: 32rem;
