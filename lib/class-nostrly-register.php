@@ -86,7 +86,7 @@ class NostrlyRegister
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
         $copiedta = esc_html('✔ Copied to clipboard', 'nostrly');
-        $sitedom = parse_url(get_site_url(), PHP_URL_HOST);
+        $sitedom = str_replace('www.', '', parse_url(get_site_url(), PHP_URL_HOST));
         $profile = admin_url('profile.php');
 
         return <<<EOL
@@ -94,7 +94,7 @@ class NostrlyRegister
                 <div id="pick-name">
                     <label for="reg-username">{$title_nr}</label>
                     <div class="username-input">
-                        <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 12rem;"> @{$sitedom}
+                        <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 20rem;"> @{$sitedom}
                         <span id="reg-status" class="reg-status">type in a name to see info...</span></p>
                     </div>
                     <label for="reg-pubkey">{$title_pk}</label>
@@ -147,7 +147,7 @@ class NostrlyRegister
         wp_localize_script('nostrly-register', 'nostrly_ajax', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('nostrly-nonce'),
-            'domain' => parse_url(get_site_url(), PHP_URL_HOST),
+            'domain' => str_replace('www.', '', parse_url(get_site_url(), PHP_URL_HOST)),
         ]);
     }
 
