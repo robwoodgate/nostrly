@@ -1,0 +1,18 @@
+# Disable Directory Listings
+Options -Indexes
+
+<IfModule mod_security.c>
+  SecFilterEngine Off
+  SecFilterScanPOST Off
+</IfModule>
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /.well-known/
+
+# NIP-05 Nostr ID
+RewriteRule ^nostr\.json nostr.php [L,QSA]
+
+# LUD-16 Lightning Redirect
+RewriteRule ^lnurlp/(.*)$ lnurlp.php?name=$1 [L,QSA]
+</IfModule>
