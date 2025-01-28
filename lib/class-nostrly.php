@@ -165,10 +165,11 @@ class Nostrly
             $bech32_public = $key->convertPublicKeyToBech32(get_user_meta($user->ID, 'nostr_public_key', true));
         }
         ?>
+        <div id="nostr">
         <h3><?php esc_html_e('Nostr Information', 'nostrly'); ?></h3>
         <?php wp_nonce_field('nostrly_save_profile', 'nostrly_nonce'); ?>
 
-        <table class="form-table" id="nostr">
+        <table class="form-table">
             <tr>
                 <th><label><?php esc_html_e('Connect Nostr Account', 'nostrly'); ?></label></th>
                 <td>
@@ -223,6 +224,7 @@ class Nostrly
             </tr>
             <!-- Add more custom fields here -->
         </table>
+        </div>
         <?php
     }
 
