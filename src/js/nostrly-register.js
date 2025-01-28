@@ -117,7 +117,7 @@ jQuery(function($) {
         updateValidity();
         clearTimeout(timeout);
         if (!$username.val()) {
-            $status.text("type a name to see info...");
+            $status.text("type a name to see availability and pricing...");
             $username.attr("data-valid", "");
             return;
         }

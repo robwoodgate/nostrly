@@ -53,6 +53,20 @@ class NostrlyAdmin
             exit;
         }
 
+        $user_id = get_current_user_id();
+        $ln_address = get_user_meta($user_id, '_lnp_ln_address', true);
+        if (is_admin() && strpos(strtolower($ln_address), 'nostrly.com') !== false) {
+            add_action('admin_notices', function () {
+                wp_admin_notice(
+                    __('Lightning redirect is currently disabled because you have set your Nostrly Address as your Lightning address in your Nostr profile. Please edit your profile in a Nostr client and set your lightning address to your usual wallet, then login here again.', 'Nostrly'),
+                    [
+                        'type' => 'error',
+                        'additional_classes' => ['is-dismissible'],
+                    ]
+                );
+            });
+        }
+
         // * Modify Toolbar
         add_action('admin_bar_menu', function ($wp_admin_bar): void {
             $wp_admin_bar->remove_node('wp-logo');

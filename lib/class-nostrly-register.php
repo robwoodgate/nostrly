@@ -95,7 +95,7 @@ class NostrlyRegister
                     <label for="reg-username">{$title_nr}</label>
                     <div class="username-input">
                         <p><input type="text" id="reg-username" placeholder="username" minlength="2" maxlength="20" style="width: 20rem;"> <span style=font-size:1.5rem;">@{$sitedom}</span>
-                        <span id="reg-status" class="reg-status">type in a name to see info...</span></p>
+                        <span id="reg-status" class="reg-status">type a name to see availability and pricing...</span></p>
                     </div>
                     <label for="reg-pubkey">{$title_pk}</label>
                     <input type="text" id="reg-pubkey" placeholder="npub..." maxlength="64">
