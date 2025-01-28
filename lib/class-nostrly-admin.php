@@ -95,8 +95,8 @@ class NostrlyAdmin
         remove_meta_box('jetpack_summary_widget', 'dashboard', 'normal');
 
         // * Remove WPSEO stuff
-        remove_all_filters('user_contactmethods');
-        remove_meta_box('wpseo-dashboard-overview', 'dashboard', 'normal');
+        // remove_all_filters('user_contactmethods');
+        // remove_meta_box('wpseo-dashboard-overview', 'dashboard', 'normal');
 
         // * Remove CF7 Stuff
         remove_meta_box('wpcf7db_summary', 'dashboard', 'normal');
