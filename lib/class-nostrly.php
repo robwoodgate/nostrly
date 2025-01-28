@@ -268,8 +268,8 @@ class Nostrly
             <?php wp_nonce_field('nostrly-nonce', 'nostrly_nonce'); ?>
         </div>
         <p class="nostrly-field" style="display:none;">
-            <label for="nostr_private_key"><?php esc_html_e('Nostr Private Key (starting with “nsec”)', 'nostrly'); ?></label>
-            <input type="password" name="nostr_private_key" id="nostr_private_key" class="input" size="20" autocapitalize="off"/>
+            <label for="nostr_private_key"><?php esc_html_e('Nostr Private Key (starting with "nsec")', 'nostrly'); ?></span></label>
+            <input type="password" name="nostr_private_key" id="nostr_private_key" class="input" size="20" autocapitalize="off" placeholder="nsec..." />
         </p>
         <p class="nostrly-buttons" style="display:none;">
             <button type="button" id="use_nostr_extension" class="button"><?php esc_html_e('Use Nostr Extension', 'nostrly'); ?></button>
