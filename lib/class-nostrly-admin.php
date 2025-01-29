@@ -47,12 +47,20 @@ class NostrlyAdmin
         // * policy that WordPress sets by default now
         add_action('login_head', function (): void {
             echo '<style type="text/css">
-          .login h1 a {
-            background-image:url('.esc_url(NOSTRLY_URL.'assets/img/nostrly-logo.jpg').') !important;
-                border-radius: 50%;
-                margin: 1em auto;
-            }
-          </style>
+                .login h1 a {
+                background-image:url('.esc_url(NOSTRLY_URL.'assets/img/nostrly-logo.jpg').') !important;
+                    border-radius: 50%;
+                    margin: 1em auto;
+                }
+                body {background: #001819;}
+                .login #backtoblog a, .login #nav a {
+                    text-decoration: none;
+                    color:#fff;
+                }
+                .login #backtoblog a:hover, .login #nav a:hover, .login h1 a:hover {
+                    color:#f6c956;
+                }
+            </style>
             <!-- <meta name=\'referrer\' content=\'no-referrer-when-downgrade\' /> -->
           ';
         }, 999);
