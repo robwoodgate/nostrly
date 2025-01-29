@@ -1,5 +1,6 @@
 {
     "require": {
-        "swentel/nostr-php": "^1.5"
+        "swentel/nostr-php": "^1.5",
+        "firebase/php-jwt": "6.10.0"
     }
 }

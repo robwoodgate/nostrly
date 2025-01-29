@@ -274,13 +274,14 @@ jQuery(function($) {
         stage = 1;
         const img = 'https://quickchart.io/chart?cht=qr&chs=200x200&chl='+data.payment_request;
         console.log(data);
+        $(".preamble").hide();
         $("#pick-name").hide();
         $("#pay-invoice").show();
 
         $("#invoice-link").attr("href", `lightning:${data.payment_request}`);
         $("#name-to-register, #name-registered").text(`${name}@${domain}`);
         $("#amount-to-pay").text(shorten(data.amount)+' sats');
-        $("#payment-hash").text(data.token);
+        $("#payment-hash").val(data.payment_hash);
         $("#invoice-img").attr("src", img);
 
         setupCopyButton("#invoice-copy", data.payment_request);
@@ -310,7 +311,8 @@ jQuery(function($) {
         checkPaymentStatus(); // kick it off immediately
 
         function handlePaymentResponse(res) {
-            $("#pick-name").hide();
+            // $(".preamble").hide();
+            // $("#pick-name").hide();
             console.log(res);
             if (!res.success && res.data.message) {
                 done = true;

@@ -3,6 +3,7 @@
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
+use Firebase\JWT;
 use GuzzleHttp\Exception\ClientException;
 use swentel\nostr\Key\Key;
 
@@ -109,24 +110,26 @@ class NostrlyRegister
                     </p>
                 </div>
                 <div id="pay-invoice" style="display:none;">
-                    <p>{$subtitle} <span id="name-to-register"></span></p>
+                    <h2>{$subtitle}<br><span id="name-to-register"></span></h2>
                     <p id="amount_to_pay"></p>
                     <p><a id="invoice-link"><img id="invoice-img"/></a></p>
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
                     <p><button id="cancel-registration" class="button">{$cancelrg}</button></p>
                 </div>
                 <div id="payment-failed" style="display:none;">
-                    <h2>Eek! Looks like registration failed for some reason.</h2>
+                    <h2>Houston, we have a problem...</h2>
+                    <p>Eek! Looks like registration failed for some reason.</p>
                     <p>Please contact us to WITH the NPUB you used to register, and the payment hash below (if you completed payment).</p>
                     <p>We will get the registration completed or refund your payment if the name is not registerable.</p>
                     <div style="display:none;" class="copy_alert">{$copiedta}</div>
-                    <p><textarea id="payment-hash" rows="5" cols="50"></textarea></p>
+                    <p><input type="text" id="payment-hash" maxlength="64"></p>
                 </div>
                 <div id="payment-suceeded" style="display:none;">
-                    <p>You have successfully registered your NIP-05 ID: <span id="name-registered"></span></p>
+                    <h2>Congratulations!</h2>
+                    <p>You have successfully registered: <span id="name-registered"></span></p>
                     <p><strong>YOUR NEXT STEP:</strong> is to add it as the Verified Nostr Address (NIP-05) in your NOSTR profile.</p>
                     <p>You can do this in your favourite NOSTR client, or in <a href="{$profile}#nostr">your Nostrly account</a>.</p>
-                    <p>As a backup, you can also login using your NIP-05 ID and the password below:</p>
+                    <p text-align:center;>As a backup, you can also login using your Nostr Address and the password below:</p>
                     <p><input type="text" id="nip05-password" value="" /></p>
                     <p style="text-align:center;"><button id="password-button" class="button">{$copypass}</button></p>
                     <p style="text-align:center;">Please store this password securely. You can change this password and optionally add an email address for account recovery by logging in to <a href="{$profile}">your Nostrly account.</a></p>
@@ -308,12 +311,31 @@ class NostrlyRegister
             $data = $server->response_to_data($response, false); // array
         } catch (ClientException $e) {
             $response = $e->getResponse();
-            error_log('ajax_nostrly_checkout error:'.$response->getBody()->getContents());
+            error_log('ajax_nostrly_checkout error: '.$response->getBody()->getContents());
             wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
         } catch (Exception $e) {
-            error_log($e->getMessage());
+            error_log('ajax_nostrly_checkout error: '.$e->getMessage());
             wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
         }
+
+        // Decode the token to get payment hash
+        try {
+            $jwt = JWT\JWT::decode($data['token'], new JWT\Key(BLN_PUBLISHER_PAYWALL_JWT_KEY, BLN_PUBLISHER_PAYWALL_JWT_ALGORITHM));
+            error_log(pring_r($jwt, true));
+        } catch (Exception $e) {
+            error_log('ajax_nostrly_checkout error: '.$e->getMessage());
+            wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
+        }
+
+        // Tweak the data
+        unset($data['post_id']);
+        $data['payment_hash'] = $jwt->{"r_hash"};
+
+        // BLN Publisher doesn't save comment, so lets save the name there
+        global $wpdb;
+        $wpdb->update($wpdb->prefix.'lightning_publisher_payments', [
+            'comment' => $name,
+        ], ['payment_hash' => $data['payment_hash']]);
 
         // Save pubkey transient to prevent overlapping orders
         set_transient('nostrly_'.$name, $pubkey, 720); // 12 minutes
@@ -390,8 +412,8 @@ class NostrlyRegister
 
             // Login user. This is ok here because it will ONLY happen
             // when the account is first being created (wp_create_user).
-            wp_set_current_user($user_id);
-            wp_set_auth_cookie($user_id);
+            // wp_set_current_user($user_id);
+            // wp_set_auth_cookie($user_id);
             wp_send_json_success(['paid' => true, 'password' => $password]);
         }
 
