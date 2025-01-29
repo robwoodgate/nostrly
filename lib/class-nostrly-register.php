@@ -406,7 +406,7 @@ class NostrlyRegister
         $existing_user = get_user_by('login', $name);
         $user_id = wp_create_user($name, $password);
         $public_key = get_transient('nostrly_'.$name);
-        if (!is_wp_error($user_id) && false !== $existing_pk) {
+        if (!is_wp_error($user_id) && false !== $public_key) {
             // Set public key
             update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
 

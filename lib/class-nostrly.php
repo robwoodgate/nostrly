@@ -549,7 +549,7 @@ class Nostrly
         // Add more metadata fields as needed
         // ...
         //
-        $this->log_debug('Updated metadata for user ID: '.$user->ID);
+        $this->log_debug('Updated metadata for user ID: '.$user_id);
     }
 
     private function get_relay_urls(): array
