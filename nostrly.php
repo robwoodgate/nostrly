@@ -4,7 +4,7 @@
 Plugin Name: Nostrly SaaS
 Plugin URI: https://www.nostrly.com/
 Description: Adds Admin screens for Nostrly App
-Version: 1.0
+Version: 1.1
 Author: Rob Woodgate
 Author URI: https://www.cogmentis.com
 License: (c) 2025 All rights reserved
