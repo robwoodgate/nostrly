@@ -321,7 +321,7 @@ class NostrlyRegister
         // Decode the token to get payment hash
         try {
             $jwt = JWT\JWT::decode($data['token'], new JWT\Key(BLN_PUBLISHER_PAYWALL_JWT_KEY, BLN_PUBLISHER_PAYWALL_JWT_ALGORITHM));
-            error_log(pring_r($jwt, true));
+            // error_log(print_r($jwt, true));
         } catch (Exception $e) {
             error_log('ajax_nostrly_checkout error: '.$e->getMessage());
             wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
@@ -329,7 +329,7 @@ class NostrlyRegister
 
         // Tweak the data
         unset($data['post_id']);
-        $data['payment_hash'] = $jwt->{"r_hash"};
+        $data['payment_hash'] = $jwt->{'r_hash'};
 
         // BLN Publisher doesn't save comment, so lets save the name there
         global $wpdb;

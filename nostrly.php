@@ -26,7 +26,7 @@ define('NOSTRLY_PATH', plugin_dir_path(__FILE__));
 define('NOSTRLY_URL', plugin_dir_url(__FILE__));
 define('NOSTRLY_SLUG', plugin_basename(__DIR__));
 define('NOSTRLY_FILE', plugin_basename(__FILE__));
-define('NOSTRLY_VERSION', '1.0.0');
+define('NOSTRLY_VERSION', '1.1.0');
 
 // * Instantiate main plugin
 require_once NOSTRLY_PATH.'lib/class-nostrly.php';
