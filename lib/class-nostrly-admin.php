@@ -32,7 +32,40 @@ class NostrlyAdmin
      */
     public function init(): void
     {
-        // nothing doing
+        // * Change Admin Footer (bottom left side)
+        add_filter('admin_footer_text', function ($text) {
+            return '<span id="footer-thankyou">'.__('Powered by Nostrly', 'nostrly').' v'.NOSTRLY_VERSION.'</span>';
+        });
+
+        // * Change browser tab title (removes "WordPress")
+        add_filter('admin_title', function ($admin_title, $title) {
+            return $title.' &lsaquo; '.get_bloginfo('name');
+        }, 12, 2);
+
+        // * Change wp-login logo and set default referrer policy for old browsers
+        // * like Safari 10.1, which don't understand the strict-origin-when-cross-origin
+        // * policy that WordPress sets by default now
+        add_action('login_head', function (): void {
+            echo '<style type="text/css">
+          .login h1 a {
+            background-image:url('.esc_url(NOSTRLY_URL.'assets/img/nostrly-logo.jpg').') !important;
+                border-radius: 50%;
+                margin: 1em auto;
+            }
+          </style>
+            <!-- <meta name=\'referrer\' content=\'no-referrer-when-downgrade\' /> -->
+          ';
+        }, 999);
+
+        // * Change wp-login logo url
+        add_action('login_headerurl', function () {
+            return esc_url(home_url());
+        });
+
+        // * Change wp-login logo text
+        add_action('login_headertext', function () {
+            return sprintf(__('Powered by %s', 'nostrly'), 'Nosrtly');
+        });
     }
 
     /**
