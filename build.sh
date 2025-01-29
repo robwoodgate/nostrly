@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pkg="nostrly.zip" # plugin name
+pkg="nostrly-saas.zip" # plugin name
 
 # Build packages
 composer install --no-dev
