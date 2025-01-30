@@ -240,7 +240,7 @@ jQuery(function($) {
 
     // Shorten large numbers
     function shorten(amount) {
-        return amount < 1000 ? amount.toString() : `${(amount / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}k`;
+        return amount < 100000 ? amount.toString() : `${(amount / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}k`;
     }
 
     // Update UI validity

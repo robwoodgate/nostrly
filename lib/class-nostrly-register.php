@@ -156,6 +156,7 @@ class NostrlyRegister
 
     /**
      * Get price for username.
+     * Allows NOSTRLY_PRICES override to be set in WP-Config
      *
      * @param string $name username to check
      *
@@ -164,7 +165,8 @@ class NostrlyRegister
     public function get_price($name): string
     {
         $length = strlen($name);
-        $sats = self::PRICES['default']; // Base price
+        $prices = defined('NOSTRLY_PRICES') ? NOSTRLY_PRICES : self::PRICES;
+        $sats = $prices['default'] ?? self::PRICES['default']; // Base price
         if (array_key_exists($length, self::PRICES)) {
             $sats = self::PRICES[$length];
         }
