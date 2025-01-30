@@ -167,8 +167,8 @@ class NostrlyRegister
         $length = strlen($name);
         $prices = defined('NOSTRLY_PRICES') ? NOSTRLY_PRICES : self::PRICES;
         $sats = $prices['default'] ?? self::PRICES['default']; // Base price
-        if (array_key_exists($length, self::PRICES)) {
-            $sats = self::PRICES[$length];
+        if (array_key_exists($length, $prices)) {
+            $sats = $prices[$length];
         }
 
         return (string) $sats;
