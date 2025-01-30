@@ -99,7 +99,7 @@ class NostrlyAdmin
         if (is_admin() && strpos(strtolower($ln_address), 'nostrly.com') !== false) {
             add_action('admin_notices', function () {
                 wp_admin_notice(
-                    __('Lightning redirect is currently disabled because you have set your Nostrly Address as your Lightning address in your Nostr profile. Please edit your profile in a Nostr client and set your lightning address to your usual wallet, then login here again.', 'Nostrly'),
+                    __('Your Nostr profile Lightning Address is set to your Nostrly Address, so zaps will be redirected to your default <a target="_blank" href="https://npub.cash/wallet">npub.cash wallet</a>. This is a Lightning wallet powered by eCash you can sign into using your Nostr keys.', 'Nostrly'),
                     [
                         'type' => 'error',
                         'additional_classes' => ['is-dismissible'],
