@@ -23,8 +23,12 @@ jQuery(function($) {
 
     $nip19.on("input", () => {
         try {
-            let result = nip19.decode($nip19.val())
-            decode.val(JSON.stringify(result, null, 2));
+            let result = nip19.decode($nip19.val());
+            if (result.type == 'nsec') {
+                // nostr-tools doesn't hex string nsec automatically
+                result.data = toHexString(result.data);
+            }
+            decode.val(JSON.stringify(result, null, 2)); // pretty print
         } catch(e) {
             decode.val(e);
         }
@@ -34,5 +38,11 @@ jQuery(function($) {
         $npub.val('');
         $hex.val('');
     });
+
+    function toHexString(bytes) {
+        return Array.from(bytes, byte =>
+            ("00" + (byte & 0xFF).toString(16)).slice(-2)
+        ).join('');
+    }
 
 });
