@@ -75,6 +75,7 @@ class NostrlyRegister
     {
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-register');
+        wp_enqueue_script('confetti');
         wp_enqueue_style('nostrly-register');
 
         $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
@@ -146,6 +147,7 @@ class NostrlyRegister
     public function enqueue_scripts(): void
     {
         wp_register_script('nostrly-register', NOSTRLY_URL.'assets/js/nostrly-register.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_style('nostrly-register', NOSTRLY_URL.'assets/css/register.css', [], NOSTRLY_VERSION);
         wp_localize_script('nostrly-register', 'nostrly_ajax', [
             'ajax_url' => admin_url('admin-ajax.php'),
