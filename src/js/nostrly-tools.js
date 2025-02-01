@@ -1,7 +1,17 @@
 // Imports
 import * as nip19 from 'nostr-tools/nip19';
+import { nip57, signEvent } from 'nostr-tools';
+import { verifyEvent, SimplePool } from 'nostr-tools';
 
 jQuery(function($) {
+
+    console.log('Starting Nostrly tools');
+
+    // Get our custom relays
+    const relays = nostrly_ajax.relays;
+
+    // Create a pool for querying relays
+    const pool = new SimplePool();
 
     // DOM elements
     const $npub = $("#npub");   // key converter
@@ -10,17 +20,15 @@ jQuery(function($) {
     const decode = $("#nip19_decode");    // nip19 decoder
     const $reset = $(".reset"); // univeral
 
-    // Event listeners
+    // Event listeners for key converter and nip19 decoder
     $npub.on("input", () => {
         let { type, data } = nip19.decode($npub.val());
         $hex.val(data);
     });
-
     $hex.on("input", () => {
         let npub = nip19.npubEncode($hex.val())
         $npub.val(npub);
     });
-
     $nip19.on("input", () => {
         try {
             let result = nip19.decode($nip19.val());
@@ -33,16 +41,196 @@ jQuery(function($) {
             decode.val(e);
         }
     });
-
     $reset.on("click", () => {
         $npub.val('');
         $hex.val('');
     });
 
+    // Helper function
     function toHexString(bytes) {
         return Array.from(bytes, byte =>
             ("00" + (byte & 0xFF).toString(16)).slice(-2)
         ).join('');
     }
 
+    // Web Zapper
+    const $nevent = $("#nevent");
+    const $amount = $("#amount");
+    const $comment = $("#comment");
+    $nevent.on("input", () => { // temp
+        handleWebZap();
+    });
+    async function handleWebZap(e) {
+
+        // Get author and event id from note
+        let note = nip19.decode($nevent.val());
+        const { author, id } = note.data;
+
+        // Sanitize amount and convert to millisats, default to 21 sats
+        const sats = parseInt($amount.val(), 10) || 21;
+        const amount = sats * 1000;
+        const comment = $comment.val() || 'web-zapped via nostrly 🫡';
+
+        // Get user relays from cache, or request them from user
+        let userRelays = JSON.parse(localStorage.getItem("nostrly-user-relays"));
+        if (!userRelays) {
+            const relayObject = await window.nostr.getRelays();
+            userRelays = Object.keys(relayObject);
+            localStorage.setItem("nostrly-user-relays", JSON.stringify(userRelays));
+        }
+        // console.log('USER RELAYS: ', userRelays);
+
+        // Build and sign zap
+        let zap = await window.nostr.signEvent(nip57.makeZapRequest({
+          profile: author,
+          event: id,
+          amount: amount,
+          relays: userRelays,
+          comment: comment
+        }));
+        let encZap = encodeURI(JSON.stringify(zap));
+
+        // Get a Lightning invoice from author
+        const authorProfile = await getProfileFromPubkey(author);
+        const authorMeta = JSON.parse(authorProfile.content);
+        const callback = await nip57.getZapEndpoint(authorProfile);
+        const {pr} = await fetchJson(`${callback}?amount=${amount}&nostr=${encZap}`)
+        console.log(pr);
+
+        // Eek, something went wrong...
+        if (!pr) {
+            alert("Sorry, our request for a Zap invoice failed.");
+        }
+
+        // Go to payment...
+        const img = 'https://quickchart.io/chart?cht=qr&chs=200x200&chl='+pr;
+        $("#zap-init").hide();
+        $("#zap-pay").show();
+
+        $("#zap-to").text(`Send Zap⚡️ to ${authorMeta.name}`);
+        $("#zap-invoice-link").attr("href", `lightning:${pr}`);
+        $("#zap-amount").text(sats+' sats');
+        $("#zap-invoice-img").attr("src", img);
+
+        setupCopyButton("#zap-invoice-copy", pr);
+        $("#zap-cancel").on("click", () => {
+            location.reload();
+        });
+
+        // Subscribe to receipt events
+        console.log('ZAP: ',zap);
+        let paymentReceived = false;
+        let sub = pool.subscribeMany(
+            userRelays,
+            [{ kinds: [9735], "#e": [id]}],
+            {
+                onevent(event) {
+                  // onevent is only called once, the first time the event is received
+                  // Check the bolt11 invoice matches our one
+                  let bolt11 = event.tags.find(([t]) => t === "bolt11"); // zap sender
+                  if (bolt11[1] == pr) {
+                    $("#zap-sent").show();
+                    $("#zap-invoice-img, #zap-amount, #zap-invoice-copy").hide();
+                    $("#zap-cancel").text('Reset');
+                    doConfettiBomb()
+                    paymentReceived = true;
+                    sub.unsub(); // Close the subscription since we've found our match
+                  }
+                  console.log("RECEIPT: ", event);
+                  console.log("BOLT11: ", bolt11[1]);
+                },
+                oneose() {
+                  console.log("EOSE - End of Stored Events. Still listening for new events.");
+                }
+            }
+        );
+    }
+
+    async function fetchJson(url) {
+        try {
+            // Use jQuery's AJAX method to make the request
+            const response = await $.ajax({
+                url: url,
+                type: 'GET',
+                dataType: 'json'
+            });
+
+            // Destructuring the response to match the stub's return structure
+            return { pr: response.pr };
+        } catch (error) {
+            console.error("Error fetching JSON:", error);
+            // Re-throw the error to be handled by the caller if necessary
+            // throw error;
+        }
+    }
+
+    async function getProfileFromPubkey(pubkey) {
+        try {
+            // Query for the profile event (kind:0)
+            const profileEvent = await pool.get(relays, {
+                kinds: [0],
+                authors: [pubkey]
+            });
+
+            if (!profileEvent) {
+                console.log("Profile not found for public key: ", pubkey);
+                return null;
+            }
+
+            // Verify the event signature for security
+            if (!verifyEvent(profileEvent)) {
+                console.error("Invalid event signature");
+                return null;
+            }
+
+            // Return the JSON content
+            return profileEvent;
+
+        } catch (error) {
+            console.error("Error fetching or parsing profile:", error);
+            return null;
+        }
+    }
+
+    function setupCopyButton(selector, text) {
+        $(selector).on("click", function() {
+            let orig = $(this).text();
+            navigator.clipboard.writeText(text).catch(e => console.error('Failed to copy:', e));
+            $(this).text("Copied!");
+            setTimeout(() => $(this).text(orig), 1000);
+        });
+    }
+
+    function doConfettiBomb() {
+        // Do the confetti bomb
+        var duration = 5 * 1000; //secs
+        var end = Date.now() + duration;
+
+        (function frame() {
+            // launch a few confetti from the left edge
+            confetti({
+                particleCount: 7,
+                angle: 60,
+                spread: 55,
+                origin: {
+                    x: 0
+                }
+            });
+            // and launch a few from the right edge
+            confetti({
+                particleCount: 7,
+                angle: 120,
+                spread: 55,
+                origin: {
+                    x: 1
+                }
+            });
+
+            // keep going until we are out of time
+            if (Date.now() < end) {
+                requestAnimationFrame(frame);
+            }
+        }());
+        confetti.reset()
+    }
 });

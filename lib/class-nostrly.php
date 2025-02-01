@@ -7,8 +7,7 @@ use swentel\nostr\Key\Key;
 
 class Nostrly
 {
-    private static $field_added = false;
-    private $default_relays = [
+    public const DEFAULT_RELAYS = [
         'wss://purplepag.es',
         'wss://relay.nostr.band',
         'wss://relay.primal.net',
@@ -16,6 +15,7 @@ class Nostrly
         'wss://relay.snort.social',
         'wss://nostr.bitcoiner.social',
     ];
+    private static $field_added = false;
 
     public function init()
     {
@@ -554,13 +554,13 @@ class Nostrly
 
     private function get_relay_urls(): array
     {
-        $relays_option = get_option('nostrly_relays', implode("\n", $this->default_relays));
+        $relays_option = get_option('nostrly_relays', implode("\n", self::DEFAULT_RELAYS));
         $relays_array = explode("\n", $relays_option);
 
         // Filter and escape URLs, allowing only wss protocol
         $fn = function ($v) {return esc_url($v, ['wss']); };
         $relays_array = array_filter(array_map($fn, array_map('trim', $relays_array)));
 
-        return empty($relays_array) ? $this->default_relays : $relays_array;
+        return empty($relays_array) ? self::DEFAULT_RELAYS : $relays_array;
     }
 }
