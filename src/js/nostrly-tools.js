@@ -59,6 +59,7 @@ jQuery(function($) {
     if (zapDefaults) {
         $amount.val(zapDefaults.sats);
         $comment.val(zapDefaults.comment);
+        $(".preamble").hide();
     }
     async function handleWebZap(e) {
 
