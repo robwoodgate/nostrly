@@ -54,6 +54,7 @@ jQuery(function($) {
     const $amount = $("#amount");
     const $comment = $("#comment");
     const $paybutton = $("#zap-pay-button");
+    const $resetzap = $("#zap-reset");
     $paybutton.on("click", handleWebZap);
     $nevent.on("input", () => {
         $paybutton.prop("disabled", true);
@@ -74,6 +75,12 @@ jQuery(function($) {
         $comment.val(zapDefaults.comment);
         $(".preamble").hide();
     }
+    $resetzap.on("click", (e) => {
+        e.preventDefault();
+        try { localStorage.removeItem("nostrly-webzap-defaults"); } catch { }
+        $amount.val('');
+        $comment.val('');
+    });
     async function handleWebZap(e) {
 
         e.preventDefault();
