@@ -101,7 +101,7 @@ jQuery(function($) {
         // Sanitize amount and convert to millisats, default to 21 sats
         const sats = parseInt($amount.val(), 10) || 21;
         const amount = sats * 1000;
-        const comment = [$comment.val(), 'web-zap via nostrly 🫡'].filter(Boolean).join(" - ");
+        const comment = [$comment.val(), 'sent via nostrly web zap 🫡'].filter(Boolean).join(" - ");
         localStorage.setItem("nostrly-webzap-defaults", JSON.stringify({
             sats: sats, comment: $comment.val()
         }));

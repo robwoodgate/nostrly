@@ -167,7 +167,7 @@ class NostrlyTools
                         <label for="amount">{$alab}</label>
                         <input type="text" placeholder="21" value="" id="amount">
                         <label for="comment">{$clab}</label>
-                        <input type="text" placeholder="web-zap via nostrly 🫡" value="" id="comment">
+                        <input type="text" placeholder="sent via nostrly web zap 🫡" value="" id="comment">
                         <p><button id="zap-pay-button" disabled class="button">{$payb}</button>&nbsp;&nbsp;&nbsp;<a href="#" id="zap-reset">Reset defaults</a></p>
                     </form>
                     <div id="zap-pay" style="display:none;">
