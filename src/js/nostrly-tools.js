@@ -80,6 +80,7 @@ jQuery(function($) {
         try { localStorage.removeItem("nostrly-webzap-defaults"); } catch { }
         $amount.val('');
         $comment.val('');
+        $(".preamble").show();
     });
     async function handleWebZap(e) {
 
