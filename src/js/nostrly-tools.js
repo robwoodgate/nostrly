@@ -144,7 +144,7 @@ jQuery(function($) {
                     $("#zap-sent").show();
                     $("#zap-invoice-img, #zap-amount, #zap-invoice-copy").hide();
                     $("#zap-cancel").text('Reset');
-                    doConfettiBomb()
+                    doConfettiBomb();
                     paymentReceived = true;
                     clearTimeout(timeoutId);
                     sub.close(); // Close the subscription since we've found our match
