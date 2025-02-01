@@ -87,6 +87,13 @@ jQuery(function($) {
         e.preventDefault();
         $(".preamble").hide();
 
+        // Check for extension if privateKey not provided
+        if (typeof window.nostr === 'undefined') {
+            console.error("Nostr extension not found");
+            alert('Nostr extension not found. Please install or enable your Nostr extension.');
+            return;
+        }
+
         // Get author and event id from note
         let note = nip19.decode($nevent.val());
         const { author, id } = note.data;
