@@ -147,6 +147,7 @@ class NostrlyTools
                         #zap-to {
                             font-size: 1.8rem;
                             font-weight: bold;
+                            margin-bottom: 0;
                         }
                         #zap-invoice-copy {
                             margin-right: 20px;
@@ -154,7 +155,7 @@ class NostrlyTools
                         #zap-amount, #zap-sent {
                             font-size: 1.5rem;
                             line-height: 1;
-                            margin: 0;
+                            margin: 0.5rem 0 1.5rem 0;
                         }
                     </style>
                     <form id="zap-init">
@@ -167,7 +168,6 @@ class NostrlyTools
                         <p><button id="zap-pay-button" disabled class="button">{$payb}</button></p>
                     </form>
                     <div id="zap-pay" style="display:none;">
-                        <canvas id="zap-canvas"></canvas>
                         <p id="zap-to"></p>
                         <p id="zap-amount"></p>
                         <p id="zap-sent" style="display:none;">Success! Zap sent.</p>
