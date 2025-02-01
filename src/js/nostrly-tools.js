@@ -57,10 +57,11 @@ jQuery(function($) {
     const $nevent = $("#nevent");
     const $amount = $("#amount");
     const $comment = $("#comment");
-    $nevent.on("input", () => { // temp
-        handleWebZap();
-    });
+    const $paybutton = $("#zap-pay-button");
+    $paybutton.on("click", handleWebZap);
     async function handleWebZap(e) {
+
+        e.preventDefault();
 
         // Get author and event id from note
         let note = nip19.decode($nevent.val());

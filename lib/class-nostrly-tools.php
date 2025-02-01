@@ -124,6 +124,7 @@ class NostrlyTools
         $clab = esc_attr('Comment (optional):', 'nostrly');
         $cancl = esc_html('Cancel', 'nostrly');
         $copyl = esc_html('Copy Invoice', 'nostrly');
+        $payb = esc_html('Zap Now', 'nostrly');
         $reset = esc_html('Reset fields', 'nostrly');
 
         return <<<EOL
@@ -163,7 +164,7 @@ class NostrlyTools
                         <input type="text" placeholder="21" value="" id="amount">
                         <label for="comment">{$clab}</label>
                         <input type="text" placeholder="web-zapped via nostrly 🫡" value="" id="comment">
-                        <input type="reset" class="button reset" value="{$reset}">
+                        <p><button id="zap-pay-button" class="button">{$payb}</button></p>
                     </form>
                     <div id="zap-pay" style="display:none;">
                         <canvas id="zap-canvas"></canvas>
