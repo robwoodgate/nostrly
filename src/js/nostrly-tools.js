@@ -55,6 +55,19 @@ jQuery(function($) {
     const $comment = $("#comment");
     const $paybutton = $("#zap-pay-button");
     $paybutton.on("click", handleWebZap);
+    $nevent.on("input", () => {
+        $paybutton.prop("disabled", true);
+        try {
+            let note = nip19.decode($nevent.val());
+            // console.log(note);
+            const { type, data } = note;
+            if ('nevent' == type) {
+                $paybutton.prop("disabled", false);
+            }
+        } catch(e) {
+            console.log(e);
+        }
+    });
     let zapDefaults = JSON.parse(localStorage.getItem("nostrly-webzap-defaults"));
     if (zapDefaults) {
         $amount.val(zapDefaults.sats);

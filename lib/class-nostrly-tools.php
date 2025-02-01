@@ -164,7 +164,7 @@ class NostrlyTools
                         <input type="text" placeholder="21" value="" id="amount">
                         <label for="comment">{$clab}</label>
                         <input type="text" placeholder="web-zap via nostrly 🫡" value="" id="comment">
-                        <p><button id="zap-pay-button" class="button">{$payb}</button></p>
+                        <p><button id="zap-pay-button" disabled class="button">{$payb}</button></p>
                     </form>
                     <div id="zap-pay" style="display:none;">
                         <canvas id="zap-canvas"></canvas>
