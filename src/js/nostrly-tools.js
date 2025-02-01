@@ -22,7 +22,7 @@ jQuery(function($) {
         $hex.val(data);
     });
     $hex.on("input", () => {
-        let npub = nip19.npubEncode($hex.val())
+        let npub = nip19.npubEncode($hex.val());
         $npub.val(npub);
     });
     $nip19.on("input", () => {
@@ -77,7 +77,7 @@ jQuery(function($) {
     }
     $resetzap.on("click", (e) => {
         e.preventDefault();
-        try { localStorage.removeItem("nostrly-webzap-defaults"); } catch { }
+        try { localStorage.removeItem("nostrly-webzap-defaults"); } catch(e) { }
         $amount.val('');
         $comment.val('');
         $(".preamble").show();
@@ -129,7 +129,7 @@ jQuery(function($) {
         const authorProfile = await getProfileFromPubkey(author);
         const authorMeta = JSON.parse(authorProfile.content);
         const callback = await nip57.getZapEndpoint(authorProfile);
-        const {pr} = await fetchJson(`${callback}?amount=${amount}&nostr=${encZap}`)
+        const {pr} = await fetchJson(`${callback}?amount=${amount}&nostr=${encZap}`);
         console.log(pr);
 
         // Eek, something went wrong...
@@ -281,6 +281,6 @@ jQuery(function($) {
                 requestAnimationFrame(frame);
             }
         }());
-        confetti.reset()
+        confetti.reset();
     }
 });

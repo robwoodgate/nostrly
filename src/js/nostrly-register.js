@@ -56,7 +56,7 @@ jQuery(function($) {
         let registerState;
         try {
             registerState = localStorage.getItem("nostrly-order");
-        } catch {}
+        } catch(e) {}
 
         if (registerState) {
             const item = JSON.parse(registerState);
@@ -64,7 +64,7 @@ jQuery(function($) {
                 console.log('Continuing registration session');
                 initPaymentProcessing(...item);
             } else {
-                try { localStorage.removeItem("nostrly-order") } catch { }
+                try { localStorage.removeItem("nostrly-order") } catch(e) { }
                 console.log('Registration session expired');
             }
         }
@@ -214,7 +214,7 @@ jQuery(function($) {
                 // invoices expire in 10 mins...
                 const data = [res.data, $username.val(), Date.now() + (10 * 60 * 1000)];
                 localStorage.setItem("nostrly-order", JSON.stringify(data));
-            } catch {}
+            } catch(e) {}
             initPaymentProcessing(res.data, $username.val());
         }
     }
@@ -322,7 +322,7 @@ jQuery(function($) {
             }
             if (res.success && res.data.paid && !done) {
                 done = true;
-                try { localStorage.removeItem("nostrly-order"); } catch {}
+                try { localStorage.removeItem("nostrly-order"); } catch(e) {}
                 $("#payment-suceeded").show();
                 $("#pay-invoice").hide();
                 $("#nip05-password").val(res.data.password);
@@ -361,7 +361,7 @@ jQuery(function($) {
 
         function setupCancelButton() {
             $("#cancel-registration").on("click", () => {
-                try { localStorage.removeItem("nostrly-order"); } catch {}
+                try { localStorage.removeItem("nostrly-order"); } catch(e) {}
                 location.reload();
             });
         }
@@ -397,7 +397,7 @@ jQuery(function($) {
                 requestAnimationFrame(frame);
             }
         }());
-        confetti.reset()
+        confetti.reset();
     }
 
     // Initial call to start the application

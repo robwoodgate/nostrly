@@ -212,9 +212,10 @@ import { nip19, nip98 } from "nostr-tools";
         console.log("stored user metadata:", metadata);
 
         // Create signed authtoken event
+        var authToken;
         try {
           const _sign = (privateKey) ? (e) => finalizeEvent(e, privateKey) : (e) => window.nostr.signEvent(e);
-          var authToken = await nip98.getToken(nostrly_ajax.ajax_url, 'post', _sign);
+          authToken = await nip98.getToken(nostrly_ajax.ajax_url, 'post', _sign);
           // console.log("authtoken:", authToken);
         } catch (error) {
           console.error("Failed to create authtoken:", error);
@@ -327,7 +328,7 @@ import { nip19, nip98 } from "nostr-tools";
             $feedback.removeClass('notice-info')
               .addClass('notice-error')
               .html(`Error: ${error.message}`)
-              .delay(3000).fadeOut('slow');;
+              .delay(3000).fadeOut('slow');
         } finally {
             $button.prop('disabled', false);
         }
@@ -368,9 +369,10 @@ import { nip19, nip98 } from "nostr-tools";
           throw new Error('Failed to get profile from relays.');
         }
 
+        var metadata;
         try {
           // Update NIP-05
-          var metadata = JSON.parse(usermeta.content);
+          metadata = JSON.parse(usermeta.content);
           metadata.nip05 = nip05;
           const update = new NDKEvent(ndk, {kind: NDKKind.Metadata});
           update.content = JSON.stringify(metadata);
@@ -400,7 +402,7 @@ import { nip19, nip98 } from "nostr-tools";
           $feedback.removeClass('notice-info')
             .addClass('notice-success')
             .html('Successfully set NIP-05!')
-            .delay(3000).fadeOut('slow');;
+            .delay(3000).fadeOut('slow');
 
           // Update displayed values
           $('#nostr_public_key').val(user.npub);
@@ -417,7 +419,7 @@ import { nip19, nip98 } from "nostr-tools";
           $feedback.removeClass('notice-info')
             .addClass('notice-error')
             .html(`Error: ${error.message}`)
-            .delay(3000).fadeOut('slow');;
+            .delay(3000).fadeOut('slow');
       } finally {
           $button.prop('disabled', false);
       }
@@ -466,7 +468,7 @@ import { nip19, nip98 } from "nostr-tools";
             $feedback.removeClass('notice-info')
               .addClass('notice-error')
               .html(`Error: ${error.message}`)
-              .delay(3000).fadeOut('slow');;
+              .delay(3000).fadeOut('slow');
         } finally {
             $button.prop('disabled', false);
         }
