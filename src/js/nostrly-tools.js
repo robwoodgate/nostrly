@@ -59,6 +59,11 @@ jQuery(function($) {
     const $comment = $("#comment");
     const $paybutton = $("#zap-pay-button");
     $paybutton.on("click", handleWebZap);
+    let zapDefaults = JSON.parse(localStorage.getItem("nostrly-webzap-defaults"));
+    if (zapDefaults) {
+        $amount.val(zapDefaults.sats);
+        $comment.val(zapDefaults.comment);
+    }
     async function handleWebZap(e) {
 
         e.preventDefault();
@@ -70,7 +75,10 @@ jQuery(function($) {
         // Sanitize amount and convert to millisats, default to 21 sats
         const sats = parseInt($amount.val(), 10) || 21;
         const amount = sats * 1000;
-        const comment = $comment.val() || 'web-zapped via nostrly 🫡';
+        const comment = [$comment.val(), 'web-zapped via nostrly 🫡'].filter(Boolean).join(" - ");
+        localStorage.setItem("nostrly-webzap-defaults", JSON.stringify({
+            sats: sats, comment: $comment.val()
+        }));
 
         // Get user relays from cache, or request them from user
         let userRelays = JSON.parse(localStorage.getItem("nostrly-user-relays"));
@@ -167,6 +175,11 @@ jQuery(function($) {
                 type: 'GET',
                 dataType: 'json'
             });
+
+            // Something went wrong
+            if (!response.pr) {
+                return null;
+            }
 
             // Destructuring the response to match the stub's return structure
             return { pr: response.pr };
