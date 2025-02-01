@@ -7,20 +7,16 @@ jQuery(function($) {
 
     console.log('Starting Nostrly tools');
 
-    // Get our custom relays
+    // Get our custom relays and create pool
     const relays = nostrly_ajax.relays;
-
-    // Create a pool for querying relays
     const pool = new SimplePool();
 
-    // DOM elements
+    // Key Converter and nip19 decoder
     const $npub = $("#npub");   // key converter
     const $hex = $("#hex");     // key converter
     const $nip19 = $("#nip19_entity");    // nip19 decoder
     const decode = $("#nip19_decode");    // nip19 decoder
     const $reset = $(".reset"); // univeral
-
-    // Event listeners for key converter and nip19 decoder
     $npub.on("input", () => {
         let { type, data } = nip19.decode($npub.val());
         $hex.val(data);
@@ -67,6 +63,7 @@ jQuery(function($) {
     async function handleWebZap(e) {
 
         e.preventDefault();
+        $(".preamble").hide();
 
         // Get author and event id from note
         let note = nip19.decode($nevent.val());
@@ -75,7 +72,7 @@ jQuery(function($) {
         // Sanitize amount and convert to millisats, default to 21 sats
         const sats = parseInt($amount.val(), 10) || 21;
         const amount = sats * 1000;
-        const comment = [$comment.val(), 'web-zapped via nostrly 🫡'].filter(Boolean).join(" - ");
+        const comment = [$comment.val(), 'web-zap via nostrly 🫡'].filter(Boolean).join(" - ");
         localStorage.setItem("nostrly-webzap-defaults", JSON.stringify({
             sats: sats, comment: $comment.val()
         }));
@@ -130,9 +127,7 @@ jQuery(function($) {
         console.log('ZAP: ',zap);
         let paymentReceived = false;
         let timeoutId; // keep ref outside
-        let sub = null;
-
-        sub = pool.subscribeMany(
+        let sub = pool.subscribeMany(
             userRelays,
             [{ kinds: [9735], "#e": [id]}],
             {

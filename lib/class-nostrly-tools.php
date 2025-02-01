@@ -163,7 +163,7 @@ class NostrlyTools
                         <label for="amount">{$alab}</label>
                         <input type="text" placeholder="21" value="" id="amount">
                         <label for="comment">{$clab}</label>
-                        <input type="text" placeholder="web-zapped via nostrly 🫡" value="" id="comment">
+                        <input type="text" placeholder="web-zap via nostrly 🫡" value="" id="comment">
                         <p><button id="zap-pay-button" class="button">{$payb}</button></p>
                     </form>
                     <div id="zap-pay" style="display:none;">
