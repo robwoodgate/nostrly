@@ -120,7 +120,10 @@ jQuery(function($) {
         // Subscribe to receipt events
         console.log('ZAP: ',zap);
         let paymentReceived = false;
-        let sub = pool.subscribeMany(
+        let timeoutId; // keep ref outside
+        let sub = null;
+
+        sub = pool.subscribeMany(
             userRelays,
             [{ kinds: [9735], "#e": [id]}],
             {
@@ -128,19 +131,28 @@ jQuery(function($) {
                   // onevent is only called once, the first time the event is received
                   // Check the bolt11 invoice matches our one
                   let bolt11 = event.tags.find(([t]) => t === "bolt11"); // zap sender
-                  if (bolt11[1] == pr) {
+                  if (bolt11 && bolt11[1] == pr) {
                     $("#zap-sent").show();
                     $("#zap-invoice-img, #zap-amount, #zap-invoice-copy").hide();
                     $("#zap-cancel").text('Reset');
                     doConfettiBomb()
                     paymentReceived = true;
-                    sub.unsub(); // Close the subscription since we've found our match
+                    clearTimeout(timeoutId);
+                    sub.close(); // Close the subscription since we've found our match
                   }
                   console.log("RECEIPT: ", event);
-                  console.log("BOLT11: ", bolt11[1]);
                 },
                 oneose() {
-                  console.log("EOSE - End of Stored Events. Still listening for new events.");
+                    console.log("EOSE - End of Stored Events. Still listening for new events.");
+                    timeoutId = setTimeout(() => {
+                        if (!paymentReceived) {
+                            console.log("Timeout reached, payment not received.");
+                            $("#zap-sent").text('The Zap invoice timed out').show();
+                            $("#zap-invoice-img, #zap-amount, #zap-invoice-copy").hide();
+                            $("#zap-cancel").text('Reset');
+                            sub.close(); // Unsubscribe if payment wasn't received
+                        }
+                    }, 600000); // 600 seconds timeout (10 mins)
                 }
             }
         );
@@ -203,7 +215,7 @@ jQuery(function($) {
 
     function doConfettiBomb() {
         // Do the confetti bomb
-        var duration = 5 * 1000; //secs
+        var duration = 0.25 * 1000; //secs
         var end = Date.now() + duration;
 
         (function frame() {
