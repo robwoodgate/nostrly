@@ -157,6 +157,9 @@ class NostrlyTools
                             line-height: 1;
                             margin: 0.5rem 0 1.5rem 0;
                         }
+                        #zap-pay-button:disabled {
+                            opacity: 0.6;
+                        }
                     </style>
                     <form id="zap-init">
                         <label for="nevent">{$nlab}</label>
