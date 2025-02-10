@@ -69,8 +69,9 @@ jQuery(function($) {
     });
     $delbutton.on("click", handleEventDelete);
     $delreset.on("click", () => {
-        $delevent.val('');
         $delsent.hide();
+        $delevent.val('');
+        $delbutton.prop("disabled", true);
     });
     async function handleEventDelete(e) {
         e.preventDefault();
