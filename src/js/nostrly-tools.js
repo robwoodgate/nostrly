@@ -71,9 +71,11 @@ jQuery(function($) {
         $delsent.hide().text($delsent.attr("data-orig"));
         $delevent.val('');
         $delbutton.prop("disabled", true);
+        $(".preamble").show();
     });
     async function handleEventDelete(e) {
         e.preventDefault();
+        $(".preamble").hide();
         // Check for Nostr extension
         if (typeof window.nostr === 'undefined') {
             console.error("Nostr extension not found");
