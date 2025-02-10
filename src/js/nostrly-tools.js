@@ -11,12 +11,14 @@ jQuery(function($) {
     const relays = nostrly_ajax.relays;
     const pool = new SimplePool();
 
-    // Key Converter and nip19 decoder
-    const $npub = $("#npub");   // key converter
-    const $hex = $("#hex");     // key converter
+    /**
+     * Key Converter and nip19 decoder
+     */
+    const $npub  = $("#npub");            // key converter
+    const $hex   = $("#hex");             // key converter
     const $nip19 = $("#nip19_entity");    // nip19 decoder
     const decode = $("#nip19_decode");    // nip19 decoder
-    const $reset = $(".reset"); // univeral
+    const $reset = $(".reset");           // univeral
     $npub.on("input", () => {
         let { type, data } = nip19.decode($npub.val());
         $hex.val(data);
@@ -37,19 +39,15 @@ jQuery(function($) {
             decode.val(e);
         }
     });
-    $reset.on("click", () => {
+    $reset.on("click", (e) => {
+        e.preventDefault();
         $npub.val('');
         $hex.val('');
     });
 
-    // Helper function
-    function toHexString(bytes) {
-        return Array.from(bytes, byte =>
-            ("00" + (byte & 0xFF).toString(16)).slice(-2)
-        ).join('');
-    }
-
-    // NIP-09 Event Delete
+    /**
+     * NIP-09 Event Delete
+     */
     const $delevent = $("#del-nevent");
     const $delsent = $("#del-sent");
     const $delbutton = $("#del-button");
@@ -68,13 +66,20 @@ jQuery(function($) {
         }
     });
     $delbutton.on("click", handleEventDelete);
-    $delreset.on("click", () => {
+    $delreset.on("click", (e) => {
+        e.preventDefault();
         $delsent.hide();
         $delevent.val('');
         $delbutton.prop("disabled", true);
     });
     async function handleEventDelete(e) {
         e.preventDefault();
+        // Check for Nostr extension
+        if (typeof window.nostr === 'undefined') {
+            console.error("Nostr extension not found");
+            alert('Nostr extension not found. Please install or enable your Nostr extension.');
+            return;
+        }
         let note = nip19.decode($delevent.val());
         // console.log(note);
         const { type, data } = note;
@@ -83,7 +88,8 @@ jQuery(function($) {
             created_at: Math.round(Date.now() / 1e3),
             content: "",
             tags: [
-              ["e", data.id]
+              ["e", data.id],
+              ["k", data.kind.toString()],
             ]
         });
         console.log(delreq);
@@ -97,9 +103,9 @@ jQuery(function($) {
         $delbutton.prop("disabled", true);
     }
 
-
-
-    // Web Zapper
+    /**
+     * Web Zapper
+     */
     const $nevent = $("#nevent");
     const $amount = $("#amount");
     const $comment = $("#comment");
@@ -137,7 +143,7 @@ jQuery(function($) {
         e.preventDefault();
         $(".preamble").hide();
 
-        // Check for extension if privateKey not provided
+        // Check for Nostr extension
         if (typeof window.nostr === 'undefined') {
             console.error("Nostr extension not found");
             alert('Nostr extension not found. Please install or enable your Nostr extension.');
@@ -339,5 +345,12 @@ jQuery(function($) {
         }
         // console.log('USER RELAYS: ', userRelays);
         return userRelays;
+    }
+
+    // Helper function
+    function toHexString(bytes) {
+        return Array.from(bytes, byte =>
+            ("00" + (byte & 0xFF).toString(16)).slice(-2)
+        ).join('');
     }
 });
