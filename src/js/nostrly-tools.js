@@ -49,6 +49,55 @@ jQuery(function($) {
         ).join('');
     }
 
+    // NIP-09 Event Delete
+    const $delevent = $("#del-nevent");
+    const $delsent = $("#del-sent");
+    const $delbutton = $("#del-button");
+    const $delreset = $("#del-reset");
+    $delevent.on("input", () => {
+        $delbutton.prop("disabled", true);
+        try {
+            let note = nip19.decode($delevent.val());
+            // console.log(note);
+            const { type, data } = note;
+            if ('nevent' == type) {
+                $delbutton.prop("disabled", false);
+            }
+        } catch(e) {
+            console.log(e);
+        }
+    });
+    $delbutton.on("click", handleEventDelete);
+    $delreset.on("click", () => {
+        $delevent.val('');
+        $delsent.hide();
+    });
+    async function handleEventDelete(e) {
+        e.preventDefault();
+        let note = nip19.decode($delevent.val());
+        // console.log(note);
+        const { type, data } = note;
+        let delreq = await window.nostr.signEvent({
+            kind: 5,
+            created_at: Math.round(Date.now() / 1e3),
+            content: "",
+            tags: [
+              ["e", data.id]
+            ]
+        });
+        console.log(delreq);
+        // Get user relays from cache, or request them from user
+        let userRelays = await getUserRelays();
+        await Promise.any(pool.publish(userRelays, delreq));
+        console.log('published delete request to at least one relay!');
+        doConfettiBomb();
+        $delsent.show();
+        $delevent.val('');
+        $delbutton.prop("disabled", true);
+    }
+
+
+
     // Web Zapper
     const $nevent = $("#nevent");
     const $amount = $("#amount");
@@ -107,13 +156,7 @@ jQuery(function($) {
         }));
 
         // Get user relays from cache, or request them from user
-        let userRelays = JSON.parse(localStorage.getItem("nostrly-user-relays"));
-        if (!userRelays) {
-            const relayObject = await window.nostr.getRelays();
-            userRelays = Object.keys(relayObject);
-            localStorage.setItem("nostrly-user-relays", JSON.stringify(userRelays));
-        }
-        // console.log('USER RELAYS: ', userRelays);
+        let userRelays = await getUserRelays();
 
         // Build and sign zap
         let zap = await window.nostr.signEvent(nip57.makeZapRequest({
@@ -282,5 +325,18 @@ jQuery(function($) {
             }
         }());
         confetti.reset();
+    }
+
+    // Get user's relays
+    async function getUserRelays() {
+        // Get user relays from cache, or request them from user
+        let userRelays = JSON.parse(localStorage.getItem("nostrly-user-relays"));
+        if (!userRelays) {
+            const relayObject = await window.nostr.getRelays();
+            userRelays = Object.keys(relayObject);
+            localStorage.setItem("nostrly-user-relays", JSON.stringify(userRelays));
+        }
+        // console.log('USER RELAYS: ', userRelays);
+        return userRelays;
     }
 });

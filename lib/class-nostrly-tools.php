@@ -13,6 +13,7 @@ class NostrlyTools
         add_shortcode('nostrly_key_converter', [$this, 'key_converter_shortcode']);
         add_shortcode('nostrly_nip19_decoder', [$this, 'nip19_decoder_shortcode']);
         add_shortcode('nostrly_zapevent', [$this, 'zapevent_shortcode']);
+        add_shortcode('nostrly_nip09_deleter', [$this, 'nip09_deleter_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
 
         $this->domain = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
@@ -178,6 +179,56 @@ class NostrlyTools
                         <p><button id="zap-invoice-copy" class="button">{$copyl}</button>
                         <button id="zap-cancel" class="button">{$cancl}</button></p>
                     </div>
+                </div>
+            EOL;
+    }
+
+    /**
+     * NIP-09 event delete shortcode.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function nip09_deleter_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-tools');
+        wp_enqueue_script('confetti');
+
+        $nlab = esc_attr('Note ID (nevent):', 'nostrly');
+        $delb = esc_html('Request Delete', 'nostrly');
+        $reset = esc_html('Reset fields', 'nostrly');
+
+        return <<<EOL
+                <div class="form" id="delevent">
+                    <style>
+                        #delevent label {
+                            display: block;
+                            font-weight: bold;
+                            margin-bottom: 0.25rem;
+                        }
+                        #delevent input {
+                            border-radius: 6px;
+                            margin-bottom: 1.24rem;
+                            text-transform: lowercase !important;
+                            width: 100%;
+                        }
+                        #del-sent {
+                            font-size: 1.5rem;
+                            line-height: 1;
+                            margin: 0.5rem 0 1.5rem 0;
+                            text-align: center;
+                        }
+                        #del-button:disabled {
+                            opacity: 0.6;
+                        }
+                    </style>
+                    <form id="del-init">
+                        <p id="del-sent" style="display:none;">Delete request sent!</p>
+                        <label for="del-nevent">{$nlab}</label>
+                        <input type="text" placeholder="nevent" value="" id="del-nevent">
+                        <p><button id="del-button" disabled class="button">{$delb}</button>&nbsp;&nbsp;&nbsp;<a href="#" id="del-reset">{$reset}</a></p>
+                    </form>
                 </div>
             EOL;
     }
