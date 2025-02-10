@@ -68,7 +68,7 @@ jQuery(function($) {
     $delbutton.on("click", handleEventDelete);
     $delreset.on("click", (e) => {
         e.preventDefault();
-        $delsent.hide();
+        $delsent.hide().text($delsent.attr("data-orig"));
         $delevent.val('');
         $delbutton.prop("disabled", true);
     });
@@ -92,7 +92,12 @@ jQuery(function($) {
               ["k", data.kind.toString()],
             ]
         });
-        console.log(delreq);
+        // console.log(delreq);
+        // Check pubkeys match
+        if (delreq.pubkey != data.author) {
+            $delsent.text('ERROR: You are not the author of this note!').show();
+            return;
+        }
         // Get user relays from cache, or request them from user
         let userRelays = await getUserRelays();
         await Promise.any(pool.publish(userRelays, delreq));

@@ -198,6 +198,7 @@ class NostrlyTools
         $nlab = esc_attr('Note ID (nevent):', 'nostrly');
         $delb = esc_html('Request Delete', 'nostrly');
         $reset = esc_html('Reset fields', 'nostrly');
+        $delok = esc_attr('Delete request sent!');
 
         return <<<EOL
                 <div class="form" id="delevent">
@@ -215,6 +216,7 @@ class NostrlyTools
                         }
                         #del-sent {
                             font-size: 1.5rem;
+                            font-weight: bold;
                             line-height: 1;
                             margin: 0.5rem 0 1.5rem 0;
                             text-align: center;
@@ -224,7 +226,7 @@ class NostrlyTools
                         }
                     </style>
                     <form id="del-init">
-                        <p id="del-sent" style="display:none;">Delete request sent!</p>
+                        <p id="del-sent" data-orig="{$delok}" style="display:none;">{$delok}</p>
                         <label for="del-nevent">{$nlab}</label>
                         <input type="text" placeholder="nevent" value="" id="del-nevent">
                         <p><button id="del-button" disabled class="button">{$delb}</button>&nbsp;&nbsp;&nbsp;<a href="#" id="del-reset">{$reset}</a></p>
