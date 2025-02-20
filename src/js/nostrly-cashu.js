@@ -199,6 +199,7 @@ jQuery(function($) {
 					console.log('change token :>> ', newToken);
 					$token.val(newToken);
 					setTimeout(() => {
+						$token.val(newToken);
 						processToken().then(() => {
 							$lightningStatus.text('Your change token is above!');
 							$lnurlRemover.addClass('hidden');
