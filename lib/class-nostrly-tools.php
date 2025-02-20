@@ -14,6 +14,7 @@ class NostrlyTools
         add_shortcode('nostrly_nip19_decoder', [$this, 'nip19_decoder_shortcode']);
         add_shortcode('nostrly_zapevent', [$this, 'zapevent_shortcode']);
         add_shortcode('nostrly_nip09_deleter', [$this, 'nip09_deleter_shortcode']);
+        add_shortcode('nostrly_cashu_redeem', [$this, 'cashu_redeem_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
 
         $this->domain = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
@@ -236,14 +237,53 @@ class NostrlyTools
     }
 
     /**
+     * NIP-09 event delete shortcode.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_redeem_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_style('nostrly-cashu');
+        wp_enqueue_script('nostrly-cashu');
+        wp_enqueue_script('confetti');
+
+        $image_path = esc_url(NOSTRLY_URL.'assets/img/');
+        $token = esc_attr('Paste in your Cashu ecash token...', 'nostrly');
+        $lnurl = esc_html('Paste Lightning address, Lightning invoice or LNURL', 'nostrly');
+        $redeem = esc_html('Redeem Token', 'nostrly');
+
+        return <<<EOL
+                <div id="cashu-redeem">
+                  <img src="{$image_path}rounded_192x192.png" class="logo" alt="Cashu logo" width="192" height="192" />
+                  <div id="tokenWrapper" class="text-wrapper">
+                    <textarea id="token" rows="10" cols="50" placeholder="{$token}"></textarea>
+                    <button id="tokenRemover" class="text-remover hidden">&times;</button>
+                  </div>
+                  <p id="tokenStatus" class="text-wrapper"></p>
+                  <p id="lightningStatus" class="text-wrapper"></p>
+                  <div id="lightningSection" class="hidden">
+                    <div id="lnurlWrapper" class="text-wrapper">
+                      <input type="text" placeholder="{$lnurl}" value="" id="lnurl">
+                      <button id="lnurlRemover" class="text-remover hidden">&times;</button>
+                    </div>
+                    <button id="redeem" class="button">{$redeem}</button>
+                  </div>
+                </div>
+            EOL;
+    }
+
+    /**
      * Enqueue scripts and styles
      * NB: Called from registration_shortcode() so we only load scripts if needed.
      */
     public function enqueue_scripts(): void
     {
+        wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        // wp_register_style('nostrly-tools', NOSTRLY_URL.'assets/css/tools.css', [], NOSTRLY_VERSION);
+        wp_register_style('nostrly-cashu', NOSTRLY_URL.'assets/css/cashu.css', [], NOSTRLY_VERSION);
         wp_localize_script('nostrly-tools', 'nostrly_ajax', [
             // 'ajax_url' => admin_url('admin-ajax.php'),
             // 'nonce' => wp_create_nonce('nostrly-nonce'),

@@ -10,6 +10,7 @@ export default {
     'nostrly': './src/js/nostrly.js',
     'nostrly-register': './src/js/nostrly-register.js',
     'nostrly-tools': './src/js/nostrly-tools.js',
+    'nostrly-cashu': './src/js/nostrly-cashu.js',
   },
   output: {
     filename: '[name].min.js',
