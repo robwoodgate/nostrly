@@ -141,11 +141,11 @@ jQuery(function($) {
 	// Melt the token and send the payment
 	const makePayment = async (event) => {
 		if (event) event.preventDefault();
-		if (tokenAmount < 4) {
-			throw 'Minimum token amount is 4 sats';
-		}
 		$lightningStatus.text('Attempting payment...');
 		try {
+			if (tokenAmount < 4) {
+				throw 'Minimum token amount is 4 sats';
+			}
 			let invoice = '';
 			let address = $lnurl.val() ?? '';
 			let iterateFee = null;
