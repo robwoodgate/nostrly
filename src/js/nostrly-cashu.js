@@ -197,9 +197,8 @@ jQuery(function($) {
 					const change = proofsToKeep.concat(meltResponse.change);
 					let newToken = getEncodedTokenV4({ mint: mintUrl, proofs: change });
 					console.log('change token :>> ', newToken);
-					$token.val(newToken);
 					setTimeout(() => {
-						$token.val(newToken);
+						$token.val(newToken).trigger('change');
 						processToken().then(() => {
 							$lightningStatus.text('Your change token is above!');
 							$lnurlRemover.addClass('hidden');
