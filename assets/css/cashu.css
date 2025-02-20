@@ -11,6 +11,11 @@
   margin: 0 auto;
 }
 
+#cashu-redeem input {
+  border-radius: 6px;
+  width: 100%;
+}
+
 .hidden {
   display: none;
 }
