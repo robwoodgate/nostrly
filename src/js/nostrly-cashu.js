@@ -26,6 +26,10 @@ jQuery(function($) {
 		    if (!decoded) {
 		        throw new Error("Could not process token");
 		    }
+		    // Check we have a pubkey set!
+		    if (!nostrly_ajax.pubkey) {
+		    	throw new Error("Thanks, but donations are disabled at the moment");
+		    }
 		    // Create a wallet connected to same mint as token
 		    const mintUrl = decoded.mint;
 			const mint = new CashuMint(mintUrl);
