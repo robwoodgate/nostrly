@@ -245,7 +245,6 @@ class NostrlyTools
     public function cashu_redeem_shortcode($atts, $content = null)
     {
         // Enqueue scripts and styles
-        wp_enqueue_style('nostrly-cashu');
         wp_enqueue_script('nostrly-cashu');
         wp_enqueue_script('confetti');
 
@@ -255,6 +254,40 @@ class NostrlyTools
         $redeem = esc_html('Redeem Token', 'nostrly');
 
         return <<<EOL
+                <style>
+                    #cashu-redeem {
+                      text-align: center;
+                    }
+                    #cashu-redeem input {
+                      border-radius: 6px;
+                      width: 100%;
+                    }
+                    .hidden {
+                      display: none;
+                    }
+                    .text-wrapper {
+                      margin: 20px auto;
+                      position: relative;
+                      width: 100%;
+                    }
+                    .text-remover {
+                      font-size: 20px;
+                      font-weight: bolder;
+                      padding: 5px 10px;
+                      position: absolute;
+                      right: 0;
+                      top: 0;
+                    }
+                    #lightningStatus, #tokenStatus {
+                      color: #37e837;
+                      font-size: 1.5rem;
+                      font-weight: bold;
+                      line-height: 1.35;
+                    }
+                    #lightningStatus {
+                      font-size: 1.25rem;
+                    }
+                </style>
                 <div id="cashu-redeem">
                   <img src="{$image_path}rounded_192x192.png" class="logo" alt="Cashu logo" width="192" height="192" />
                   <div id="tokenWrapper" class="text-wrapper">
@@ -283,7 +316,6 @@ class NostrlyTools
         wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_register_style('nostrly-cashu', NOSTRLY_URL.'assets/css/cashu.css', [], NOSTRLY_VERSION);
         wp_localize_script('nostrly-tools', 'nostrly_ajax', [
             // 'ajax_url' => admin_url('admin-ajax.php'),
             // 'nonce' => wp_create_nonce('nostrly-nonce'),
