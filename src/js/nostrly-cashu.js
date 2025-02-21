@@ -115,8 +115,9 @@ jQuery(function($) {
 					accumulator + currentValue.amount,
 				0
 			);
+			let mintHost = (new URL(mintUrl)).hostname;
 			$tokenStatus.text(
-				`Token value ${tokenAmount} sats from the mint ${mintUrl}`
+				`Token value ${tokenAmount} sats from the mint: ${mintHost}`
 			);
 			$lightningSection.removeClass('hidden');
 			$lightningStatus.text('Redeem to address / pay invoice...');
@@ -175,8 +176,9 @@ jQuery(function($) {
 			if (amountToSend > tokenAmount) {
 					throw 'Not enough to pay the invoice: needs ' + meltQuote.amount + ' + ' + meltQuote.fee_reserve + ' sats';
 			}
+			let mintHost = (new URL(mintUrl)).hostname;
 			$tokenStatus.text(
-				`Sending ${meltQuote.amount} sats (plus ${meltQuote.fee_reserve} sats network fees) via Lightning from the mint ${mintUrl}`
+				`Sending ${meltQuote.amount} sats (plus ${meltQuote.fee_reserve} sats network fees) via Lightning from mint: ${mintHost}`
 			);
 
 			// CashuWallet.send performs coin selection and swaps the proofs with the mint
@@ -228,14 +230,11 @@ jQuery(function($) {
 	$lnurlRemover.on("click", (e) => {
 		e.preventDefault();
 		$lnurl.val('');
-		$tokenStatus.text('');
-		$lightningStatus.text('');
 		$lnurlRemover.addClass('hidden');
 		$redeemButton.prop("disabled", true);
 	});
 	$token.on("input", processToken);
 	$lnurl.on("input", () => {
-		$lightningStatus.text('');
 		if ($lnurl.val()) {
 			$lnurlRemover.removeClass('hidden');
 			$redeemButton.prop("disabled", false);

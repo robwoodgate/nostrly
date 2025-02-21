@@ -3,7 +3,6 @@
 #cashu-redeem {
   --color-a: #7f38ca;
   --color-b: #37e837;
-  text-rendering: optimizeLegibility;
   text-align: center;
 }
 
@@ -18,16 +17,16 @@
 
 .text-wrapper {
   margin: 20px auto;
-  max-width: 80vw;
   position: relative;
   width: 100%;
 }
 
 .text-remover {
-  border: none;
+  border: 0;
+  border-radius: 25px;
   color: var(--color-a);
   font-size: 20px;
-  font-weight: 900;
+  font-weight: bolder;
   position: absolute;
   right: 0;
   top: 0;
@@ -40,28 +39,16 @@
 
 #tokenStatus {
   color: var(--color-a);
-  font-size: 2.4rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: bold;
   letter-spacing: -0.08rem;
   line-height: 1.35;
 }
 
 #lightningStatus {
   color: var(--color-b);
-  font-size: 2.4rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: bold;
   letter-spacing: -0.08rem;
   line-height: 1.35;
-}
-
-#footerWrapper {
-  font-size: medium;
-  margin-bottom: 2rem;
-  margin-top: 7rem;
-}
-
-#redeem {
-  font-size: 1.2rem;
-  margin-top: 1rem;
-
 }
