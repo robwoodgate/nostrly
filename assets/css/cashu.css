@@ -29,15 +29,13 @@
 }
 
 
-#tokenStatus {
+#lightningStatus, #tokenStatus {
+  color: #37e837;
   font-size: 1.5rem;
   font-weight: bold;
   line-height: 1.35;
 }
 
 #lightningStatus {
-  color: #37e837;
   font-size: 1.25rem;
-  font-weight: bold;
-  line-height: 1.35;
 }
