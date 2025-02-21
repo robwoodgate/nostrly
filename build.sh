@@ -3,8 +3,7 @@
 pkg="nostrly-saas.zip" # plugin name
 
 # Clear build assets
-rm assets/js/*.txt
-rm assets/js/*.js
+rm assets/js/nostrly*
 
 # Build packages
 composer install --no-dev

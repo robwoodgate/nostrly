@@ -1,4 +1,7 @@
 <?php
+/**
+ * Responsible for account login and profile updates
+ */
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }

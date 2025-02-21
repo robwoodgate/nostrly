@@ -11,7 +11,7 @@ export default {
     'nostrly-register': './src/js/nostrly-register.js',
     'nostrly-tools': './src/js/nostrly-tools.js',
     'nostrly-cashu': './src/js/nostrly-cashu.js',
-    // 'nostrly-public': './src/js/nostrly-public.js',
+    'nostrly-public': './src/js/nostrly-public.js',
   },
   output: {
     filename: '[name].min.js',

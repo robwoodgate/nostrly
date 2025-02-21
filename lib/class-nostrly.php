@@ -1,4 +1,8 @@
 <?php
+/**
+ * "Main" plugin class.
+ * Responsible for menus, settings, global scripts and methods.
+ */
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
@@ -156,8 +160,14 @@ class Nostrly
             'nonce' => wp_create_nonce('nostrly-nonce'),
             'domain' => preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST)),
             'relays' => Nostrly::get_relay_urls(),
+            'pubkey' => get_option('nostrly_rootkey'),
         ]);
         wp_add_inline_script('jquery', $js, 'before');
+        wp_enqueue_script('nostrly-public', NOSTRLY_URL.'assets/js/nostrly-public.min.js', [], NOSTRLY_VERSION, false); // NB: head
+
+        // Toastr - non-blocking notifications; https://github.com/CodeSeven/toastr
+        wp_enqueue_script('toastr', NOSTRLY_URL.'assets/js/toastr.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_enqueue_style('toastr', NOSTRLY_URL.'assets/css/toastr.min.css', [], NOSTRLY_VERSION, false); // NB: head
     }
 
     /**

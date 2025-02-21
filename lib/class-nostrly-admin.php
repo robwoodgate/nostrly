@@ -1,5 +1,7 @@
 <?php
-
+/**
+ * Responsible for theming the admin backend, login screen etc
+ */
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
