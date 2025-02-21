@@ -314,23 +314,5 @@ class NostrlyTools
         wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_localize_script('nostrly-tools', 'nostrly_ajax', [
-            // 'ajax_url' => admin_url('admin-ajax.php'),
-            // 'nonce' => wp_create_nonce('nostrly-nonce'),
-            // 'domain' => preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST)),
-            'relays' => $this->get_relay_urls(),
-        ]);
-    }
-
-    private function get_relay_urls(): array
-    {
-        $relays_option = get_option('nostrly_relays', implode("\n", Nostrly::DEFAULT_RELAYS));
-        $relays_array = explode("\n", $relays_option);
-
-        // Filter and escape URLs, allowing only wss protocol
-        $fn = function ($v) {return esc_url($v, ['wss']); };
-        $relays_array = array_filter(array_map($fn, array_map('trim', $relays_array)));
-
-        return empty($relays_array) ? Nostrly::DEFAULT_RELAYS : $relays_array;
     }
 }

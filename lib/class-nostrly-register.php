@@ -149,16 +149,11 @@ class NostrlyRegister
         wp_register_script('nostrly-register', NOSTRLY_URL.'assets/js/nostrly-register.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_style('nostrly-register', NOSTRLY_URL.'assets/css/register.css', [], NOSTRLY_VERSION);
-        wp_localize_script('nostrly-register', 'nostrly_ajax', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('nostrly-nonce'),
-            'domain' => preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST)),
-        ]);
     }
 
     /**
      * Get price for username.
-     * Allows NOSTRLY_PRICES override to be set in WP-Config
+     * Allows NOSTRLY_PRICES override to be set in WP-Config.
      *
      * @param string $name username to check
      *

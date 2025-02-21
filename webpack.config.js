@@ -7,10 +7,11 @@ const __dirname = path.dirname(__filename);
 
 export default {
   entry: {
-    'nostrly': './src/js/nostrly.js',
+    'nostrly-login': './src/js/nostrly-login.js',
     'nostrly-register': './src/js/nostrly-register.js',
     'nostrly-tools': './src/js/nostrly-tools.js',
     'nostrly-cashu': './src/js/nostrly-cashu.js',
+    // 'nostrly-public': './src/js/nostrly-public.js',
   },
   output: {
     filename: '[name].min.js',

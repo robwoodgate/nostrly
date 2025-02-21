@@ -3,6 +3,7 @@ import { CashuMint, CashuWallet, getDecodedToken, CheckStateEnum, getEncodedToke
 import { decode } from "@gandlaf21/bolt11-decode";
 import bech32 from 'bech32';
 
+
 jQuery(function($) {
 	let wallet;
 	let mintUrl = '';
