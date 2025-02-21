@@ -163,7 +163,7 @@ class Nostrly
             'pubkey' => get_option('nostrly_rootkey'),
         ]);
         wp_add_inline_script('jquery', $js, 'before');
-        wp_enqueue_script('nostrly-public', NOSTRLY_URL.'assets/js/nostrly-public.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        // wp_enqueue_script('nostrly-public', NOSTRLY_URL.'assets/js/nostrly-public.min.js', [], NOSTRLY_VERSION, false); // NB: head
 
         // Toastr - non-blocking notifications; https://github.com/CodeSeven/toastr
         wp_enqueue_script('toastr', NOSTRLY_URL.'assets/js/toastr.min.js', [], NOSTRLY_VERSION, false); // NB: head
