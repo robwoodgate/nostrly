@@ -4,6 +4,7 @@
   --color-a: #7f38ca;
   --color-b: #37e837;
   text-rendering: optimizeLegibility;
+  text-align: center;
 }
 
 #cashu-redeem .logo {
