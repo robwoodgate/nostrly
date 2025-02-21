@@ -198,6 +198,7 @@ jQuery(function($) {
 					let newToken = getEncodedTokenV4({ mint: mintUrl, proofs: change });
 					console.log('change token :>> ', newToken);
 					$token.val(newToken).show();
+					let bump = $token[0].offsetHeight; // Accessing this triggers reflow
 					setTimeout(() => {
 						processToken().then(() => {
 							$lightningStatus.text('Your change token is above!');
