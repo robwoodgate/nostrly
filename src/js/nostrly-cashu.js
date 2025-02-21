@@ -76,6 +76,7 @@ jQuery(function($) {
 		$tokenRemover.removeClass('hidden');
 		$lightningSection.addClass('hidden');
 		$tokenStatus.text('Checking token, one moment please...');
+		$lightningStatus.text('');
 		$redeemButton.prop("disabled", true);
 		try {
 			const tokenEncoded = $token.val();
@@ -193,19 +194,16 @@ jQuery(function($) {
 				doConfettiBomb();
 				// Tokenize any unspent proofs
 				if (proofsToKeep.length > 0 || meltResponse.change.length > 0) {
-					$lightningStatus.text("Success! Preparing your change...");
+					$lightningStatus.text("Success! Preparing your change token...");
 					const change = proofsToKeep.concat(meltResponse.change);
 					let newToken = getEncodedTokenV4({ mint: mintUrl, proofs: change });
 					console.log('change token :>> ', newToken);
-					$token.val(newToken).show();
-					let bump = $token[0].offsetHeight; // Accessing this triggers reflow
 					setTimeout(() => {
-						processToken().then(() => {
-							$lightningStatus.text('Your change token is above!');
-							$lnurlRemover.addClass('hidden');
-							$redeemButton.prop("disabled", true);
-							$lnurl.val('');
-						});
+						$redeemButton.prop("disabled", true);
+						$lnurlRemover.addClass('hidden');
+						$lnurl.val('');
+						$token.val(newToken);
+						$token.trigger('input');
 					}, 5000);
 				}
 			} else {
