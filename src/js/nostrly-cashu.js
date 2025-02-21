@@ -176,9 +176,8 @@ jQuery(function($) {
 			if (amountToSend > tokenAmount) {
 					throw 'Not enough to pay the invoice: needs ' + meltQuote.amount + ' + ' + meltQuote.fee_reserve + ' sats';
 			}
-			let mintHost = (new URL(mintUrl)).hostname;
-			$tokenStatus.text(
-				`Sending ${meltQuote.amount} sats (plus ${meltQuote.fee_reserve} sats network fees) via Lightning from mint: ${mintHost}`
+			$lightningStatus.text(
+				`Sending ${meltQuote.amount} sats (plus ${meltQuote.fee_reserve} sats network fees) via Lightning`
 			);
 
 			// CashuWallet.send performs coin selection and swaps the proofs with the mint
