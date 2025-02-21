@@ -248,7 +248,6 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu');
         wp_enqueue_script('confetti');
 
-        $image_path = esc_url(NOSTRLY_URL.'assets/img/');
         $token = esc_attr('Paste in your Cashu ecash token...', 'nostrly');
         $lnurl = esc_html('Paste Lightning address, Lightning invoice or LNURL', 'nostrly');
         $redeem = esc_html('Redeem Token', 'nostrly');
@@ -289,7 +288,6 @@ class NostrlyTools
                     }
                 </style>
                 <div id="cashu-redeem">
-                  <img src="{$image_path}rounded_192x192.png" class="logo" alt="Cashu logo" width="192" height="192" />
                   <div id="tokenWrapper" class="text-wrapper">
                     <textarea id="token" rows="10" cols="50" placeholder="{$token}"></textarea>
                     <button id="tokenRemover" class="text-remover hidden">&times;</button>
