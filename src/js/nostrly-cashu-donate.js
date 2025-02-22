@@ -1,3 +1,6 @@
+// This Cashu donate script is not used any more. The code was merged into the
+// main nostrly-cashu.js script. Keeping it here 'just in case'.
+
 import { SimplePool, finalizeEvent, generateSecretKey, getPublicKey, nip04 } from "nostr-tools";
 import { CashuMint, CashuWallet, getDecodedToken, getEncodedTokenV4 } from '@cashu/cashu-ts';
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
