@@ -159,7 +159,7 @@ class Nostrly
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('nostrly-nonce'),
             'domain' => preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST)),
-            'relays' => Nostrly::get_relay_urls(),
+            'relays' => self::get_relay_urls(),
             'pubkey' => get_option('nostrly_rootkey'),
         ]);
         wp_add_inline_script('jquery', $js, 'before');

@@ -302,14 +302,6 @@ class NostrlyLogin
         unset($errors->errors['empty_email']);
     }
 
-    // Add a debug logging function
-    private function log_debug($message)
-    {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Nostrly: '.$message);
-        }
-    }
-
     private function is_valid_public_key($key)
     {
         // Implement your validation logic for Nostr public keys
