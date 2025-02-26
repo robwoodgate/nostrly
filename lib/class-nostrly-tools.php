@@ -123,7 +123,7 @@ class NostrlyTools
         wp_enqueue_script('confetti');
         // wp_enqueue_style('nostrly-tools');
 
-        $nlab = esc_attr('Note ID (nevent):', 'nostrly');
+        $nlab = esc_attr('Note ID (nevent) or User Public Key (npub):', 'nostrly');
         $alab = esc_attr('Amount (in sats):', 'nostrly');
         $clab = esc_attr('Comment (optional):', 'nostrly');
         $cancl = esc_html('Cancel', 'nostrly');
@@ -167,7 +167,7 @@ class NostrlyTools
                     </style>
                     <form id="zap-init">
                         <label for="nevent">{$nlab}</label>
-                        <input type="text" placeholder="nevent" value="" id="nevent">
+                        <input type="text" placeholder="nevent | npub" value="" id="nevent">
                         <label for="amount">{$alab}</label>
                         <input type="text" placeholder="21" value="" id="amount">
                         <label for="comment">{$clab}</label>

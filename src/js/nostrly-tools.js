@@ -125,7 +125,7 @@ jQuery(function($) {
             let note = nip19.decode($nevent.val());
             // console.log(note);
             const { type, data } = note;
-            if ('nevent' == type) {
+            if ('npub' == type || 'nevent' == type) {
                 $paybutton.prop("disabled", false);
             }
         } catch(e) {
@@ -156,9 +156,13 @@ jQuery(function($) {
             return;
         }
 
-        // Get author and event id from note
+        // Get author and event id from note or npub
         let note = nip19.decode($nevent.val());
-        const { author, id } = note.data;
+        const { type, data } = note;
+        let { author, id } = data;
+        if ('npub' == type) {
+            author = data;
+        }
 
         // Sanitize amount and convert to millisats, default to 21 sats
         const sats = parseInt($amount.val(), 10) || 21;
@@ -212,9 +216,10 @@ jQuery(function($) {
         console.log('ZAP: ',zap);
         let paymentReceived = false;
         let timeoutId; // keep ref outside
+        const since = Math.round(Date.now() / 1000);
         let sub = pool.subscribeMany(
             userRelays,
-            [{ kinds: [9735], "#e": [id]}],
+            [{ kinds: [9735], "#p": [author], "since": since}],
             {
                 onevent(event) {
                   // onevent is only called once, the first time the event is received
