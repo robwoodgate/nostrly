@@ -1,6 +1,6 @@
 // Imports
 import * as nip19 from 'nostr-tools/nip19';
-import { nip57, signEvent } from 'nostr-tools';
+import { nip57, signEvent, finalizeEvent, generateSecretKey } from 'nostr-tools';
 import { verifyEvent, SimplePool } from 'nostr-tools';
 
 jQuery(function($) {
@@ -118,6 +118,7 @@ jQuery(function($) {
     const $comment = $("#comment");
     const $paybutton = $("#zap-pay-button");
     const $resetzap = $("#zap-reset");
+    let isAnon = false;
     $paybutton.on("click", handleWebZap);
     $nevent.on("input", () => {
         $paybutton.prop("disabled", true);
@@ -149,13 +150,6 @@ jQuery(function($) {
         e.preventDefault();
         $(".preamble").hide();
 
-        // Check for Nostr extension
-        if (typeof window.nostr === 'undefined') {
-            console.error("Nostr extension not found");
-            alert('Nostr extension not found. Please install or enable your Nostr extension.');
-            return;
-        }
-
         // Get author and event id from note or npub
         let note = nip19.decode($nevent.val());
         const { type, data } = note;
@@ -172,22 +166,19 @@ jQuery(function($) {
             sats: sats, comment: $comment.val()
         }));
 
-        // Get user relays from cache, or request them from user
-        let userRelays = await getUserRelays();
-
         // Build and sign zap
-        let zap = await window.nostr.signEvent(nip57.makeZapRequest({
+        let zap = await makeZapEvent({
           profile: author,
           event: id,
           amount: amount,
-          relays: userRelays,
+          relays: relays,
           comment: comment
-        }));
+        });
+        console.log('ZAP: ', zap);
 
         // Get a Lightning invoice from author
-        const authorProfile = await getProfileFromPubkey(author);
-        const authorMeta = JSON.parse(authorProfile.content);
-        const callback = await nip57.getZapEndpoint(authorProfile);
+        const metaProfile = await getProfileFromPubkey(author);
+        const callback = await nip57.getZapEndpoint(metaProfile);
         let encZap = encodeURIComponent(JSON.stringify(zap));
         let url = `${callback}?amount=${amount}&nostr=${encZap}`;
         if (comment) {
@@ -207,7 +198,9 @@ jQuery(function($) {
         $("#zap-init").hide();
         $("#zap-pay").show();
 
-        $("#zap-to").text(`Send Zap⚡️ to ${authorMeta.name}`);
+        const authorMeta = JSON.parse(metaProfile.content);
+        const anon = (isAnon === true) ? 'Anonymous ' : '';
+        $("#zap-to").text(`Send ${anon}Zap⚡️ to ${authorMeta.name}`);
         $("#zap-invoice-link").attr("href", `lightning:${pr}`);
         $("#zap-cashu-link").attr("href", `/cashu-redeem/?autopay=1&ln=${pr}`);
         $("#zap-amount").text(sats+' sats');
@@ -219,28 +212,27 @@ jQuery(function($) {
         });
 
         // Subscribe to receipt events
-        console.log('ZAP: ',zap);
         let paymentReceived = false;
         let timeoutId; // keep ref outside
-        const since = Math.round(Date.now() / 1000);
+        let since = Math.round(Date.now() / 1000);
         let sub = pool.subscribeMany(
-            userRelays,
+            relays,
             [{ kinds: [9735], "#p": [author], "since": since}],
             {
                 onevent(event) {
-                  // onevent is only called once, the first time the event is received
-                  // Check the bolt11 invoice matches our one
-                  let bolt11 = event.tags.find(([t]) => t === "bolt11"); // zap sender
-                  if (bolt11 && bolt11[1] == pr) {
-                    $("#zap-sent").show();
-                    $("#zap-invoice-img, #zap-amount, #zap-invoice-copy, #zap-cashu-link").hide();
-                    $("#zap-cancel").text('Reset');
-                    doConfettiBomb();
-                    paymentReceived = true;
-                    clearTimeout(timeoutId);
-                    sub.close(); // Close the subscription since we've found our match
-                  }
-                  console.log("RECEIPT: ", event);
+                    // onevent is only called once, the first time the event is received
+                    // Check the bolt11 invoice matches our one
+                    let bolt11 = event.tags.find(([t]) => t === "bolt11"); // zap sender
+                    if (bolt11 && bolt11[1] == pr) {
+                        $("#zap-sent").show();
+                        $("#zap-invoice-img, #zap-amount, #zap-invoice-copy, #zap-cashu-link").hide();
+                        $("#zap-cancel").text('Reset');
+                        doConfettiBomb();
+                        paymentReceived = true;
+                        clearTimeout(timeoutId);
+                        sub.close(); // Close the subscription since we've found our match
+                    }
+                    console.log("RECEIPT: ", event);
                 },
                 oneose() {
                     console.log("EOSE - End of Stored Events. Still listening for new events.");
@@ -314,6 +306,47 @@ jQuery(function($) {
         }());
         confetti.reset();
     }
+
+    // Build zap event, allowing it to be anonymous
+    const makeZapEvent = async ({
+        profile,
+        event,
+        amount,
+        relays,
+        comment,
+        anon
+    }) => {
+        const zapEvent = nip57.makeZapRequest({profile, event, amount, relays, comment});
+
+        // Informal tag used by apps like Damus
+        // They should display zap as anonymous
+        if (!canUseNip07Signer() || anon) {
+            zapEvent.tags.push(["anon"]);
+        }
+
+        return await signEvent(zapEvent, anon);
+    };
+
+    // Sign event using NIP07, or sign anonymously
+    const signEvent = async (zapEvent, anon) => {
+        if (canUseNip07Signer() && !anon) {
+            try {
+                const signed = await window.nostr.signEvent(zapEvent);
+                if (signed) {
+                    return signed;
+                }
+            } catch (e) {
+                // fail silently and sign event as an anonymous user
+            }
+        }
+        isAnon = true;
+        return finalizeEvent(zapEvent, generateSecretKey());
+    };
+
+    // Check for Nostr Extension
+    const canUseNip07Signer = () => {
+        return window !== undefined && window.nostr !== undefined;
+    };
 
     // Get user's relays
     async function getUserRelays() {
