@@ -7,6 +7,7 @@ rm assets/js/nostrly*
 
 # Build packages
 composer install --no-dev
+npm i
 npm run build
 
 # Create plugin

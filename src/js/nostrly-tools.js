@@ -228,7 +228,7 @@ jQuery(function($) {
                   let bolt11 = event.tags.find(([t]) => t === "bolt11"); // zap sender
                   if (bolt11 && bolt11[1] == pr) {
                     $("#zap-sent").show();
-                    $("#zap-invoice-img, #zap-amount, #zap-invoice-copy").hide();
+                    $("#zap-invoice-img, #zap-amount, #zap-invoice-copy, #zap-cashu-link").hide();
                     $("#zap-cancel").text('Reset');
                     doConfettiBomb();
                     paymentReceived = true;
