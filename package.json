@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "dependencies": {
-    "@cashu/cashu-ts": "^2.2.0",
+    "@cashu/cashu-ts": "^2.2.1",
     "@gandlaf21/bolt11-decode": "^3.1.1",
     "@nostr-dev-kit/ndk": "2.10.0",
     "nostr-tools": "2.7.2"

@@ -2,7 +2,7 @@
 Contributors: robwoodgate
 Tags: nostr
 Requires at least: 5.5
-Tested up to: 6.6
+Tested up to: 6.7.2
 Stable tag: trunk
 
 Enables login with Nostr identity, and syncs profile data.
