@@ -181,6 +181,7 @@ class NostrlyTools
                         <p><a id="zap-invoice-link"><img id="zap-invoice-img"/></a></p>
                         <p><button id="zap-invoice-copy" class="button">{$copyl}</button>
                         <button id="zap-cancel" class="button">{$cancl}</button></p>
+                        <p><a id="zap-cashu-link" target="_blank">Pay with Cashu ecash?</a></p>
                     </div>
                 </div>
             EOL;

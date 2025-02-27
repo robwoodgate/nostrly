@@ -204,6 +204,7 @@ jQuery(function($) {
 
         $("#zap-to").text(`Send Zap⚡️ to ${authorMeta.name}`);
         $("#zap-invoice-link").attr("href", `lightning:${pr}`);
+        $("#zap-cashu-link").attr("href", `/cashu-redeem/?autopay=1&ln=${pr}`);
         $("#zap-amount").text(sats+' sats');
         $("#zap-invoice-img").attr("src", img);
 
