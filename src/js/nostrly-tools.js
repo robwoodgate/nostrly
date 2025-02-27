@@ -183,19 +183,24 @@ jQuery(function($) {
           relays: userRelays,
           comment: comment
         }));
-        let encZap = encodeURI(JSON.stringify(zap));
 
         // Get a Lightning invoice from author
         const authorProfile = await getProfileFromPubkey(author);
         const authorMeta = JSON.parse(authorProfile.content);
         const callback = await nip57.getZapEndpoint(authorProfile);
-        const {pr} = await fetchJson(`${callback}?amount=${amount}&nostr=${encZap}`);
-        console.log(pr);
+        let encZap = encodeURIComponent(JSON.stringify(zap));
+        let url = `${callback}?amount=${amount}&nostr=${encZap}`;
+        if (comment) {
+        url = `${url}&comment=${encodeURIComponent(comment)}`;
+        }
+        const res = await fetch(url);
+        const { pr, reason, status } = await res.json();
 
         // Eek, something went wrong...
-        if (!pr) {
+        if (status === "ERROR" || !pr) {
             alert("Sorry, our request for a Zap invoice failed.");
         }
+        console.log(pr);
 
         // Go to payment...
         const img = 'https://quickchart.io/chart?cht=qr&chs=200x200&chl='+pr;
@@ -253,50 +258,14 @@ jQuery(function($) {
         );
     }
 
-    async function fetchJson(url) {
-        try {
-            // Use jQuery's AJAX method to make the request
-            const response = await $.ajax({
-                url: url,
-                type: 'GET',
-                dataType: 'json'
-            });
-
-            // Something went wrong
-            if (!response.pr) {
-                return null;
-            }
-
-            // Destructuring the response to match the stub's return structure
-            return { pr: response.pr };
-        } catch (error) {
-            console.error("Error fetching JSON:", error);
-            // Re-throw the error to be handled by the caller if necessary
-            // throw error;
-        }
-    }
-
+    // Query for the profile event (kind:0)
     async function getProfileFromPubkey(pubkey) {
         try {
             // Query for the profile event (kind:0)
-            const profileEvent = await pool.get(relays, {
+            return await pool.get(relays, {
                 kinds: [0],
                 authors: [pubkey]
             });
-
-            if (!profileEvent) {
-                console.log("Profile not found for public key: ", pubkey);
-                return null;
-            }
-
-            // Verify the event signature for security
-            if (!verifyEvent(profileEvent)) {
-                console.error("Invalid event signature");
-                return null;
-            }
-
-            // Return the JSON content
-            return profileEvent;
 
         } catch (error) {
             console.error("Error fetching or parsing profile:", error);
