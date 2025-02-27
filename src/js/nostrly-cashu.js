@@ -172,7 +172,12 @@ jQuery(function($) {
 			});
 			console.log('unspentProofs :>>', unspentProofs);
 			if (!unspentProofs.length) {
-		      throw 'Token already spent';
+				// Is this our saved token? If so, remove it
+				const lstoken = localStorage.getItem("nostrly-cashu-token");
+				if (lstoken == $token.val()) {
+					localStorage.removeItem("nostrly-cashu-token");
+				}
+		     	throw 'Token already spent';
 		    }
 			proofs = unspentProofs;
 			tokenAmount = proofs.reduce(
