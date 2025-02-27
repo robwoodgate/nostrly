@@ -191,11 +191,15 @@ jQuery(function($) {
 			);
 			$lightningSection.removeClass('hidden');
 			$lightningStatus.text('Redeem to address / pay invoice...');
-			// Autopay? Make sure we haven't just done it (eg: page refresh)
+			// Autopay?
 			let params = new URL(document.location.href).searchParams;
 			let autopay = decodeURIComponent(params.get('autopay') ?? '');
 			let lastpay = localStorage.getItem("nostrly-cashu-last-autopay");
-			if (autopay && $lnurl.val().length && lastpay != $lnurl.val()) {
+			if (autopay && $lnurl.val().length) {
+				// Clear URL params if this is a repeat (eg: page refresh)
+				if (lastpay == $lnurl.val()) {
+					window.location.href = window.location.origin + window.location.pathname;
+				}
 				// Update last autopay destination
 				localStorage.setItem("nostrly-cashu-last-autopay", $lnurl.val());
 				await makePayment();
