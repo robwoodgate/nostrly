@@ -264,6 +264,7 @@ jQuery(function($) {
 					const change = proofsToKeep.concat(meltResponse.change);
 					let newToken = getEncodedTokenV4({ mint: mintUrl, proofs: change });
 					console.log('change token :>> ', newToken);
+					localStorage.setItem("nostrly-cashu-token", newToken);
 					setTimeout(() => {
 						$redeemButton.prop("disabled", true);
 						$lnurlRemover.addClass('hidden');
@@ -315,9 +316,13 @@ jQuery(function($) {
 	// Allow auto populate fields
 	let params = new URL(document.location.href).searchParams;
 	const token = decodeURIComponent(params.get('token') ?? '');
+	const lstoken = localStorage.getItem("nostrly-cashu-token");
 	const to = decodeURIComponent(params.get('ln') || params.get('lightning') || params.get('to') || '');
-	if (token) {
+	if (token) { // Try URL token first...
 		$token.val(token);
+		processToken();
+	} else if (lstoken) { // ... Saved change second
+		$token.val(lstoken);
 		processToken();
 	}
 	if (to) {
