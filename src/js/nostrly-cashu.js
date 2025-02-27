@@ -194,7 +194,7 @@ jQuery(function($) {
 			// Autopay?
 			let params = new URL(document.location.href).searchParams;
 			let autopay = decodeURIComponent(params.get('autopay') ?? '');
-			if (autopay) {
+			if (autopay && $lnurl.val().length) {
 				await makePayment();
 			}
 		} catch (err) {
