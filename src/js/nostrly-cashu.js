@@ -339,6 +339,7 @@ jQuery(function($) {
 	}
 	if (to) {
 		$lnurl.val(to);
+		$lnurl.trigger('input');
 	}
 
 	// Confetti bomb
