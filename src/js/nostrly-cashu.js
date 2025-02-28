@@ -142,12 +142,12 @@ jQuery(function($) {
 		$lightningSection.addClass('hidden');
 		$tokenStatus.text('Checking token, one moment please...');
 		$lightningStatus.text('');
-		$redeemButton.prop("disabled", true);
 		try {
 			const tokenEncoded = $token.val();
 			if (!tokenEncoded) {
 				$tokenStatus.text('');
 				$tokenRemover.addClass('hidden');
+				$redeemButton.prop("disabled", true);
 				return;
 			}
 			const token = getDecodedToken(tokenEncoded);
