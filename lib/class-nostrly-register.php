@@ -90,6 +90,7 @@ class NostrlyRegister
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
         $copiedta = esc_html('✔ Copied to clipboard', 'nostrly');
+        $cashupay = esc_html('Pay with Cashu ecash?', 'nostrly');
         $sitedom = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
         $profile = admin_url('profile.php');
 
@@ -118,6 +119,7 @@ class NostrlyRegister
                     <p><a id="invoice-link"><img id="invoice-img"/></a></p>
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
                     <p><button id="cancel-registration" class="button">{$cancelrg}</button></p>
+                    <p><a href="" id="cashu-link" target="_blank">Pay with Cashu ecash?</a></p>
                 </div>
                 <div id="payment-failed" style="display:none;">
                     <h2>Houston, we have a problem...</h2>

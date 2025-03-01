@@ -279,6 +279,7 @@ jQuery(function($) {
         $("#pay-invoice").show();
 
         $("#invoice-link").attr("href", `lightning:${data.payment_request}`);
+        $("#cashu-link").attr("href", `/cashu-redeem/?autopay=1&ln=${data.payment_request}`);
         $("#name-to-register, #name-registered").text(`${name}@${domain}`);
         $("#amount-to-pay").text(shorten(data.amount)+' sats');
         $("#payment-hash").val(data.payment_hash);

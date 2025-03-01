@@ -8,6 +8,7 @@ node_modules/
 dist/
 vendor/
 assets/js/nostrly*
+*.zip
 
 # Compiled Java class files
 *.class
