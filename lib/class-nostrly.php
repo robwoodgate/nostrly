@@ -30,6 +30,10 @@ class Nostrly
         add_action('login_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('plugin_action_links_'.NOSTRLY_FILE, [$this, 'action_links']);
         add_filter('get_avatar_url', [$this, 'get_nostr_avatar_url'], 10, 3);
+        add_action('init', function() {
+            // Tell LiteSpeed Cache to treat our nonce as an ESI block
+            do_action('litespeed_nonce', 'nostrly-nonce');
+        });
     }
 
     public function gmp_check_extension()
