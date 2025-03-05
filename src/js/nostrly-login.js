@@ -7,23 +7,10 @@ const relays = nostrly_ajax.relays;
 // Ready scope
 jQuery(function($) {
 
-  var $useExtensionButton = $("#use_nostr_extension");
-  $useExtensionButton.on("click", handleNostrExtension);
-
-  async function handleNostrExtension(e) {
+  // Login button click
+  $("#use_nostr_extension").on("click", doNostrLogin);
+  async function doNostrLogin(e) {
     e.preventDefault();
-
-    try {
-      await performNostrLogin();
-    } catch (error) {
-      // console.error("Nostr extension error:", error);
-      alert(
-        "Failed to use Nostr extension. Please make sure you have a compatible extension installed and try again."
-      );
-    }
-  }
-
-  async function performNostrLogin() {
     try {
       // Check for extension
       if (typeof window.nostr === 'undefined') {
@@ -43,6 +30,7 @@ jQuery(function($) {
             created_at: Math.round(new Date().getTime() / 1e3),
             content: ""
         }); // Use Nostr API to sign
+        if (!authToken) throw new Error('Signing failed or was cancelled.');
         console.log("authtoken:", authToken);
       } catch (error) {
         console.error("Failed to create authtoken:", error);
@@ -51,6 +39,7 @@ jQuery(function($) {
       }
 
       // Fetch profile for authtoken's pubkey
+      $('#use_nostr_extension').text('Logging in...');
       let usermeta = await getProfileFromPubkey(authToken.pubkey); // JSON string
       console.log("User metadata:", JSON.parse(usermeta.content));
 
@@ -73,6 +62,7 @@ jQuery(function($) {
         },
         error: function () {
           alert("An error occurred. Please try again.");
+          $('#use_nostr_extension').text($('#use_nostr_extension').attr('data-orig'));
         },
       });
     } catch (error) {

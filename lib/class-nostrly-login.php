@@ -120,9 +120,9 @@ class NostrlyLogin
     public function add_nostrly_field()
     {
         ?>
-        <p class="nostrly-buttons">
-            <button type="button" id="use_nostr_extension" class="button"><?php esc_html_e('Use Nostr Extension', 'nostrly'); ?></button>
-        </p>
+        <div style="margin-bottom: 1em;">
+            <button type="button" id="use_nostr_extension" class="button" data-orig="<?php esc_html_e('Login with Nostr', 'nostrly'); ?>"><?php esc_html_e('Login with Nostr', 'nostrly'); ?></button>
+        </div>
         <?php
     }
 
