@@ -113,7 +113,7 @@ class NostrlyLogin
 
         // Do enqueue
         if ($enqueue) {
-            wp_enqueue_script('nostrly-login', plugin_dir_url(dirname(__FILE__)).'assets/js/nostrly-login.min.js', ['jquery'], '1.0', true);
+            wp_enqueue_script('nostrly-login', NOSTRLY_URL.'assets/js/nostrly-login.min.js', ['jquery'], NOSTRLY_VERSION, true);
         }
     }
 
