@@ -18,7 +18,7 @@ class NostrlyLogin
         add_action('edit_user_profile', [$this, 'add_custom_user_profile_fields']);
         add_action('login_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
-        add_action('login_form', [$this, 'add_nostrly_field']);
+        add_action('login_form', [$this, 'add_nostrly_field'], 99999);
         add_action('wp_ajax_nostrly_login', [$this, 'ajax_nostrly_login']);
         add_action('wp_ajax_nopriv_nostrly_login', [$this, 'ajax_nostrly_login']);
         add_action('wp_ajax_nostr_sync_profile', [$this, 'ajax_nostr_sync_profile']);
@@ -119,29 +119,11 @@ class NostrlyLogin
 
     public function add_nostrly_field()
     {
-        if (self::$field_added) {
-            return;
-        }
-        self::$field_added = true;
         ?>
-        <div class="nostrly-container">
-            <label for="nostrly_toggle" class="nostr-toggle-label">
-                <input type="checkbox" id="nostrly_toggle">
-                <span><?php esc_html_e('Use Nostr Login', 'nostrly'); ?></span>
-            </label>
-            <?php wp_nonce_field('nostrly-nonce', 'nostrly_nonce'); ?>
-        </div>
-        <p class="nostrly-field" style="display:none;">
-            <label for="nostr_private_key"><?php esc_html_e('Nostr Private Key (starting with "nsec")', 'nostrly'); ?></span></label>
-            <input type="password" name="nostr_private_key" id="nostr_private_key" class="input" size="20" autocapitalize="off" placeholder="nsec..." />
-        </p>
-        <p class="nostrly-buttons" style="display:none;">
+        <p class="nostrly-buttons">
             <button type="button" id="use_nostr_extension" class="button"><?php esc_html_e('Use Nostr Extension', 'nostrly'); ?></button>
-            <input type="submit" name="wp-submit" id="nostr-wp-submit" class="button button-primary" value="<?php esc_attr_e('Log In with Nostr', 'nostrly'); ?>">
         </p>
-        <div id="nostrly-feedback" style="display:none;"></div>
         <?php
-        remove_action('login_form', [$this, 'add_nostrly_field']);
     }
 
     public function ajax_nostrly_login()
@@ -154,9 +136,8 @@ class NostrlyLogin
         }
 
         // Sanitize input data
-        $metadata_json = sanitize_text_field(wp_unslash($_POST['metadata'] ?? ''));
+        $metadata = sanitize_text_field(wp_unslash($_POST['metadata'] ?? ''));
         $authtoken = sanitize_text_field(wp_unslash($_POST['authtoken'] ?? ''));
-        $authtoken = base64_decode($authtoken); // now a json encoded string
 
         // Verify authtoken event signature and format
         try {
@@ -193,7 +174,7 @@ class NostrlyLogin
         $user = $this->get_user_by_public_key($public_key);
         if ($user) {
             // Update existing user's metadata
-            $this->update_user_metadata($user->ID, $metadata_json);
+            $this->update_user_metadata($user->ID, $metadata);
 
             // Login user
             wp_set_current_user($user->ID);
@@ -327,10 +308,16 @@ class NostrlyLogin
         return !empty($users) ? $users[0] : false;
     }
 
-    private function update_user_metadata($user_id, $metadata_json)
+    private function update_user_metadata($user_id, $metadata)
     {
+        // Did we get any metadata?
+        if (empty($metadata)) {
+            Nostrly::log_debug('Metadata JSON was empty');
+            return;
+        }
+
         // Decode and sanitize metadata
-        $metadata = json_decode($metadata_json, true);
+        $metadata = json_decode($metadata, true);
         if (JSON_ERROR_NONE !== json_last_error()) {
             Nostrly::log_debug('Invalid metadata JSON: '.json_last_error_msg());
 

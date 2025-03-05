@@ -1,6 +1,5 @@
 // Imports
-import { NDKNip07Signer } from "@nostr-dev-kit/ndk";
-import * as nip19 from 'nostr-tools/nip19';
+import { nip19, getPublicKey } from "nostr-tools";
 
 jQuery(function($) {
     const domain = nostrly_ajax.domain;
@@ -64,7 +63,7 @@ jQuery(function($) {
                 console.log('Continuing registration session');
                 initPaymentProcessing(...item);
             } else {
-                try { localStorage.removeItem("nostrly-order") } catch(e) { }
+                try { localStorage.removeItem("nostrly-order"); } catch(e) { }
                 console.log('Registration session expired');
             }
         }
@@ -255,10 +254,9 @@ jQuery(function($) {
     async function useNip07() {
         if (stage !== 0) return;
         try {
-            const signer = new NDKNip07Signer();
-            const user = await signer.user();
-            if (user && user.npub) {
-                $pubkey.val(user.npub);
+            const pubkey = await window.nostr.getPublicKey();
+            if (pubkey) {
+                $pubkey.val(nip19.npubEncode(pubkey));
                 validatePk();
             } else {
                 throw new Error("Could not fetch public key from NIP-07 signer.");
