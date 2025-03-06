@@ -131,7 +131,7 @@ class NostrlyLogin
         // Sanitize and verify nonce
         $nonce = sanitize_text_field(wp_unslash($_POST['nonce'] ?? ''));
         if (!wp_verify_nonce($nonce, 'nostrly-nonce')) {
-            wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
+            wp_send_json_error(['message' => __('Session Expired. Please refresh the page and try again.', 'nostrly')]);
             wp_die();
         }
 

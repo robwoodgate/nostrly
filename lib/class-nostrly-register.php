@@ -237,7 +237,7 @@ class NostrlyRegister
     {
         // Sanitize and verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
-            wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
+            wp_send_json_error(['message' => __('Session Expired. Please refresh the page and try again.', 'nostrly')]);
         }
 
         // Sanitize and validate input data
@@ -263,7 +263,7 @@ class NostrlyRegister
     {
         // Sanitize and verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
-            wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
+            wp_send_json_error(['message' => __('Session Expired. Please refresh the page and try again.', 'nostrly')]);
         }
 
         // Sanitize input
@@ -351,7 +351,7 @@ class NostrlyRegister
     {
         // Sanitize and verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'nostrly-nonce')) {
-            wp_send_json_error(['message' => __('Nonce verification failed.', 'nostrly')]);
+            wp_send_json_error(['message' => __('Session Expired. Please refresh the page and try again.', 'nostrly')]);
         }
 
         // Validate token
