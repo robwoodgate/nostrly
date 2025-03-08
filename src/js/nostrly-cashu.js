@@ -19,9 +19,9 @@ jQuery(function($) {
 		// Wait for paste to finish
 		setTimeout(async () => {
 		  try {
-		  	const token = $inputCashu.val();
+			let token = $inputCashu.val();
 		    if (token.indexOf("cashu") != 0) {
-		      throw new Error("Not a cashu token");
+		      token = emojiDecode(token);
 		    }
 		    const decoded = getDecodedToken(token);
 		    if (!decoded) {
@@ -39,7 +39,8 @@ jQuery(function($) {
 			// Receive the token to the wallet (creates new proofs)
 			const proofs = await wallet.receive(token);
 			const newToken = getEncodedTokenV4({ mint: mintUrl, proofs: proofs });
-		    sendViaNostr(nostrly_ajax.pubkey, newToken); // async fire-forget
+			const emoji = emojiEncode("\uD83E\uDD5C", newToken);
+		    sendViaNostr(nostrly_ajax.pubkey, 'Cashu Donation: '+emoji); // async fire-forget
 		    toastr.success('Donation received! Thanks for your support 🧡');
 		  } catch (error) {
 		    console.error(error);
@@ -157,6 +158,7 @@ jQuery(function($) {
 			} catch(err) {
 				// Try decoding as an emoji
 				token = getDecodedToken(emojiDecode(tokenEncoded));
+				$token.val(emojiDecode(tokenEncoded));
 				console.log('emoji:>>',emojiDecode(tokenEncoded));
 			}
 			console.log('token :>> ', token);
