@@ -251,7 +251,7 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu');
         wp_enqueue_script('confetti');
 
-        $token = esc_attr('Paste in your Cashu ecash token...', 'nostrly');
+        $token = esc_attr('Paste in your Cashu ecash token (or ecash emoji 🥜)...', 'nostrly');
         $lnurl = esc_html('Paste Lightning address, Lightning invoice or LNURL', 'nostrly');
         $redeem = esc_html('Redeem Token', 'nostrly');
 

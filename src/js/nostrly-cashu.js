@@ -4,6 +4,7 @@ import { decode } from "@gandlaf21/bolt11-decode";
 import { SimplePool, finalizeEvent, generateSecretKey, getPublicKey, nip04 } from "nostr-tools";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import bech32 from 'bech32';
+import { encode as emojiEncode, decode as emojiDecode } from './emoji-encoder.ts';
 
 // Cashu Donation
 jQuery(function($) {
@@ -150,7 +151,14 @@ jQuery(function($) {
 				$redeemButton.prop("disabled", true);
 				return;
 			}
-			const token = getDecodedToken(tokenEncoded);
+			let token;
+			try {
+				token = getDecodedToken(tokenEncoded);
+			} catch(err) {
+				// Try decoding as an emoji
+				token = getDecodedToken(emojiDecode(tokenEncoded));
+				console.log('emoji:>>',emojiDecode(tokenEncoded));
+			}
 			console.log('token :>> ', token);
 			if (!token.proofs.length || !token.mint.length) {
 				throw 'Token format invalid';
