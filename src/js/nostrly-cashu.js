@@ -152,14 +152,16 @@ jQuery(function($) {
 				$redeemButton.prop("disabled", true);
 				return;
 			}
-			let token;
+			let token; // scope
 			try {
 				token = getDecodedToken(tokenEncoded);
 			} catch(err) {
-				// Try decoding as an emoji
-				token = getDecodedToken(emojiDecode(tokenEncoded));
-				$token.val(emojiDecode(tokenEncoded));
-				console.log('emoji:>>',emojiDecode(tokenEncoded));
+				// Try decoding as an emoji, update token input before
+				// token decode attempt as it throws an error on fail
+				const emoji = emojiDecode(tokenEncoded);
+				$token.val(emoji);
+				console.log('emoji:>>', emoji);
+				token = getDecodedToken(emoji); // throws on fail
 			}
 			console.log('token :>> ', token);
 			if (!token.proofs.length || !token.mint.length) {
