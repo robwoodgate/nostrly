@@ -343,13 +343,16 @@ jQuery(function($) {
 	const lstoken = localStorage.getItem("nostrly-cashu-token");
 	const to = decodeURIComponent(params.get('ln') || params.get('lightning') || params.get('to') || '');
 	if (token) { // Try URL token first...
+		$(".preamble").hide();
 		$token.val(token);
 		processToken();
 	} else if (lstoken) { // ... Saved change second
+		$(".preamble").hide();
 		$token.val(lstoken);
 		processToken();
 	}
 	if (to) {
+		$(".preamble").hide();
 		$lnurl.val(to);
 		$lnurl.trigger('input');
 	}
