@@ -292,7 +292,7 @@ class NostrlyTools
                 </style>
                 <div id="cashu-redeem">
                   <div id="tokenWrapper" class="text-wrapper">
-                    <textarea id="token" rows="10" cols="50" placeholder="{$token}"></textarea>
+                    <textarea id="token" rows="5" cols="50" placeholder="{$token}"></textarea>
                     <button id="tokenRemover" class="text-remover hidden">&times;</button>
                   </div>
                   <p id="tokenStatus" class="text-wrapper"></p>
