@@ -251,14 +251,19 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu');
         wp_enqueue_script('confetti');
 
+        $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
-        $lnurl = esc_html('Paste Lightning address, Lightning invoice or LNURL', 'nostrly');
+        $lnurl_label = esc_html('Lightning address/invoice/LNURL', 'nostrly');
+        $lnurl = esc_html('Enter a Lightning address, Lightning invoice or LNURL', 'nostrly');
         $redeem = esc_html('Redeem Token', 'nostrly');
 
         return <<<EOL
                 <style>
                     #cashu-redeem {
                       text-align: center;
+                    }
+                    #cashu-redeem label {
+                      margin-bottom: 0;
                     }
                     #cashu-redeem input, #cashu-redeem textarea {
                       border-radius: 6px;
@@ -268,7 +273,7 @@ class NostrlyTools
                       display: none;
                     }
                     .text-wrapper {
-                      margin: 20px auto;
+                      margin: 3px auto;
                       position: relative;
                       width: 100%;
                     }
@@ -289,18 +294,23 @@ class NostrlyTools
                     #lightningStatus {
                       font-size: 1.25rem;
                     }
+                    #redeem {
+                        margin-top: 1em;
+                    }
                 </style>
                 <div id="cashu-redeem">
+                  <label for="token">{$token_label}</label>
                   <div id="tokenWrapper" class="text-wrapper">
-                    <textarea id="token" rows="3" cols="50" placeholder="{$token}"></textarea>
+                    <textarea id="token" rows="4" cols="50" placeholder="{$token}"></textarea>
                     <button id="tokenRemover" class="text-remover hidden">&times;</button>
                   </div>
-                  <p id="tokenStatus" class="text-wrapper"></p>
-                  <p id="lightningStatus" class="text-wrapper"></p>
+                  <label for="lnurl">{$lnurl_label}</label>
                   <div id="lnurlWrapper" class="text-wrapper">
                     <input type="text" placeholder="{$lnurl}" value="" id="lnurl">
                     <button id="lnurlRemover" class="text-remover hidden">&times;</button>
                   </div>
+                  <p id="tokenStatus" class="text-wrapper"></p>
+                  <p id="lightningStatus" class="text-wrapper"></p>
                   <button id="redeem" class="button" disabled>{$redeem}</button>
                 </div>
             EOL;
