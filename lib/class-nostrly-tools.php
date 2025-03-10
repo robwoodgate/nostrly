@@ -260,14 +260,20 @@ class NostrlyTools
         return <<<EOL
                 <style>
                     #cashu-redeem {
-                      text-align: center;
+                      margin-bottom: 40px;
                     }
                     #cashu-redeem label {
+                      font-weight: bold;
                       margin-bottom: 0;
+                      text-align: left;
                     }
                     #cashu-redeem input, #cashu-redeem textarea {
                       border-radius: 6px;
+                      padding: 6px 15px;
                       width: 100%;
+                    }
+                    .center {
+                      text-align: center;
                     }
                     .hidden {
                       display: none;
@@ -278,6 +284,7 @@ class NostrlyTools
                       width: 100%;
                     }
                     .text-remover {
+                      border-radius: 6px;
                       font-size: 20px;
                       font-weight: bolder;
                       padding: 5px 10px;
@@ -290,12 +297,14 @@ class NostrlyTools
                       font-size: 1.5rem;
                       font-weight: bold;
                       line-height: 1.35;
+                      margin: 0.5em 0;
+                      text-align: center;
                     }
                     #lightningStatus {
                       font-size: 1.25rem;
                     }
                     #redeem {
-                        margin-top: 1em;
+                        margin: 1em auto;
                     }
                 </style>
                 <div id="cashu-redeem">
@@ -309,9 +318,11 @@ class NostrlyTools
                     <input type="text" placeholder="{$lnurl}" value="" id="lnurl">
                     <button id="lnurlRemover" class="text-remover hidden">&times;</button>
                   </div>
-                  <p id="tokenStatus" class="text-wrapper"></p>
-                  <p id="lightningStatus" class="text-wrapper"></p>
-                  <button id="redeem" class="button" disabled>{$redeem}</button>
+                  <div class="center">
+                    <p id="tokenStatus" class="text-wrapper"></p>
+                    <p id="lightningStatus" class="text-wrapper"></p>
+                    <button id="redeem" class="button" disabled>{$redeem}</button>
+                  </div>
                 </div>
             EOL;
     }
