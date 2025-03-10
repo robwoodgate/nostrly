@@ -251,7 +251,7 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu');
         wp_enqueue_script('confetti');
 
-        $token = esc_attr('Paste in your Cashu ecash token (or ecash emoji 🥜)...', 'nostrly');
+        $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
         $lnurl = esc_html('Paste Lightning address, Lightning invoice or LNURL', 'nostrly');
         $redeem = esc_html('Redeem Token', 'nostrly');
 
@@ -260,7 +260,7 @@ class NostrlyTools
                     #cashu-redeem {
                       text-align: center;
                     }
-                    #cashu-redeem input {
+                    #cashu-redeem input, #cashu-redeem textarea {
                       border-radius: 6px;
                       width: 100%;
                     }
@@ -292,18 +292,16 @@ class NostrlyTools
                 </style>
                 <div id="cashu-redeem">
                   <div id="tokenWrapper" class="text-wrapper">
-                    <textarea id="token" rows="5" cols="50" placeholder="{$token}"></textarea>
+                    <textarea id="token" rows="3" cols="50" placeholder="{$token}"></textarea>
                     <button id="tokenRemover" class="text-remover hidden">&times;</button>
                   </div>
                   <p id="tokenStatus" class="text-wrapper"></p>
                   <p id="lightningStatus" class="text-wrapper"></p>
-                  <div id="lightningSection" class="hidden">
-                    <div id="lnurlWrapper" class="text-wrapper">
-                      <input type="text" placeholder="{$lnurl}" value="" id="lnurl">
-                      <button id="lnurlRemover" class="text-remover hidden">&times;</button>
-                    </div>
-                    <button id="redeem" class="button">{$redeem}</button>
+                  <div id="lnurlWrapper" class="text-wrapper">
+                    <input type="text" placeholder="{$lnurl}" value="" id="lnurl">
+                    <button id="lnurlRemover" class="text-remover hidden">&times;</button>
                   </div>
+                  <button id="redeem" class="button" disabled>{$redeem}</button>
                 </div>
             EOL;
     }

@@ -81,7 +81,6 @@ jQuery(function($) {
 	const $token = $("#token");
 	const $tokenStatus = $("#tokenStatus");
 	const $lightningStatus = $("#lightningStatus");
-	const $lightningSection = $("#lightningSection");
 	const $tokenRemover = $('#tokenRemover');
 	const $lnurlRemover = $('#lnurlRemover');
 	const $redeemButton = $('#redeem');
@@ -141,7 +140,6 @@ jQuery(function($) {
 	const processToken = async (event) => {
 		if (event) event.preventDefault();
 		$tokenRemover.removeClass('hidden');
-		$lightningSection.addClass('hidden');
 		$tokenStatus.text('Checking token, one moment please...');
 		$lightningStatus.text('');
 		try {
@@ -150,6 +148,7 @@ jQuery(function($) {
 				$tokenStatus.text('');
 				$tokenRemover.addClass('hidden');
 				$redeemButton.prop("disabled", true);
+				tokenAmount = 0;
 				return;
 			}
 			let token; // scope
@@ -201,8 +200,10 @@ jQuery(function($) {
 			$tokenStatus.text(
 				`Token value ${tokenAmount} sats from the mint: ${mintHost}`
 			);
-			$lightningSection.removeClass('hidden');
-			$lightningStatus.text('Redeem to address / pay invoice...');
+			// Enable redeem button if lnurl is already set
+			if ($lnurl.val()) {
+				$redeemButton.prop("disabled", false);
+			}
 			// Autopay?
 			let params = new URL(document.location.href).searchParams;
 			let autopay = decodeURIComponent(params.get('autopay') ?? '');
@@ -313,8 +314,8 @@ jQuery(function($) {
 		$tokenStatus.text('');
 		$lightningStatus.text('');
 		$tokenRemover.addClass('hidden');
-		$lightningSection.addClass('hidden');
 		$redeemButton.prop("disabled", true);
+		tokenAmount = 0;
 	});
 	$lnurlRemover.on("click", (e) => {
 		e.preventDefault();
