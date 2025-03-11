@@ -158,8 +158,9 @@ jQuery(function($) {
 				// Try decoding as an emoji, update token input before
 				// token decode attempt as it throws an error on fail
 				const emoji = emojiDecode(tokenEncoded);
-				$token.val(emoji);
-				console.log('emoji:>>', emoji);
+				if (emoji) { // ignore if no peanut data
+					$token.val(emoji);
+				}
 				token = getDecodedToken(emoji); // throws on fail
 			}
 			console.log('token :>> ', token);
