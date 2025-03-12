@@ -197,6 +197,7 @@ jQuery(function($) {
             if (unspentProofs.length != proofs.length) {
                 $token.val(getEncodedTokenV4({ mint: mintUrl, proofs: unspentProofs }));
                 proofs = unspentProofs;
+                $lightningStatus.text('(Partially spent token detected - new token generated)');
             }
             tokenAmount = proofs.reduce(
                 (accumulator, currentValue) =>
@@ -207,7 +208,6 @@ jQuery(function($) {
             $tokenStatus.text(
                 `Token value ${tokenAmount} sats from the mint: ${mintHost}`
             );
-            // $lightningStatus.text('Redeem to address / pay invoice...');
             // Enable redeem button if lnurl is already set
             if ($lnurl.val()) {
                 $redeemButton.prop("disabled", false);
