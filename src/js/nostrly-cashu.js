@@ -163,6 +163,7 @@ jQuery(function ($) {
       if (!tokenEncoded) {
         $tokenStatus.text("");
         $tokenRemover.addClass("hidden");
+        $pkeyWrapper.hide();
         $redeemButton.prop("disabled", true);
         tokenAmount = 0;
         return;
