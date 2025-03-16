@@ -1,136 +1,136 @@
 /* Registration */
 
 #nostrly-register label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 0.25rem;
+  display: block;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
 }
 
 #reg-username {
-    border-radius: 6px;
-    text-align: left;
+  border-radius: 6px;
+  text-align: left;
 }
 
 #reg-pubkey {
-    border-radius: 6px;
-    margin-bottom: 0.5rem;
-    margin-right: 5px;
-    max-width: 32rem;
-    text-align: left;
-    width:100%;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  margin-right: 5px;
+  max-width: 32rem;
+  text-align: left;
+  width: 100%;
 }
 
 #reg-pubkey[data-valid="yes"],
 #reg-username[data-valid="yes"] {
-    border: 2px solid rgb(49, 194, 54);
-    background-color: rgba(49, 194, 54, 0.3);
-    color: white;
+  border: 2px solid rgb(49, 194, 54);
+  background-color: rgba(49, 194, 54, 0.3);
+  color: white;
 }
 
 #reg-pubkey[data-valid="no"],
 #reg-username[data-valid="no"] {
-    border: 2px solid rgb(204, 55, 55);
-    background-color: rgba(204, 55, 55,0.3);
-    color: white;
-
+  border: 2px solid rgb(204, 55, 55);
+  background-color: rgba(204, 55, 55, 0.3);
+  color: white;
 }
 
 #reg-pubkey[data-valid="yes"]:focus,
 #reg-username[data-valid="yes"]:focus {
-    border: 2px solid rgb(80, 192, 164) !important;
-    background-color: rgba(49, 194, 54, 0.5);
+  border: 2px solid rgb(80, 192, 164) !important;
+  background-color: rgba(49, 194, 54, 0.5);
 }
 
 #reg-pubkey[data-valid="no"]:focus,
 #reg-username[data-valid="no"]:focus {
-    border: 2px solid rgb(235, 35, 65) !important;
-    background-color: rgba(235, 35, 65, 0.5)
+  border: 2px solid rgb(235, 35, 65) !important;
+  background-color: rgba(235, 35, 65, 0.5);
 }
 
 #reg-error {
-    color: rgb(204, 55, 55);
-    font-size: 1.2rem;
-    font-weight: bold;
-    height:1rem;
-    user-select: all;
+  color: rgb(204, 55, 55);
+  font-size: 1.2rem;
+  font-weight: bold;
+  height: 1rem;
+  user-select: all;
 }
 
 #pubkey-warning {
-    display: none;
-    font-size: 0.9rem;
-    margin-top: 0;
-    color: rgb(224, 224, 61);
+  display: none;
+  font-size: 0.9rem;
+  margin-top: 0;
+  color: rgb(224, 224, 61);
 }
 
 #register-next {
-    margin-top: 1.5rem;
+  margin-top: 1.5rem;
 }
 #register-next:disabled {
-    opacity: 0.6;
+  opacity: 0.6;
 }
 
 .reg-status {
-    color: rgb(170, 170, 170);
-    display: block;
-    font-weight: bold;
-    margin-top: 0.5rem;
+  color: rgb(170, 170, 170);
+  display: block;
+  font-weight: bold;
+  margin-top: 0.5rem;
 }
 
 .reg-status[data-available="yes"] {
-    color: rgb(55, 204, 60);
+  color: rgb(55, 204, 60);
 }
 
 .reg-status[data-available="no"] {
-    color: rgb(204, 55, 55);
+  color: rgb(204, 55, 55);
 }
 
 a {
-    color: #709dff;
+  color: #709dff;
 }
 
 pre {
-    background-color: rgb(74, 74, 74);
-    border-radius: 8px;
-    font-size: 1rem;
-    margin: 0 auto;
-    padding: 0.15rem;
-    user-select: text;
-    width: 30rem;
+  background-color: rgb(74, 74, 74);
+  border-radius: 8px;
+  font-size: 1rem;
+  margin: 0 auto;
+  padding: 0.15rem;
+  user-select: text;
+  width: 30rem;
 }
 
 #pay-invoice {
-    text-align: center;
+  text-align: center;
 }
 
 #payment-hash {
-    margin: 0 auto;
-    text-align: center;
-    width:100%;
+  margin: 0 auto;
+  text-align: center;
+  width: 100%;
 }
 
 .copy_alert {
-    background-color: #000;
-    opacity: 0.8;
-    color: rgb(55, 204, 60);
-    font-size: 16px;
-    font-weight: bold;
-    padding: 2px 5px;
-    position: absolute;
-    text-align: center;
-    border-radius: 0 0 5px 5px;
-    z-index: 1000;
+  background-color: #000;
+  opacity: 0.8;
+  color: rgb(55, 204, 60);
+  font-size: 16px;
+  font-weight: bold;
+  padding: 2px 5px;
+  position: absolute;
+  text-align: center;
+  border-radius: 0 0 5px 5px;
+  z-index: 1000;
 }
 
 #pay-invoice > p {
-    font-weight: bold;
+  font-weight: bold;
 }
 
-#name-to-register, #name-registered {
-    color: rgb(55, 204, 60);
-    font-weight: bold;
+#name-to-register,
+#name-registered {
+  color: rgb(55, 204, 60);
+  font-weight: bold;
 }
 
 #nip05-password {
-    font-size: 1.25rem;
-    text-align: center;
+  font-size: 1.25rem;
+  text-align: center;
 }

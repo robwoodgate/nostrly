@@ -1,891 +1,835 @@
 {
-    "_readme": [
-        "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
-        "This file is @generated automatically"
-    ],
-    "content-hash": "044543b873628bf8e7ba9a03159010ca",
-    "packages": [
-        {
-            "name": "bitwasp/bech32",
-            "version": "v0.0.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Bit-Wasp/bech32.git",
-                "reference": "e1ea58c848a4ec59d81b697b3dfe9cc99968d0e7"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Bit-Wasp/bech32/zipball/e1ea58c848a4ec59d81b697b3dfe9cc99968d0e7",
-                "reference": "e1ea58c848a4ec59d81b697b3dfe9cc99968d0e7",
-                "shasum": ""
-            },
-            "require-dev": {
-                "phpunit/phpunit": "^5.4.0",
-                "squizlabs/php_codesniffer": "^2.0.0"
-            },
-            "type": "library",
-            "autoload": {
-                "files": [
-                    "src/bech32.php"
-                ],
-                "psr-4": {
-                    "BitWasp\\Bech32\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "Unlicense"
-            ],
-            "authors": [
-                {
-                    "name": "Thomas Kerin",
-                    "homepage": "https://thomaskerin.io",
-                    "role": "Author"
-                }
-            ],
-            "description": "Pure (no dependencies) implementation of bech32",
-            "homepage": "https://github.com/bit-wasp/bech32",
-            "support": {
-                "issues": "https://github.com/Bit-Wasp/bech32/issues",
-                "source": "https://github.com/Bit-Wasp/bech32/tree/more-tests"
-            },
-            "time": "2018-02-05T22:23:47+00:00"
-        },
-        {
-            "name": "firebase/php-jwt",
-            "version": "v6.10.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/firebase/php-jwt.git",
-                "reference": "a49db6f0a5033aef5143295342f1c95521b075ff"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/firebase/php-jwt/zipball/a49db6f0a5033aef5143295342f1c95521b075ff",
-                "reference": "a49db6f0a5033aef5143295342f1c95521b075ff",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^7.4||^8.0"
-            },
-            "require-dev": {
-                "guzzlehttp/guzzle": "^6.5||^7.4",
-                "phpspec/prophecy-phpunit": "^2.0",
-                "phpunit/phpunit": "^9.5",
-                "psr/cache": "^1.0||^2.0",
-                "psr/http-client": "^1.0",
-                "psr/http-factory": "^1.0"
-            },
-            "suggest": {
-                "ext-sodium": "Support EdDSA (Ed25519) signatures",
-                "paragonie/sodium_compat": "Support EdDSA (Ed25519) signatures when libsodium is not present"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Firebase\\JWT\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "BSD-3-Clause"
-            ],
-            "authors": [
-                {
-                    "name": "Neuman Vong",
-                    "email": "neuman+pear@twilio.com",
-                    "role": "Developer"
-                },
-                {
-                    "name": "Anant Narayanan",
-                    "email": "anant@php.net",
-                    "role": "Developer"
-                }
-            ],
-            "description": "A simple library to encode and decode JSON Web Tokens (JWT) in PHP. Should conform to the current spec.",
-            "homepage": "https://github.com/firebase/php-jwt",
-            "keywords": [
-                "jwt",
-                "php"
-            ],
-            "support": {
-                "issues": "https://github.com/firebase/php-jwt/issues",
-                "source": "https://github.com/firebase/php-jwt/tree/v6.10.0"
-            },
-            "time": "2023-12-01T16:26:39+00:00"
-        },
-        {
-            "name": "phrity/net-stream",
-            "version": "2.1.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/sirn-se/phrity-net-stream.git",
-                "reference": "e6ace997168bebcce814c95cd5c78c78663ae49a"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/sirn-se/phrity-net-stream/zipball/e6ace997168bebcce814c95cd5c78c78663ae49a",
-                "reference": "e6ace997168bebcce814c95cd5c78c78663ae49a",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^8.0",
-                "phrity/util-errorhandler": "^1.1",
-                "psr/http-factory": "^1.0",
-                "psr/http-message": "^1.1 | ^2.0"
-            },
-            "require-dev": {
-                "php-coveralls/php-coveralls": "^2.0",
-                "phpunit/phpunit": "^9.0 | ^10.0 | ^11.0",
-                "phrity/net-uri": "^2.0",
-                "squizlabs/php_codesniffer": "^3.5"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Phrity\\Net\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Sören Jensen",
-                    "email": "sirn@sirn.se",
-                    "homepage": "https://phrity.sirn.se"
-                }
-            ],
-            "description": "Socket stream classes implementing PSR-7 Stream and PSR-17 StreamFactory",
-            "homepage": "https://phrity.sirn.se/net-stream",
-            "keywords": [
-                "Socket",
-                "client",
-                "psr-17",
-                "psr-7",
-                "server",
-                "stream",
-                "stream factory"
-            ],
-            "support": {
-                "issues": "https://github.com/sirn-se/phrity-net-stream/issues",
-                "source": "https://github.com/sirn-se/phrity-net-stream/tree/2.1.2"
-            },
-            "time": "2025-01-09T08:07:34+00:00"
-        },
-        {
-            "name": "phrity/net-uri",
-            "version": "2.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/sirn-se/phrity-net-uri.git",
-                "reference": "841190135af4fab18135226aaaf99ec5791377ac"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/sirn-se/phrity-net-uri/zipball/841190135af4fab18135226aaaf99ec5791377ac",
-                "reference": "841190135af4fab18135226aaaf99ec5791377ac",
-                "shasum": ""
-            },
-            "require": {
-                "ext-mbstring": "*",
-                "php": "^8.0",
-                "psr/http-factory": "^1.0",
-                "psr/http-message": "^1.1 | ^2.0"
-            },
-            "require-dev": {
-                "php-coveralls/php-coveralls": "^2.0",
-                "phpunit/phpunit": "^9.0 | ^10.0 | ^11.0",
-                "phrity/util-errorhandler": "^1.1",
-                "squizlabs/php_codesniffer": "^3.5"
-            },
-            "suggest": {
-                "ext-intl": "Enables IDN conversion for non-ASCII domains"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Phrity\\Net\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Sören Jensen",
-                    "email": "sirn@sirn.se",
-                    "homepage": "https://phrity.sirn.se"
-                }
-            ],
-            "description": "PSR-7 Uri and PSR-17 UriFactory implementation",
-            "homepage": "https://phrity.sirn.se/net-uri",
-            "keywords": [
-                "psr-17",
-                "psr-7",
-                "uri",
-                "uri factory"
-            ],
-            "support": {
-                "issues": "https://github.com/sirn-se/phrity-net-uri/issues",
-                "source": "https://github.com/sirn-se/phrity-net-uri/tree/2.1.0"
-            },
-            "time": "2024-07-08T06:14:09+00:00"
-        },
-        {
-            "name": "phrity/util-errorhandler",
-            "version": "1.1.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/sirn-se/phrity-util-errorhandler.git",
-                "reference": "483228156e06673963902b1cc1e6bd9541ab4d5e"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/sirn-se/phrity-util-errorhandler/zipball/483228156e06673963902b1cc1e6bd9541ab4d5e",
-                "reference": "483228156e06673963902b1cc1e6bd9541ab4d5e",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^7.4 | ^8.0"
-            },
-            "require-dev": {
-                "php-coveralls/php-coveralls": "^2.0",
-                "phpunit/phpunit": "^9.0 | ^10.0 | ^11.0",
-                "squizlabs/php_codesniffer": "^3.5"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Phrity\\Util\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Sören Jensen",
-                    "email": "sirn@sirn.se",
-                    "homepage": "https://phrity.sirn.se"
-                }
-            ],
-            "description": "Inline error handler; catch and resolve errors for code block.",
-            "homepage": "https://phrity.sirn.se/util-errorhandler",
-            "keywords": [
-                "error",
-                "warning"
-            ],
-            "support": {
-                "issues": "https://github.com/sirn-se/phrity-util-errorhandler/issues",
-                "source": "https://github.com/sirn-se/phrity-util-errorhandler/tree/1.1.1"
-            },
-            "time": "2024-09-12T06:49:16+00:00"
-        },
-        {
-            "name": "phrity/websocket",
-            "version": "3.2.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/sirn-se/websocket-php.git",
-                "reference": "6dceb42be8bfd500806a5508721ae14cf0d4d737"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/sirn-se/websocket-php/zipball/6dceb42be8bfd500806a5508721ae14cf0d4d737",
-                "reference": "6dceb42be8bfd500806a5508721ae14cf0d4d737",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^8.1",
-                "phrity/net-stream": "^2.1",
-                "phrity/net-uri": "^2.1",
-                "psr/http-message": "^1.1 | ^2.0",
-                "psr/log": "^1.0 | ^2.0 | ^3.0"
-            },
-            "require-dev": {
-                "php-coveralls/php-coveralls": "^2.0",
-                "phpstan/phpstan": "^2.0",
-                "phpunit/phpunit": "^10.0 | ^11.0",
-                "phrity/net-mock": "^2.1",
-                "phrity/util-errorhandler": "^1.1",
-                "squizlabs/php_codesniffer": "^3.5"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "WebSocket\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "ISC"
-            ],
-            "authors": [
-                {
-                    "name": "Fredrik Liljegren"
-                },
-                {
-                    "name": "Sören Jensen",
-                    "email": "sirn@sirn.se",
-                    "homepage": "https://phrity.sirn.se"
-                }
-            ],
-            "description": "WebSocket client and server",
-            "homepage": "https://phrity.sirn.se/websocket",
-            "keywords": [
-                "client",
-                "server",
-                "websocket"
-            ],
-            "support": {
-                "issues": "https://github.com/sirn-se/websocket-php/issues",
-                "source": "https://github.com/sirn-se/websocket-php/tree/3.2.2"
-            },
-            "time": "2025-01-10T09:41:26+00:00"
-        },
-        {
-            "name": "psr/http-factory",
-            "version": "1.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/php-fig/http-factory.git",
-                "reference": "2b4765fddfe3b508ac62f829e852b1501d3f6e8a"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/php-fig/http-factory/zipball/2b4765fddfe3b508ac62f829e852b1501d3f6e8a",
-                "reference": "2b4765fddfe3b508ac62f829e852b1501d3f6e8a",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=7.1",
-                "psr/http-message": "^1.0 || ^2.0"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "1.0.x-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Psr\\Http\\Message\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "PHP-FIG",
-                    "homepage": "https://www.php-fig.org/"
-                }
-            ],
-            "description": "PSR-17: Common interfaces for PSR-7 HTTP message factories",
-            "keywords": [
-                "factory",
-                "http",
-                "message",
-                "psr",
-                "psr-17",
-                "psr-7",
-                "request",
-                "response"
-            ],
-            "support": {
-                "source": "https://github.com/php-fig/http-factory"
-            },
-            "time": "2024-04-15T12:06:14+00:00"
-        },
-        {
-            "name": "psr/http-message",
-            "version": "2.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/php-fig/http-message.git",
-                "reference": "402d35bcb92c70c026d1a6a9883f06b2ead23d71"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/php-fig/http-message/zipball/402d35bcb92c70c026d1a6a9883f06b2ead23d71",
-                "reference": "402d35bcb92c70c026d1a6a9883f06b2ead23d71",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^7.2 || ^8.0"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "2.0.x-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Psr\\Http\\Message\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "PHP-FIG",
-                    "homepage": "https://www.php-fig.org/"
-                }
-            ],
-            "description": "Common interface for HTTP messages",
-            "homepage": "https://github.com/php-fig/http-message",
-            "keywords": [
-                "http",
-                "http-message",
-                "psr",
-                "psr-7",
-                "request",
-                "response"
-            ],
-            "support": {
-                "source": "https://github.com/php-fig/http-message/tree/2.0"
-            },
-            "time": "2023-04-04T09:54:51+00:00"
-        },
-        {
-            "name": "psr/log",
-            "version": "3.0.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/php-fig/log.git",
-                "reference": "f16e1d5863e37f8d8c2a01719f5b34baa2b714d3"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/php-fig/log/zipball/f16e1d5863e37f8d8c2a01719f5b34baa2b714d3",
-                "reference": "f16e1d5863e37f8d8c2a01719f5b34baa2b714d3",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=8.0.0"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "3.x-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Psr\\Log\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "PHP-FIG",
-                    "homepage": "https://www.php-fig.org/"
-                }
-            ],
-            "description": "Common interface for logging libraries",
-            "homepage": "https://github.com/php-fig/log",
-            "keywords": [
-                "log",
-                "psr",
-                "psr-3"
-            ],
-            "support": {
-                "source": "https://github.com/php-fig/log/tree/3.0.2"
-            },
-            "time": "2024-09-11T13:17:53+00:00"
-        },
-        {
-            "name": "simplito/bigint-wrapper-php",
-            "version": "1.0.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/simplito/bigint-wrapper-php.git",
-                "reference": "cf21ec76d33f103add487b3eadbd9f5033a25930"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/simplito/bigint-wrapper-php/zipball/cf21ec76d33f103add487b3eadbd9f5033a25930",
-                "reference": "cf21ec76d33f103add487b3eadbd9f5033a25930",
-                "shasum": ""
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "BI\\": "lib/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Simplito Team",
-                    "email": "s.smyczynski@simplito.com",
-                    "homepage": "https://simplito.com"
-                }
-            ],
-            "description": "Common interface for php_gmp and php_bcmath modules",
-            "support": {
-                "issues": "https://github.com/simplito/bigint-wrapper-php/issues",
-                "source": "https://github.com/simplito/bigint-wrapper-php/tree/1.0.0"
-            },
-            "time": "2018-02-27T12:38:08+00:00"
-        },
-        {
-            "name": "simplito/bn-php",
-            "version": "1.1.4",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/simplito/bn-php.git",
-                "reference": "83446756a81720eacc2ffb87ff97958431451fd6"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/simplito/bn-php/zipball/83446756a81720eacc2ffb87ff97958431451fd6",
-                "reference": "83446756a81720eacc2ffb87ff97958431451fd6",
-                "shasum": ""
-            },
-            "require": {
-                "simplito/bigint-wrapper-php": "~1.0.0"
-            },
-            "require-dev": {
-                "phpunit/phpunit": "*"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "BN\\": "lib/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Simplito Team",
-                    "email": "s.smyczynski@simplito.com",
-                    "homepage": "https://simplito.com"
-                }
-            ],
-            "description": "Big number implementation compatible with bn.js",
-            "support": {
-                "issues": "https://github.com/simplito/bn-php/issues",
-                "source": "https://github.com/simplito/bn-php/tree/1.1.4"
-            },
-            "time": "2024-01-10T16:16:59+00:00"
-        },
-        {
-            "name": "simplito/elliptic-php",
-            "version": "1.0.12",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/simplito/elliptic-php.git",
-                "reference": "be321666781be2be2c89c79c43ffcac834bc8868"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/simplito/elliptic-php/zipball/be321666781be2be2c89c79c43ffcac834bc8868",
-                "reference": "be321666781be2be2c89c79c43ffcac834bc8868",
-                "shasum": ""
-            },
-            "require": {
-                "ext-gmp": "*",
-                "simplito/bn-php": "~1.1.0"
-            },
-            "require-dev": {
-                "phpbench/phpbench": "@dev",
-                "phpunit/phpunit": "*"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Elliptic\\": "lib/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Simplito Team",
-                    "email": "s.smyczynski@simplito.com",
-                    "homepage": "https://simplito.com"
-                }
-            ],
-            "description": "Fast elliptic curve cryptography",
-            "homepage": "https://github.com/simplito/elliptic-php",
-            "keywords": [
-                "Curve25519",
-                "ECDSA",
-                "Ed25519",
-                "EdDSA",
-                "cryptography",
-                "curve",
-                "curve25519-weier",
-                "ecc",
-                "ecdh",
-                "elliptic",
-                "nistp192",
-                "nistp224",
-                "nistp256",
-                "nistp384",
-                "nistp521",
-                "secp256k1"
-            ],
-            "support": {
-                "issues": "https://github.com/simplito/elliptic-php/issues",
-                "source": "https://github.com/simplito/elliptic-php/tree/1.0.12"
-            },
-            "time": "2024-01-09T14:57:04+00:00"
-        },
-        {
-            "name": "swentel/nostr-php",
-            "version": "1.5.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/nostrver-se/nostr-php.git",
-                "reference": "6ef1e05da3845e352593c7d119fc00e716b3321f"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/nostrver-se/nostr-php/zipball/6ef1e05da3845e352593c7d119fc00e716b3321f",
-                "reference": "6ef1e05da3845e352593c7d119fc00e716b3321f",
-                "shasum": ""
-            },
-            "require": {
-                "bitwasp/bech32": "^0.0.1",
-                "ext-gmp": "*",
-                "ext-xml": "*",
-                "php": ">=8.1 <8.5",
-                "phrity/websocket": "^3.0",
-                "simplito/elliptic-php": "^1.0",
-                "uma/phpecc": "^0.2.0"
-            },
-            "require-dev": {
-                "friendsofphp/php-cs-fixer": "^3.51",
-                "phpunit/phpunit": "^10.5"
-            },
-            "bin": [
-                "bin/nostr-php"
-            ],
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "swentel\\nostr\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Sebastian Hagens",
-                    "email": "info@sebastix.nl",
-                    "homepage": "https://sebastix.nl",
-                    "role": "Developer & maintainer"
-                },
-                {
-                    "name": "Kristof De Jaeger",
-                    "homepage": "https://realize.be",
-                    "role": "Original author"
-                }
-            ],
-            "description": "Nostr helper library for PHP",
-            "homepage": "https://nostr-php.dev",
-            "keywords": [
-                "library",
-                "nostr"
-            ],
-            "support": {
-                "chat": "https://t.me/nostr_php",
-                "issue": "https://github.com/swentel/nostr-php/issues",
-                "issues": "https://github.com/nostrver-se/nostr-php/issues",
-                "source": "https://github.com/nostrver-se/nostr-php/tree/push"
-            },
-            "time": "2025-01-04T21:46:58+00:00"
-        },
-        {
-            "name": "uma/phpasn1",
-            "version": "v2.5.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/1ma/PHPASN1.git",
-                "reference": "dd805d3157ddc90515ee13562a9bb241c68f4f88"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/1ma/PHPASN1/zipball/dd805d3157ddc90515ee13562a9bb241c68f4f88",
-                "reference": "dd805d3157ddc90515ee13562a9bb241c68f4f88",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^8.1"
-            },
-            "require-dev": {
-                "php-coveralls/php-coveralls": "^2.0",
-                "phpunit/phpunit": "^9.6"
-            },
-            "suggest": {
-                "ext-bcmath": "BCmath is the fallback extension for big integer calculations",
-                "ext-curl": "For loading OID information from the web if they have not bee defined statically",
-                "ext-gmp": "GMP is the preferred extension for big integer calculations",
-                "phpseclib/bcmath_compat": "BCmath polyfill for servers where neither GMP nor BCmath is available"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "2.0.x-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "FG\\": "lib/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Friedrich Große",
-                    "email": "friedrich.grosse@gmail.com",
-                    "homepage": "https://github.com/FGrosse",
-                    "role": "Author"
-                },
-                {
-                    "name": "All contributors",
-                    "homepage": "https://github.com/FGrosse/PHPASN1/contributors"
-                }
-            ],
-            "description": "A PHP Framework that allows you to encode and decode arbitrary ASN.1 structures using the ITU-T X.690 Encoding Rules.",
-            "homepage": "https://github.com/FGrosse/PHPASN1",
-            "keywords": [
-                "DER",
-                "asn.1",
-                "asn1",
-                "ber",
-                "binary",
-                "decoding",
-                "encoding",
-                "x.509",
-                "x.690",
-                "x509",
-                "x690"
-            ],
-            "support": {
-                "source": "https://github.com/1ma/PHPASN1/tree/v2.5.1"
-            },
-            "abandoned": "genkgo/php-asn1",
-            "time": "2024-11-29T17:34:36+00:00"
-        },
-        {
-            "name": "uma/phpecc",
-            "version": "v0.2.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/1ma/phpecc.git",
-                "reference": "e269be5eaef099fb46831037d097c647a6da2f69"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/1ma/phpecc/zipball/e269be5eaef099fb46831037d097c647a6da2f69",
-                "reference": "e269be5eaef099fb46831037d097c647a6da2f69",
-                "shasum": ""
-            },
-            "require": {
-                "ext-gmp": "*",
-                "php": "^8.0",
-                "uma/phpasn1": "^2.5.1"
-            },
-            "require-dev": {
-                "phpunit/phpunit": "^9.0",
-                "squizlabs/php_codesniffer": "^2.0",
-                "symfony/yaml": "^6.4 || ^7.0"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Mdanter\\Ecc\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Matyas Danter",
-                    "homepage": "http://matejdanter.com/",
-                    "role": "Author"
-                },
-                {
-                    "name": "Thibaud Fabre",
-                    "email": "thibaud@aztech.io",
-                    "homepage": "http://aztech.io",
-                    "role": "Maintainer"
-                },
-                {
-                    "name": "Thomas Kerin",
-                    "email": "afk11@users.noreply.github.com",
-                    "role": "Maintainer"
-                },
-                {
-                    "name": "Ology Newswire, Inc",
-                    "email": "protocol@vpsqr.com",
-                    "homepage": "https://vpsqr.com/",
-                    "role": "Maintainer"
-                }
-            ],
-            "description": "Temporary fork of public-square/phpecc",
-            "homepage": "https://github.com/1ma/phpecc",
-            "keywords": [
-                "Diffie",
-                "ECDSA",
-                "Hellman",
-                "curve",
-                "ecdh",
-                "elliptic",
-                "nistp192",
-                "nistp224",
-                "nistp256",
-                "nistp384",
-                "nistp521",
-                "phpecc",
-                "schnorr",
-                "secp256k1",
-                "secp256r1"
-            ],
-            "support": {
-                "source": "https://github.com/1ma/phpecc/tree/v0.2.1"
-            },
-            "abandoned": "paragonie/ecc",
-            "time": "2025-01-21T00:38:50+00:00"
+  "_readme": [
+    "This file locks the dependencies of your project to a known state",
+    "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+    "This file is @generated automatically"
+  ],
+  "content-hash": "044543b873628bf8e7ba9a03159010ca",
+  "packages": [
+    {
+      "name": "bitwasp/bech32",
+      "version": "v0.0.1",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/Bit-Wasp/bech32.git",
+        "reference": "e1ea58c848a4ec59d81b697b3dfe9cc99968d0e7"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/Bit-Wasp/bech32/zipball/e1ea58c848a4ec59d81b697b3dfe9cc99968d0e7",
+        "reference": "e1ea58c848a4ec59d81b697b3dfe9cc99968d0e7",
+        "shasum": ""
+      },
+      "require-dev": {
+        "phpunit/phpunit": "^5.4.0",
+        "squizlabs/php_codesniffer": "^2.0.0"
+      },
+      "type": "library",
+      "autoload": {
+        "files": ["src/bech32.php"],
+        "psr-4": {
+          "BitWasp\\Bech32\\": "src/"
         }
-    ],
-    "packages-dev": [],
-    "aliases": [],
-    "minimum-stability": "stable",
-    "stability-flags": [],
-    "prefer-stable": false,
-    "prefer-lowest": false,
-    "platform": [],
-    "platform-dev": [],
-    "plugin-api-version": "2.3.0"
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["Unlicense"],
+      "authors": [
+        {
+          "name": "Thomas Kerin",
+          "homepage": "https://thomaskerin.io",
+          "role": "Author"
+        }
+      ],
+      "description": "Pure (no dependencies) implementation of bech32",
+      "homepage": "https://github.com/bit-wasp/bech32",
+      "support": {
+        "issues": "https://github.com/Bit-Wasp/bech32/issues",
+        "source": "https://github.com/Bit-Wasp/bech32/tree/more-tests"
+      },
+      "time": "2018-02-05T22:23:47+00:00"
+    },
+    {
+      "name": "firebase/php-jwt",
+      "version": "v6.10.0",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/firebase/php-jwt.git",
+        "reference": "a49db6f0a5033aef5143295342f1c95521b075ff"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/firebase/php-jwt/zipball/a49db6f0a5033aef5143295342f1c95521b075ff",
+        "reference": "a49db6f0a5033aef5143295342f1c95521b075ff",
+        "shasum": ""
+      },
+      "require": {
+        "php": "^7.4||^8.0"
+      },
+      "require-dev": {
+        "guzzlehttp/guzzle": "^6.5||^7.4",
+        "phpspec/prophecy-phpunit": "^2.0",
+        "phpunit/phpunit": "^9.5",
+        "psr/cache": "^1.0||^2.0",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0"
+      },
+      "suggest": {
+        "ext-sodium": "Support EdDSA (Ed25519) signatures",
+        "paragonie/sodium_compat": "Support EdDSA (Ed25519) signatures when libsodium is not present"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "Firebase\\JWT\\": "src"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["BSD-3-Clause"],
+      "authors": [
+        {
+          "name": "Neuman Vong",
+          "email": "neuman+pear@twilio.com",
+          "role": "Developer"
+        },
+        {
+          "name": "Anant Narayanan",
+          "email": "anant@php.net",
+          "role": "Developer"
+        }
+      ],
+      "description": "A simple library to encode and decode JSON Web Tokens (JWT) in PHP. Should conform to the current spec.",
+      "homepage": "https://github.com/firebase/php-jwt",
+      "keywords": ["jwt", "php"],
+      "support": {
+        "issues": "https://github.com/firebase/php-jwt/issues",
+        "source": "https://github.com/firebase/php-jwt/tree/v6.10.0"
+      },
+      "time": "2023-12-01T16:26:39+00:00"
+    },
+    {
+      "name": "phrity/net-stream",
+      "version": "2.1.2",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/sirn-se/phrity-net-stream.git",
+        "reference": "e6ace997168bebcce814c95cd5c78c78663ae49a"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/sirn-se/phrity-net-stream/zipball/e6ace997168bebcce814c95cd5c78c78663ae49a",
+        "reference": "e6ace997168bebcce814c95cd5c78c78663ae49a",
+        "shasum": ""
+      },
+      "require": {
+        "php": "^8.0",
+        "phrity/util-errorhandler": "^1.1",
+        "psr/http-factory": "^1.0",
+        "psr/http-message": "^1.1 | ^2.0"
+      },
+      "require-dev": {
+        "php-coveralls/php-coveralls": "^2.0",
+        "phpunit/phpunit": "^9.0 | ^10.0 | ^11.0",
+        "phrity/net-uri": "^2.0",
+        "squizlabs/php_codesniffer": "^3.5"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "Phrity\\Net\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Sören Jensen",
+          "email": "sirn@sirn.se",
+          "homepage": "https://phrity.sirn.se"
+        }
+      ],
+      "description": "Socket stream classes implementing PSR-7 Stream and PSR-17 StreamFactory",
+      "homepage": "https://phrity.sirn.se/net-stream",
+      "keywords": [
+        "Socket",
+        "client",
+        "psr-17",
+        "psr-7",
+        "server",
+        "stream",
+        "stream factory"
+      ],
+      "support": {
+        "issues": "https://github.com/sirn-se/phrity-net-stream/issues",
+        "source": "https://github.com/sirn-se/phrity-net-stream/tree/2.1.2"
+      },
+      "time": "2025-01-09T08:07:34+00:00"
+    },
+    {
+      "name": "phrity/net-uri",
+      "version": "2.1.0",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/sirn-se/phrity-net-uri.git",
+        "reference": "841190135af4fab18135226aaaf99ec5791377ac"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/sirn-se/phrity-net-uri/zipball/841190135af4fab18135226aaaf99ec5791377ac",
+        "reference": "841190135af4fab18135226aaaf99ec5791377ac",
+        "shasum": ""
+      },
+      "require": {
+        "ext-mbstring": "*",
+        "php": "^8.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-message": "^1.1 | ^2.0"
+      },
+      "require-dev": {
+        "php-coveralls/php-coveralls": "^2.0",
+        "phpunit/phpunit": "^9.0 | ^10.0 | ^11.0",
+        "phrity/util-errorhandler": "^1.1",
+        "squizlabs/php_codesniffer": "^3.5"
+      },
+      "suggest": {
+        "ext-intl": "Enables IDN conversion for non-ASCII domains"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "Phrity\\Net\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Sören Jensen",
+          "email": "sirn@sirn.se",
+          "homepage": "https://phrity.sirn.se"
+        }
+      ],
+      "description": "PSR-7 Uri and PSR-17 UriFactory implementation",
+      "homepage": "https://phrity.sirn.se/net-uri",
+      "keywords": ["psr-17", "psr-7", "uri", "uri factory"],
+      "support": {
+        "issues": "https://github.com/sirn-se/phrity-net-uri/issues",
+        "source": "https://github.com/sirn-se/phrity-net-uri/tree/2.1.0"
+      },
+      "time": "2024-07-08T06:14:09+00:00"
+    },
+    {
+      "name": "phrity/util-errorhandler",
+      "version": "1.1.1",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/sirn-se/phrity-util-errorhandler.git",
+        "reference": "483228156e06673963902b1cc1e6bd9541ab4d5e"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/sirn-se/phrity-util-errorhandler/zipball/483228156e06673963902b1cc1e6bd9541ab4d5e",
+        "reference": "483228156e06673963902b1cc1e6bd9541ab4d5e",
+        "shasum": ""
+      },
+      "require": {
+        "php": "^7.4 | ^8.0"
+      },
+      "require-dev": {
+        "php-coveralls/php-coveralls": "^2.0",
+        "phpunit/phpunit": "^9.0 | ^10.0 | ^11.0",
+        "squizlabs/php_codesniffer": "^3.5"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "Phrity\\Util\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Sören Jensen",
+          "email": "sirn@sirn.se",
+          "homepage": "https://phrity.sirn.se"
+        }
+      ],
+      "description": "Inline error handler; catch and resolve errors for code block.",
+      "homepage": "https://phrity.sirn.se/util-errorhandler",
+      "keywords": ["error", "warning"],
+      "support": {
+        "issues": "https://github.com/sirn-se/phrity-util-errorhandler/issues",
+        "source": "https://github.com/sirn-se/phrity-util-errorhandler/tree/1.1.1"
+      },
+      "time": "2024-09-12T06:49:16+00:00"
+    },
+    {
+      "name": "phrity/websocket",
+      "version": "3.2.2",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/sirn-se/websocket-php.git",
+        "reference": "6dceb42be8bfd500806a5508721ae14cf0d4d737"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/sirn-se/websocket-php/zipball/6dceb42be8bfd500806a5508721ae14cf0d4d737",
+        "reference": "6dceb42be8bfd500806a5508721ae14cf0d4d737",
+        "shasum": ""
+      },
+      "require": {
+        "php": "^8.1",
+        "phrity/net-stream": "^2.1",
+        "phrity/net-uri": "^2.1",
+        "psr/http-message": "^1.1 | ^2.0",
+        "psr/log": "^1.0 | ^2.0 | ^3.0"
+      },
+      "require-dev": {
+        "php-coveralls/php-coveralls": "^2.0",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^10.0 | ^11.0",
+        "phrity/net-mock": "^2.1",
+        "phrity/util-errorhandler": "^1.1",
+        "squizlabs/php_codesniffer": "^3.5"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "WebSocket\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["ISC"],
+      "authors": [
+        {
+          "name": "Fredrik Liljegren"
+        },
+        {
+          "name": "Sören Jensen",
+          "email": "sirn@sirn.se",
+          "homepage": "https://phrity.sirn.se"
+        }
+      ],
+      "description": "WebSocket client and server",
+      "homepage": "https://phrity.sirn.se/websocket",
+      "keywords": ["client", "server", "websocket"],
+      "support": {
+        "issues": "https://github.com/sirn-se/websocket-php/issues",
+        "source": "https://github.com/sirn-se/websocket-php/tree/3.2.2"
+      },
+      "time": "2025-01-10T09:41:26+00:00"
+    },
+    {
+      "name": "psr/http-factory",
+      "version": "1.1.0",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/php-fig/http-factory.git",
+        "reference": "2b4765fddfe3b508ac62f829e852b1501d3f6e8a"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/php-fig/http-factory/zipball/2b4765fddfe3b508ac62f829e852b1501d3f6e8a",
+        "reference": "2b4765fddfe3b508ac62f829e852b1501d3f6e8a",
+        "shasum": ""
+      },
+      "require": {
+        "php": ">=7.1",
+        "psr/http-message": "^1.0 || ^2.0"
+      },
+      "type": "library",
+      "extra": {
+        "branch-alias": {
+          "dev-master": "1.0.x-dev"
+        }
+      },
+      "autoload": {
+        "psr-4": {
+          "Psr\\Http\\Message\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "PHP-FIG",
+          "homepage": "https://www.php-fig.org/"
+        }
+      ],
+      "description": "PSR-17: Common interfaces for PSR-7 HTTP message factories",
+      "keywords": [
+        "factory",
+        "http",
+        "message",
+        "psr",
+        "psr-17",
+        "psr-7",
+        "request",
+        "response"
+      ],
+      "support": {
+        "source": "https://github.com/php-fig/http-factory"
+      },
+      "time": "2024-04-15T12:06:14+00:00"
+    },
+    {
+      "name": "psr/http-message",
+      "version": "2.0",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/php-fig/http-message.git",
+        "reference": "402d35bcb92c70c026d1a6a9883f06b2ead23d71"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/php-fig/http-message/zipball/402d35bcb92c70c026d1a6a9883f06b2ead23d71",
+        "reference": "402d35bcb92c70c026d1a6a9883f06b2ead23d71",
+        "shasum": ""
+      },
+      "require": {
+        "php": "^7.2 || ^8.0"
+      },
+      "type": "library",
+      "extra": {
+        "branch-alias": {
+          "dev-master": "2.0.x-dev"
+        }
+      },
+      "autoload": {
+        "psr-4": {
+          "Psr\\Http\\Message\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "PHP-FIG",
+          "homepage": "https://www.php-fig.org/"
+        }
+      ],
+      "description": "Common interface for HTTP messages",
+      "homepage": "https://github.com/php-fig/http-message",
+      "keywords": [
+        "http",
+        "http-message",
+        "psr",
+        "psr-7",
+        "request",
+        "response"
+      ],
+      "support": {
+        "source": "https://github.com/php-fig/http-message/tree/2.0"
+      },
+      "time": "2023-04-04T09:54:51+00:00"
+    },
+    {
+      "name": "psr/log",
+      "version": "3.0.2",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/php-fig/log.git",
+        "reference": "f16e1d5863e37f8d8c2a01719f5b34baa2b714d3"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/php-fig/log/zipball/f16e1d5863e37f8d8c2a01719f5b34baa2b714d3",
+        "reference": "f16e1d5863e37f8d8c2a01719f5b34baa2b714d3",
+        "shasum": ""
+      },
+      "require": {
+        "php": ">=8.0.0"
+      },
+      "type": "library",
+      "extra": {
+        "branch-alias": {
+          "dev-master": "3.x-dev"
+        }
+      },
+      "autoload": {
+        "psr-4": {
+          "Psr\\Log\\": "src"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "PHP-FIG",
+          "homepage": "https://www.php-fig.org/"
+        }
+      ],
+      "description": "Common interface for logging libraries",
+      "homepage": "https://github.com/php-fig/log",
+      "keywords": ["log", "psr", "psr-3"],
+      "support": {
+        "source": "https://github.com/php-fig/log/tree/3.0.2"
+      },
+      "time": "2024-09-11T13:17:53+00:00"
+    },
+    {
+      "name": "simplito/bigint-wrapper-php",
+      "version": "1.0.0",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/simplito/bigint-wrapper-php.git",
+        "reference": "cf21ec76d33f103add487b3eadbd9f5033a25930"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/simplito/bigint-wrapper-php/zipball/cf21ec76d33f103add487b3eadbd9f5033a25930",
+        "reference": "cf21ec76d33f103add487b3eadbd9f5033a25930",
+        "shasum": ""
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "BI\\": "lib/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Simplito Team",
+          "email": "s.smyczynski@simplito.com",
+          "homepage": "https://simplito.com"
+        }
+      ],
+      "description": "Common interface for php_gmp and php_bcmath modules",
+      "support": {
+        "issues": "https://github.com/simplito/bigint-wrapper-php/issues",
+        "source": "https://github.com/simplito/bigint-wrapper-php/tree/1.0.0"
+      },
+      "time": "2018-02-27T12:38:08+00:00"
+    },
+    {
+      "name": "simplito/bn-php",
+      "version": "1.1.4",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/simplito/bn-php.git",
+        "reference": "83446756a81720eacc2ffb87ff97958431451fd6"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/simplito/bn-php/zipball/83446756a81720eacc2ffb87ff97958431451fd6",
+        "reference": "83446756a81720eacc2ffb87ff97958431451fd6",
+        "shasum": ""
+      },
+      "require": {
+        "simplito/bigint-wrapper-php": "~1.0.0"
+      },
+      "require-dev": {
+        "phpunit/phpunit": "*"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "BN\\": "lib/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Simplito Team",
+          "email": "s.smyczynski@simplito.com",
+          "homepage": "https://simplito.com"
+        }
+      ],
+      "description": "Big number implementation compatible with bn.js",
+      "support": {
+        "issues": "https://github.com/simplito/bn-php/issues",
+        "source": "https://github.com/simplito/bn-php/tree/1.1.4"
+      },
+      "time": "2024-01-10T16:16:59+00:00"
+    },
+    {
+      "name": "simplito/elliptic-php",
+      "version": "1.0.12",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/simplito/elliptic-php.git",
+        "reference": "be321666781be2be2c89c79c43ffcac834bc8868"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/simplito/elliptic-php/zipball/be321666781be2be2c89c79c43ffcac834bc8868",
+        "reference": "be321666781be2be2c89c79c43ffcac834bc8868",
+        "shasum": ""
+      },
+      "require": {
+        "ext-gmp": "*",
+        "simplito/bn-php": "~1.1.0"
+      },
+      "require-dev": {
+        "phpbench/phpbench": "@dev",
+        "phpunit/phpunit": "*"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "Elliptic\\": "lib/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Simplito Team",
+          "email": "s.smyczynski@simplito.com",
+          "homepage": "https://simplito.com"
+        }
+      ],
+      "description": "Fast elliptic curve cryptography",
+      "homepage": "https://github.com/simplito/elliptic-php",
+      "keywords": [
+        "Curve25519",
+        "ECDSA",
+        "Ed25519",
+        "EdDSA",
+        "cryptography",
+        "curve",
+        "curve25519-weier",
+        "ecc",
+        "ecdh",
+        "elliptic",
+        "nistp192",
+        "nistp224",
+        "nistp256",
+        "nistp384",
+        "nistp521",
+        "secp256k1"
+      ],
+      "support": {
+        "issues": "https://github.com/simplito/elliptic-php/issues",
+        "source": "https://github.com/simplito/elliptic-php/tree/1.0.12"
+      },
+      "time": "2024-01-09T14:57:04+00:00"
+    },
+    {
+      "name": "swentel/nostr-php",
+      "version": "1.5.3",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/nostrver-se/nostr-php.git",
+        "reference": "6ef1e05da3845e352593c7d119fc00e716b3321f"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/nostrver-se/nostr-php/zipball/6ef1e05da3845e352593c7d119fc00e716b3321f",
+        "reference": "6ef1e05da3845e352593c7d119fc00e716b3321f",
+        "shasum": ""
+      },
+      "require": {
+        "bitwasp/bech32": "^0.0.1",
+        "ext-gmp": "*",
+        "ext-xml": "*",
+        "php": ">=8.1 <8.5",
+        "phrity/websocket": "^3.0",
+        "simplito/elliptic-php": "^1.0",
+        "uma/phpecc": "^0.2.0"
+      },
+      "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.51",
+        "phpunit/phpunit": "^10.5"
+      },
+      "bin": ["bin/nostr-php"],
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "swentel\\nostr\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Sebastian Hagens",
+          "email": "info@sebastix.nl",
+          "homepage": "https://sebastix.nl",
+          "role": "Developer & maintainer"
+        },
+        {
+          "name": "Kristof De Jaeger",
+          "homepage": "https://realize.be",
+          "role": "Original author"
+        }
+      ],
+      "description": "Nostr helper library for PHP",
+      "homepage": "https://nostr-php.dev",
+      "keywords": ["library", "nostr"],
+      "support": {
+        "chat": "https://t.me/nostr_php",
+        "issue": "https://github.com/swentel/nostr-php/issues",
+        "issues": "https://github.com/nostrver-se/nostr-php/issues",
+        "source": "https://github.com/nostrver-se/nostr-php/tree/push"
+      },
+      "time": "2025-01-04T21:46:58+00:00"
+    },
+    {
+      "name": "uma/phpasn1",
+      "version": "v2.5.1",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/1ma/PHPASN1.git",
+        "reference": "dd805d3157ddc90515ee13562a9bb241c68f4f88"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/1ma/PHPASN1/zipball/dd805d3157ddc90515ee13562a9bb241c68f4f88",
+        "reference": "dd805d3157ddc90515ee13562a9bb241c68f4f88",
+        "shasum": ""
+      },
+      "require": {
+        "php": "^8.1"
+      },
+      "require-dev": {
+        "php-coveralls/php-coveralls": "^2.0",
+        "phpunit/phpunit": "^9.6"
+      },
+      "suggest": {
+        "ext-bcmath": "BCmath is the fallback extension for big integer calculations",
+        "ext-curl": "For loading OID information from the web if they have not bee defined statically",
+        "ext-gmp": "GMP is the preferred extension for big integer calculations",
+        "phpseclib/bcmath_compat": "BCmath polyfill for servers where neither GMP nor BCmath is available"
+      },
+      "type": "library",
+      "extra": {
+        "branch-alias": {
+          "dev-master": "2.0.x-dev"
+        }
+      },
+      "autoload": {
+        "psr-4": {
+          "FG\\": "lib/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Friedrich Große",
+          "email": "friedrich.grosse@gmail.com",
+          "homepage": "https://github.com/FGrosse",
+          "role": "Author"
+        },
+        {
+          "name": "All contributors",
+          "homepage": "https://github.com/FGrosse/PHPASN1/contributors"
+        }
+      ],
+      "description": "A PHP Framework that allows you to encode and decode arbitrary ASN.1 structures using the ITU-T X.690 Encoding Rules.",
+      "homepage": "https://github.com/FGrosse/PHPASN1",
+      "keywords": [
+        "DER",
+        "asn.1",
+        "asn1",
+        "ber",
+        "binary",
+        "decoding",
+        "encoding",
+        "x.509",
+        "x.690",
+        "x509",
+        "x690"
+      ],
+      "support": {
+        "source": "https://github.com/1ma/PHPASN1/tree/v2.5.1"
+      },
+      "abandoned": "genkgo/php-asn1",
+      "time": "2024-11-29T17:34:36+00:00"
+    },
+    {
+      "name": "uma/phpecc",
+      "version": "v0.2.1",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/1ma/phpecc.git",
+        "reference": "e269be5eaef099fb46831037d097c647a6da2f69"
+      },
+      "dist": {
+        "type": "zip",
+        "url": "https://api.github.com/repos/1ma/phpecc/zipball/e269be5eaef099fb46831037d097c647a6da2f69",
+        "reference": "e269be5eaef099fb46831037d097c647a6da2f69",
+        "shasum": ""
+      },
+      "require": {
+        "ext-gmp": "*",
+        "php": "^8.0",
+        "uma/phpasn1": "^2.5.1"
+      },
+      "require-dev": {
+        "phpunit/phpunit": "^9.0",
+        "squizlabs/php_codesniffer": "^2.0",
+        "symfony/yaml": "^6.4 || ^7.0"
+      },
+      "type": "library",
+      "autoload": {
+        "psr-4": {
+          "Mdanter\\Ecc\\": "src/"
+        }
+      },
+      "notification-url": "https://packagist.org/downloads/",
+      "license": ["MIT"],
+      "authors": [
+        {
+          "name": "Matyas Danter",
+          "homepage": "http://matejdanter.com/",
+          "role": "Author"
+        },
+        {
+          "name": "Thibaud Fabre",
+          "email": "thibaud@aztech.io",
+          "homepage": "http://aztech.io",
+          "role": "Maintainer"
+        },
+        {
+          "name": "Thomas Kerin",
+          "email": "afk11@users.noreply.github.com",
+          "role": "Maintainer"
+        },
+        {
+          "name": "Ology Newswire, Inc",
+          "email": "protocol@vpsqr.com",
+          "homepage": "https://vpsqr.com/",
+          "role": "Maintainer"
+        }
+      ],
+      "description": "Temporary fork of public-square/phpecc",
+      "homepage": "https://github.com/1ma/phpecc",
+      "keywords": [
+        "Diffie",
+        "ECDSA",
+        "Hellman",
+        "curve",
+        "ecdh",
+        "elliptic",
+        "nistp192",
+        "nistp224",
+        "nistp256",
+        "nistp384",
+        "nistp521",
+        "phpecc",
+        "schnorr",
+        "secp256k1",
+        "secp256r1"
+      ],
+      "support": {
+        "source": "https://github.com/1ma/phpecc/tree/v0.2.1"
+      },
+      "abandoned": "paragonie/ecc",
+      "time": "2025-01-21T00:38:50+00:00"
+    }
+  ],
+  "packages-dev": [],
+  "aliases": [],
+  "minimum-stability": "stable",
+  "stability-flags": [],
+  "prefer-stable": false,
+  "prefer-lowest": false,
+  "platform": [],
+  "platform-dev": [],
+  "plugin-api-version": "2.3.0"
 }
