@@ -232,6 +232,9 @@ jQuery(function ($) {
         $pkeyWrapper.show();
         if (!$pkey.val()) {
           $tokenStatus.text("Token is P2PK locked. Enter your private key.");
+          const p2pkSecret = JSON.parse(lockedProofs[0].secret); // first one
+          const npub = nip19.npubEncode(p2pkSecret[1].data.slice(2));
+          $lightningStatus.html(`Locked to <a href="https://njump.me/${npub}" target="_blank">${npub.substring(0,12)}...`);
           return;
         }
       } else {
