@@ -253,6 +253,7 @@ class NostrlyTools
 
         $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
+        $pkey = esc_html('Token Private Key (P2PK / nsec)', 'nostrly');
         $lnurl_label = esc_html('Lightning address/invoice/LNURL', 'nostrly');
         $lnurl = esc_html('Enter a Lightning address, Lightning invoice or LNURL', 'nostrly');
         $redeem = esc_html('Redeem Token', 'nostrly');
@@ -312,6 +313,9 @@ class NostrlyTools
                   <div id="tokenWrapper" class="text-wrapper">
                     <textarea id="token" rows="4" cols="50" placeholder="{$token}"></textarea>
                     <button id="tokenRemover" class="text-remover hidden">&times;</button>
+                  </div>
+                  <div id="pkeyWrapper" class="text-wrapper hidden">
+                    <input type="text" placeholder="{$pkey}" value="" id="pkey">
                   </div>
                   <label for="lnurl">{$lnurl_label}</label>
                   <div id="lnurlWrapper" class="text-wrapper">
