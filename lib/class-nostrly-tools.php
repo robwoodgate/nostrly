@@ -254,7 +254,7 @@ class NostrlyTools
         $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
         $pkey_label = esc_html('Alby Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
-        $pkey_desc = esc_html('Your private key is processed by your browser, and is not sent to our server or the mint. For maximum security, however, we recommend using the Alby Extension to sign the token proofs.', 'nostrly');
+        $pkey_desc = esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using the Alby Extension to sign the token proofs.', 'nostrly');
         $pkey = esc_html('Token Private Key (P2PK / nsec)', 'nostrly');
         $lnurl_label = esc_html('Lightning address/invoice/LNURL', 'nostrly');
         $lnurl = esc_html('Enter a Lightning address, Lightning invoice or LNURL', 'nostrly');
@@ -269,6 +269,9 @@ class NostrlyTools
                       font-weight: bold;
                       margin-bottom: 0;
                       text-align: left;
+                    }
+                    #cashu-redeem .sublabel {
+                        font-size: 0.8rem;
                     }
                     #cashu-redeem input, #cashu-redeem textarea {
                       border-radius: 6px;
@@ -318,7 +321,7 @@ class NostrlyTools
                   </div>
                   <div id="pkeyWrapper" class="text-wrapper hidden">
                     <label for="pkey">{$pkey_label}</label>
-                    $pkey_desc
+                    <div class="sublabel text-wrapper">$pkey_desc</div>
                     <input type="text" placeholder="{$pkey}" value="" id="pkey">
                   </div>
                   <label for="lnurl">{$lnurl_label}</label>
