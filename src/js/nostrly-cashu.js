@@ -240,7 +240,10 @@ jQuery(function ($) {
         );
         // If no Alby extension, we'll have to ask for an nsec/private key :(
         // Hey fiatjaf... free the Schnorr, it's 2025 !!!!
-        if (typeof window?.nostr?.signSchnorr === "undefined") {
+        if (
+          typeof window?.nostr?.signSchnorr === "undefined" &&
+          typeof window?.nostr?.signString === "undefined"
+        ) {
           $pkeyWrapper.show();
           if (!$pkey.val()) {
             $tokenStatus.html(
@@ -300,7 +303,13 @@ jQuery(function ($) {
       // The Alby extension can sign schnorr signatures directly - woohoo!
       if (typeof window?.nostr?.signSchnorr !== "undefined") {
         console.log("we can signSchnorr!");
-        await signProofs(proofs); // sign main proofs array
+        await signSchnorrProofs(proofs); // sign main proofs array
+      }
+      // Support for proposed NIP-07 schnorr signer
+      // @see: https://github.com/nostr-protocol/nips/pull/1842
+      else if (typeof window?.nostr?.signString !== "undefined") {
+        console.log("we can signString!");
+        await signStringProofs(proofs); // sign main proofs array
       }
       console.log("signed proofs :>>", proofs);
       let invoice = "";
@@ -495,7 +504,8 @@ jQuery(function ($) {
   }
 
   // Sign P2PK proofs using Alby Nostr Extension
-  async function signProofs(proofs) {
+  async function signSchnorrProofs(proofs) {
+    if (typeof window?.nostr?.signSchnorr === "undefined") return;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
       const hash = bytesToHex(sha256(proof.secret));
@@ -504,6 +514,22 @@ jQuery(function ($) {
       if (schnorr.length) {
         console.log("schnorr :>>", schnorr);
         proofs[index].witness = JSON.stringify({ signatures: [schnorr] });
+      }
+    }
+  }
+
+  // Sign P2PK proofs using propsed NIP-07 method
+  // @see: https://github.com/nostr-protocol/nips/pull/1842
+  async function signStringProofs(proofs) {
+    if (typeof window?.nostr?.signString === "undefined") return;
+    for (const [index, proof] of proofs.entries()) {
+      if (!proof.secret.includes("P2PK")) continue;
+      const expHash = bytesToHex(sha256(proof.secret));
+      const { hash, sig, pubkey } = await window.nostr.signString(proof.secret);
+      // Check we got a signature from expected pubkey on expected hash
+      if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
+        console.log("schnorr :>>", sig);
+        proofs[index].witness = JSON.stringify({ signatures: [sig] });
       }
     }
   }
