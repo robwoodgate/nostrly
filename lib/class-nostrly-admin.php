@@ -91,7 +91,7 @@ class NostrlyAdmin
 
         // Redirect contributors to profile page
         if (is_admin() && !defined('DOING_AJAX') && !current_user_can('edit_posts') && current_user_can('subscriber') && !strpos($_SERVER['REQUEST_URI'], 'profile.php')) {
-            wp_redirect(admin_url('profile.php#nostr'));
+            wp_redirect(admin_url('profile.php#nostr_info'));
 
             exit;
         }

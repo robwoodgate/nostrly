@@ -238,8 +238,9 @@ jQuery(function ($) {
         $lightningStatus.html(
           `Token is P2PK locked to <a href="https://njump.me/${npub}" target="_blank">${npub.substring(0, 12)}...`,
         );
-        // If no Alby extension, we'll have to ask for an nsec/private key :(
-        // Hey fiatjaf... free the Schnorr, it's 2025 !!!!
+        // If no signString() compatible extension detected, we'll have
+        // to ask for an nsec/private key :(
+        // Hey fiatjaf... free the nsec, it's 2025 !!!!
         if (
           typeof window?.nostr?.signSchnorr === "undefined" &&
           typeof window?.nostr?.signString === "undefined"
@@ -247,7 +248,7 @@ jQuery(function ($) {
           $pkeyWrapper.show();
           if (!$pkey.val()) {
             $tokenStatus.html(
-              'Enter your private key or enable the <a href="https://getalby.com/products/browser-extension" target="_blank">Alby Extension</a>.',
+              'Enter your private key or enable a <em>signString()</em> compatible Nostr Extension</a>.',
             );
             return;
           }

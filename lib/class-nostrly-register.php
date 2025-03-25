@@ -133,7 +133,7 @@ class NostrlyRegister
                     <h2>Congratulations!</h2>
                     <p>You have successfully registered: <span id="name-registered"></span></p>
                     <p><strong>YOUR NEXT STEP:</strong> is to add it as the Verified Nostr Address (NIP-05) in your NOSTR profile.</p>
-                    <p>You can do this in your favourite NOSTR client, or in <a href="{$profile}#nostr">your Nostrly account</a>.</p>
+                    <p>You can do this in your favourite NOSTR client, or in <a href="{$profile}#nostr_info">your Nostrly account</a>.</p>
                     <p>As a backup, you can also login using your Nostr Address and the password below:</p>
                     <p style="text-align:center;"><input type="text" id="nip05-password" value="" /></p>
                     <p style="text-align:center;"><button id="password-button" class="button">{$copypass}</button></p>

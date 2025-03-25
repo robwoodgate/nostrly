@@ -35,7 +35,7 @@ class NostrlyLogin
             $bech32_public = $key->convertPublicKeyToBech32(get_user_meta($user->ID, 'nostr_public_key', true));
         }
         ?>
-        <div id="nostr">
+        <div id="nostr_info">
         <h3><?php esc_html_e('Nostr Information', 'nostrly'); ?></h3>
         <?php wp_nonce_field('nostrly_save_profile', 'nostrly_nonce'); ?>
 
@@ -114,6 +114,14 @@ class NostrlyLogin
         // Do enqueue
         if ($enqueue) {
             wp_enqueue_script('nostrly-login', NOSTRLY_URL.'assets/js/nostrly-login.min.js', ['jquery'], NOSTRLY_VERSION, true);
+            wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
+            $js = "window.wnjParams = {
+                position: 'bottom',
+                accent: 'purple',
+                // compactMode: true,
+                disableOverflowFix: true
+              }";
+            wp_add_inline_script('window-nostr', $js, 'before');
         }
     }
 

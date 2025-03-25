@@ -253,8 +253,14 @@ class NostrlyTools
 
         $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
-        $pkey_label = esc_html('Alby Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
-        $pkey_desc = esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using the Alby Extension to sign the token proofs.', 'nostrly');
+        $pkey_label = esc_html('Compatible Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
+        $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$ssignString()%4$s compatible Nostr extension like %1$sAlby%4$s'/*, %2$sAKA Profiles%4$s or %3$snos2X%4$s.'*/, 'nostrly'),
+            '<a href="https://getalby.com/products/browser-extension" target="_blank">',
+            '<a href="https://www.akaprofiles.com/" target="_blank">',
+            '<a href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp" target="_blank">',
+            '</a>',
+            '<a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank">',
+        );
         $pkey = esc_html('Token Private Key (P2PK / nsec)', 'nostrly');
         $lnurl_label = esc_html('Lightning address/invoice/LNURL', 'nostrly');
         $lnurl = esc_html('Enter a Lightning address, Lightning invoice or LNURL', 'nostrly');
@@ -347,5 +353,13 @@ class NostrlyTools
         wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
+        $js = "window.wnjParams = {
+            position: 'bottom',
+            accent: 'purple',
+            // compactMode: true,
+            disableOverflowFix: true
+          }";
+        wp_add_inline_script('window-nostr', $js, 'before');
     }
 }
