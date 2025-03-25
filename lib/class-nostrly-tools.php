@@ -254,9 +254,9 @@ class NostrlyTools
         $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
         $pkey_label = esc_html('Compatible Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
-        $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$ssignString()%4$s compatible Nostr extension like %1$sAlby%4$s'/*, %2$sAKA Profiles%4$s or %3$snos2X%4$s.'*/, 'nostrly'),
+        $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$ssignString()%4$s compatible Nostr extension like %1$sAlby%4$s, or %2$sAKA Profiles (v1.0.9+)%4$s'/* or %3$snos2X%4$s.'*/, 'nostrly'),
             '<a href="https://getalby.com/products/browser-extension" target="_blank">',
-            '<a href="https://www.akaprofiles.com/" target="_blank">',
+            '<a href="https://github.com/neilck/aka-extension/" target="_blank">',
             '<a href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp" target="_blank">',
             '</a>',
             '<a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank">',

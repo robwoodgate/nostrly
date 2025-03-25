@@ -248,7 +248,7 @@ jQuery(function ($) {
           $pkeyWrapper.show();
           if (!$pkey.val()) {
             $tokenStatus.html(
-              'Enter your private key or enable a <em>signString()</em> compatible Nostr Extension</a>.',
+              "Enter your private key or enable a <em>signString()</em> compatible Nostr Extension</a>.",
             );
             return;
           }
