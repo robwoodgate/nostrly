@@ -18,6 +18,8 @@ class NostrlyTools
         add_shortcode('nostrly_nip09_deleter', [$this, 'nip09_deleter_shortcode']);
         add_shortcode('nostrly_cashu_redeem', [$this, 'cashu_redeem_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
+        add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
+        add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
 
         $this->domain = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
     }
@@ -361,5 +363,17 @@ class NostrlyTools
             disableOverflowFix: true
           }";
         wp_add_inline_script('window-nostr', $js, 'before');
+    }
+
+    /**
+     * Remove ver=xxx from unpkg scripts
+     * @param  string $src Script SRC
+     * @return string      Modified script SRC
+     */
+    function script_loader_src($src) {
+        if (strpos($src, 'unpkg.com') !== false) { // Only apply to unpkg URLs
+            $src = remove_query_arg('ver', $src);
+        }
+        return $src;
     }
 }
