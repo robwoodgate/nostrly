@@ -91,6 +91,8 @@ jQuery(function ($) {
   let mintUrl = "";
   let proofs = [];
   let tokenAmount = 0;
+  let params = new URL(document.location.href).searchParams;
+  let autopay = decodeURIComponent(params.get("autopay") ?? "");
 
   // DOM elements
   const $lnurl = $("#lnurl");
@@ -267,17 +269,14 @@ jQuery(function ($) {
         $redeemButton.prop("disabled", false);
       }
       // Autopay?
-      let params = new URL(document.location.href).searchParams;
-      let autopay = decodeURIComponent(params.get("autopay") ?? "");
       if (autopay && $lnurl.val().length) {
         // Clear URL params if this is a repeat (eg: page refresh)
         let lastpay = localStorage.getItem("nostrly-cashu-last-autopay");
         if (lastpay == $lnurl.val()) {
           window.location.href =
             window.location.origin + window.location.pathname;
+          return; // belt+braces
         }
-        // Update last autopay destination
-        localStorage.setItem("nostrly-cashu-last-autopay", $lnurl.val());
         await makePayment();
       }
     } catch (err) {
@@ -396,6 +395,10 @@ jQuery(function ($) {
             $token.trigger("input");
           }, 5000);
         }
+        // Update last autopay destination
+        if (autopay) {
+          localStorage.setItem("nostrly-cashu-last-autopay", invoice);
+        }
       } else {
         $lightningStatus.text("Payment failed");
       }
@@ -447,7 +450,6 @@ jQuery(function ($) {
   });
 
   // Allow auto populate fields
-  let params = new URL(document.location.href).searchParams;
   const token = decodeURIComponent(params.get("token") ?? "");
   const lstoken = localStorage.getItem("nostrly-cashu-token");
   const to = decodeURIComponent(
