@@ -17,6 +17,7 @@ class NostrlyTools
         add_shortcode('nostrly_zapevent', [$this, 'zapevent_shortcode']);
         add_shortcode('nostrly_nip09_deleter', [$this, 'nip09_deleter_shortcode']);
         add_shortcode('nostrly_cashu_redeem', [$this, 'cashu_redeem_shortcode']);
+        add_shortcode('nostrly_cashu_lock', [$this, 'cashu_lock_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
         add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
@@ -242,7 +243,7 @@ class NostrlyTools
     }
 
     /**
-     * NIP-09 event delete shortcode.
+     * Cashu redeem shortcode.
      *
      * @param mixed      $atts
      * @param null|mixed $content
@@ -347,12 +348,152 @@ class NostrlyTools
     }
 
     /**
+     * Cashu lock shortcode.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_lock_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-lock');
+        wp_enqueue_script('confetti');
+
+        $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
+        $subtitle = esc_html('Lightning Invoice', 'nostrly');
+        $copy_inv = esc_html('Copy', 'nostrly');
+        $cancel = esc_html('Cancel', 'nostrly');
+
+        return <<<EOL
+                <style>
+                    #cashu-lock {
+                      margin-bottom: 40px;
+                    }
+                    #cashu-lock label {
+                      font-weight: bold;
+                      margin-bottom: 0;
+                      text-align: left;
+                    }
+                    #cashu-lock div {
+                        margin-bottom: 1rem;
+                    }
+                    #cashu-lock-pay .subtitle {
+                      font-weight: bold;
+                    }
+                    #cashu-lock input, #cashu-lock textarea, #cashu-lock select {
+                      border-radius: 6px;
+                      margin-bottom: 0.25em;
+                      padding: 6px 15px;
+                      width: 100%;
+                    }
+                    // #cashu-lock input[data-valid="yes"] {
+                    //   border: 2px solid rgb(49, 194, 54);
+                    //   background-color: rgba(49, 194, 54, 0.3);
+                    //   color: white;
+                    // }
+                    #cashu-lock input[data-valid="no"] {
+                      border: 2px solid rgb(204, 55, 55);
+                      background-color: rgba(204, 55, 55, 0.3);
+                      color: white;
+                    }
+                    .center {
+                      text-align: center;
+                    }
+                    .hidden {
+                      display: none;
+                    }
+                    .strong {
+                      font-weight: bold;
+                    }
+                    .description {
+                        font-size: 0.8rem;
+                        margin-top: 0.5rem;
+                    }
+                    #refund-npub {
+                        margin-right: 5px;
+                        max-width: 32rem;
+                        text-align: left;
+                        width: 100%;
+
+                    }
+                    #lock-next {
+                        margin: 1em auto;
+                        width: 20em;
+                    }
+                    .mint_url {
+                        border: 1px solid white;
+                        border-radius: 6px;
+                        display: inline-flex;
+                        margin: 0.5rem;
+                        padding: 0 10px;
+                        width: fit-content;
+                    }
+                    #pay_cashu {
+                        margin-top: 0.5rem;
+                        padding: 10px;
+                        width: fit-content;
+                    }
+                </style>
+                <div id="cashu-lock">
+                    <div>
+                        <label for="mint-select">Choose a Mint:</label>
+                        <select id="mint-select" name="mint-select" required>
+                            <option value="" disabled selected>Select a mint...</option>
+                            <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
+                            <option value="https://stablenut.umint.cash">https://stablenut.umint.cash</option>
+                            <option value="https://mint.lnvoltz.com">https://mint.lnvoltz.com</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="lock-value">Token Value (sats):</label>
+                        <input type="number" id="lock-value" name="lock-value" min="100" step="1" placeholder="1000" required>
+                    </div>
+                    <div>
+                        <label for="lock-npub">Lock Token to Public Key (NPUB/P2PK):</label>
+                        <input type="text" id="lock-npub" name="lock-npub" placeholder="npub1... | 02..." required>
+                        <div class="description">Token will be exclusively redeemable by the owner of this public key until the lock expires</div>
+                    </div>
+                    <div>
+                        <label for="lock-expiry">Lock Expires (Local Time):</label>
+                        <input type="datetime-local" id="lock-expiry" name="lock-expiry" required>
+                    </div>
+                    <div>
+                        <label for="refund-npub">Refund Public Key (NPUB/P2PK):</label>
+                        <input type="text" id="refund-npub" name="refund-npub" placeholder="npub1... | 02...">
+                        <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
+                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br>WARNING: A refund lock never expires. Make sure the public key is correct!</div>
+                    </div>
+                    <div class="center">
+                        <button type="submit" id="lock-next">Create Locked Token</button>
+                        <div class="description">A 1% locking fee (min 10 sats) applies.</div>
+                    </div>
+                </div>
+                <div id="cashu-lock-pay" class="center hidden">
+                    <h2 id="amount_to_pay"></h2>
+                    <div class="subtitle">Pay Lightning Invoice:</div>
+                    <p><a id="invoice-link"><img id="invoice-img"/></a></p>
+                    <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
+                    <div class="subtitle">Or paste a Cashu token from:</div>
+                    <div class="mint_url">https://mint.minibits.cash/Bitcoin</div>
+                    <div><input id="payby_cashu" type="text" placeholder="CashuB..."></p></div>
+                    <p class="description">*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
+                </div>
+                <div id="cashu-lock-success" class="center hidden">
+                    <h2>Your Locked Token</h2>
+                    <textarea id="locked_token" rows="4" cols="50"></textarea>
+                    <p class="description">*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
+                </div>
+            EOL;
+    }
+
+    /**
      * Enqueue scripts and styles
      * NB: Called from registration_shortcode() so we only load scripts if needed.
      */
     public function enqueue_scripts(): void
     {
         wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-lock', NOSTRLY_URL.'assets/js/nostrly-cashu-lock.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);

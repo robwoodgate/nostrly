@@ -7,86 +7,16 @@ import {
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
 import { decode } from "@gandlaf21/bolt11-decode";
-import {
-  SimplePool,
-  finalizeEvent,
-  generateSecretKey,
-  getPublicKey,
-  nip04,
-  nip19,
-} from "nostr-tools";
-import { EncryptedDirectMessage } from "nostr-tools/kinds";
+import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
-import {
-  encode as emojiEncode,
-  decode as emojiDecode,
-} from "./emoji-encoder.ts";
+import { decode as emojiDecode } from "./emoji-encoder.ts";
+import { initCashuDonate } from "./cashu-donate.js";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 
-// Cashu Donation
-jQuery(function ($) {
-  // Get our custom relays and create pool
-  const relays = nostrly_ajax.relays;
-  const pool = new SimplePool();
-
-  // Handle Donation element
-  const $inputCashu = $("#donate_cashu");
-  const process = () => {
-    // Wait for paste to finish
-    setTimeout(async () => {
-      try {
-        let token = $inputCashu.val();
-        if (token.indexOf("cashu") != 0) {
-          token = emojiDecode(token);
-        }
-        const decoded = getDecodedToken(token);
-        if (!decoded) {
-          throw new Error("Could not process token");
-        }
-        // Check we have a pubkey set!
-        if (!nostrly_ajax.pubkey) {
-          throw new Error("Thanks, but donations are disabled at the moment");
-        }
-        // Create a wallet connected to same mint as token
-        const mintUrl = decoded.mint;
-        const mint = new CashuMint(mintUrl);
-        const wallet = new CashuWallet(mint);
-        await wallet.loadMint();
-        // Receive the token to the wallet (creates new proofs)
-        const proofs = await wallet.receive(token);
-        const newToken = getEncodedTokenV4({ mint: mintUrl, proofs: proofs });
-        const emoji = emojiEncode("\uD83E\uDD5C", newToken);
-        sendViaNostr(nostrly_ajax.pubkey, "Cashu Donation: " + emoji); // async fire-forget
-        toastr.success("Donation received! Thanks for your support 🧡");
-      } catch (error) {
-        console.error(error);
-        toastr.error(error.message);
-      } finally {
-        $inputCashu.val("");
-      }
-    }, 200);
-  };
-  $inputCashu.on("paste", process);
-
-  // Sends encrypted message anonymously via Nostr
-  async function sendViaNostr(toPub, message) {
-    const sk = generateSecretKey();
-    const pk = getPublicKey(sk);
-    const event = {
-      kind: EncryptedDirectMessage,
-      tags: [["p", toPub]],
-      content: await nip04.encrypt(sk, toPub, message),
-      created_at: Math.floor(Date.now() / 1000),
-      pubkey: pk,
-    };
-    const signedEvent = finalizeEvent(event, sk);
-    pool.publish(relays, signedEvent);
-  }
-});
-
 // Cashu Redeem
 jQuery(function ($) {
+  // Init vars
   let wallet;
   let mintUrl = "";
   let proofs = [];
@@ -104,6 +34,7 @@ jQuery(function ($) {
   const $tokenRemover = $("#tokenRemover");
   const $lnurlRemover = $("#lnurlRemover");
   const $redeemButton = $("#redeem");
+  initCashuDonate($("#donate_cashu"), nostrly_ajax.relays, nostrly_ajax.pubkey);
 
   // Helpers to get invoice from Lightning address | LN URL
   const isLnurl = (address) =>
