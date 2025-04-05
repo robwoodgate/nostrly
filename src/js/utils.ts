@@ -9,6 +9,7 @@ import {
   type MintAllKeysets,
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
+import confetti from "canvas-confetti";
 
 export const getTokenAmount = (proofs: Array<Proof>): number => {
   return proofs.reduce((acc, proof) => {
@@ -89,6 +90,25 @@ function storeMintData(mintUrl: string, mintData: MintData): void {
   localStorage.setItem(`cashu.mint.${mintUrl}`, JSON.stringify(mintData));
 }
 
+// Store mint proofs to localStorage
+export function storeMintProofs(
+  mintUrl: string,
+  proofs: Array<Proof>,
+  replace: boolean = false,
+): void {
+  if (!replace) {
+    const stored: Array<Proof> = getMintProofs(mintUrl);
+    proofs = [...proofs, ...stored];
+  }
+  localStorage.setItem(`cashu.proofs.${mintUrl}`, JSON.stringify(proofs));
+}
+
+// Get mint proofs from localStorage
+export function getMintProofs(mintUrl: string): Array<Proof> {
+  const stored: string | null = localStorage.getItem(`cashu.proofs.${mintUrl}`);
+  return stored ? JSON.parse(stored) : [];
+}
+
 // Load mint data (from cache or network)
 export async function loadMint(mintUrl: string): Promise<MintData> {
   const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
@@ -97,6 +117,7 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
   const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   if (cachedData && Date.now() - cachedData.lastUpdated < ONE_DAY_MS) {
     // Use cached data if < 24 hours old
+    console.log("loadMint:>> using cached");
     return cachedData;
   }
 
@@ -115,6 +136,7 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
     };
 
     storeMintData(mintUrl, freshData);
+    console.log("loadMint:>> using fresh");
     return freshData;
   } catch (error) {
     throw new Error(`Could not load mint: ${mintUrl}`, { cause: error });
@@ -175,4 +197,37 @@ export function copyTextToClipboard(text: string) {
       console.error("Async: Could not copy text: ", err);
     },
   );
+}
+
+export function doConfettiBomb() {
+  // Do the confetti bomb
+  var duration = 0.25 * 1000; //secs
+  var end = Date.now() + duration;
+
+  (function frame() {
+    // launch a few confetti from the left edge
+    confetti({
+      particleCount: 7,
+      angle: 60,
+      spread: 55,
+      origin: {
+        x: 0,
+      },
+    });
+    // and launch a few from the right edge
+    confetti({
+      particleCount: 7,
+      angle: 120,
+      spread: 55,
+      origin: {
+        x: 1,
+      },
+    });
+
+    // keep going until we are out of time
+    if (Date.now() < end) {
+      requestAnimationFrame(frame);
+    }
+  })();
+  confetti.reset();
 }

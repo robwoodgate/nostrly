@@ -6,10 +6,12 @@
   "dependencies": {
     "@cashu/cashu-ts": "^2.4.1",
     "@gandlaf21/bolt11-decode": "^3.1.1",
+    "canvas-confetti": "^1.9.3",
     "nostr-tools": "2.10.3",
     "toastr": "^2.1.4"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/toastr": "^2.1.43",
     "eslint": "^9.22.0",
     "eslint-config-prettier": "^10.1.1",

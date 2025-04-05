@@ -20,7 +20,14 @@ import {
   decode as emojiDecode,
 } from "./emoji-encoder.ts";
 import { getContactDetails, sendViaNostr, maybeConvertNpub } from "./nostr.ts";
-import { copyTextToClipboard, delay, getTokenAmount } from "./utils.ts";
+import {
+  copyTextToClipboard,
+  delay,
+  getTokenAmount,
+  getWalletWithUnit,
+  getMintProofs,
+  storeMintProofs,
+} from "./utils.ts";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 import toastr from "toastr";
@@ -40,7 +47,6 @@ jQuery(function ($) {
   let refundP2PK; // P2PKey
   let proofs = [];
   let tokenAmount = 0;
-  let timeout = null; // For debounce
 
   // DOM elements
   const $divOrderFm = $("#cashu-lock");
@@ -60,8 +66,16 @@ jQuery(function ($) {
   const $lockedToken = $("#locked_token");
 
   // Input handlers
-  $mintSelect.on("input", () => {
+  $mintSelect.on("input", async () => {
     mintUrl = $mintSelect.val();
+    try {
+      wallet = await getWalletWithUnit(mintUrl); // Load wallet
+      proofs = getMintProofs(mintUrl); // Load saved proofs
+      console.log("proofs:>>", getTokenAmount(proofs));
+      toastr.success(`Loaded Mint: ${mintUrl}`);
+    } catch (e) {
+      toastr.error(e);
+    }
     console.log("mintUrl:>>", mintUrl);
   });
   $lockValue.on("input", () => {
@@ -139,28 +153,34 @@ jQuery(function ($) {
         if (!token.startsWith("cashu")) {
           token = emojiDecode(token);
         }
-        const decoded = getDecodedToken(token);
-        if (!decoded) {
-          throw new Error("Could not process token");
-        }
+        token = getDecodedToken(token);
         // Check this token is from same mint
-        if (decoded.mint != $mintSelect.val()) {
-          throw new Error("Token is not from " + $mintSelect.val());
+        if (token.mint != mintUrl) {
+          throw new Error("Token is not from " + mintUrl);
         }
-        // Create a wallet connected to same mint as token
-        const mintUrl = decoded.mint;
-        const mint = new CashuMint(mintUrl);
-        const wallet = new CashuWallet(mint);
-        await wallet.loadMint();
-        // Receive the token to the wallet (creates new proofs)
-        const proofs = await wallet.receive(token);
-        const newToken = getEncodedTokenV4({ mint: mintUrl, proofs: proofs });
-        const emoji = emojiEncode("\uD83E\uDD5C", newToken);
-        sendViaNostr(nostrly_ajax.pubkey, "Cashu Donation: " + emoji, relays); // async fire-forget
-        toastr.success("Donation received! Thanks for your support 🧡");
+        // Check this token unit from same mint
+        if (token.unit !== wallet.unit) {
+          throw new Error(
+            `Unit mismatch: Needed ${wallet.unit}, Received ${token.unit}`,
+          );
+        }
+        // Check token was big enough
+        if (getTokenAmount(token.proofs) < tokenAmount) {
+          throw new Error(
+            `Amount mismatch: Needed at least ${tokenAmount}, Received ${getTokenAmount(token.proofs)}`,
+          );
+        }
+        // Add token proofs to our working array
+        // NB: Not saving them here as the token proofs have not been received
+        // and so could be already spent or subject to double spend.
+        proofs = [...proofs, ...token.proofs];
+        console.log("proofs:>>", getTokenAmount(proofs));
+
+        toastr.success("Received! Creating locked token...");
+        createLockedToken();
       } catch (error) {
-        console.error(error);
         toastr.error(error.message);
+        console.error(error);
       } finally {
         $payByCashu.val("");
       }
@@ -168,37 +188,28 @@ jQuery(function ($) {
   };
   $payByCashu.on("paste", processCashuPayment);
 
-  // Confetti bomb
-  function doConfettiBomb() {
-    // Do the confetti bomb
-    var duration = 0.25 * 1000; //secs
-    var end = Date.now() + duration;
-
-    (function frame() {
-      // launch a few confetti from the left edge
-      confetti({
-        particleCount: 7,
-        angle: 60,
-        spread: 55,
-        origin: {
-          x: 0,
+  // handle Locked token and donation
+  const createLockedToken = async () => {
+    try {
+      const { send: p2pkProofs, keep: donationProofs } = await wallet.send(
+        tokenAmount,
+        proofs,
+        {
+          includeFees: true, // Account for potential swap fees
+          includeDleq: true, // Allows offline spending
+          p2pk: {
+            pubkey: lockP2PK,
+            locktime: expireTime,
+            refundKeys: [refundP2PK],
+          },
         },
-      });
-      // and launch a few from the right edge
-      confetti({
-        particleCount: 7,
-        angle: 120,
-        spread: 55,
-        origin: {
-          x: 1,
-        },
-      });
-
-      // keep going until we are out of time
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
+      );
+      // Send donation
+      if (donationProofs) {
       }
-    })();
-    confetti.reset();
-  }
+    } catch (e) {
+      toastr.error(error.message);
+      console.error(error);
+    }
+  };
 });

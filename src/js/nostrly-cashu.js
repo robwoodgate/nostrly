@@ -10,7 +10,7 @@ import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder.ts";
-import { initCashuDonate } from "./cashu-donate.js";
+import { handleCashuDonation } from "./cashu-donate.js";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 
@@ -34,7 +34,20 @@ jQuery(function ($) {
   const $tokenRemover = $("#tokenRemover");
   const $lnurlRemover = $("#lnurlRemover");
   const $redeemButton = $("#redeem");
-  initCashuDonate($("#donate_cashu"), nostrly_ajax.relays, nostrly_ajax.pubkey);
+  const $donateCashu = $("#donate_cashu");
+
+  // Donation input
+  $donateCashu.on("paste", () => {
+    setTimeout(async () => {
+      handleCashuDonation(
+        $donateCashu.val(),
+        nostrly_ajax.relays,
+        nostrly_ajax.pubkey,
+      );
+      $donateCashu.val("");
+    }, 200);
+    console.log("donation");
+  });
 
   // Helpers to get invoice from Lightning address | LN URL
   const isLnurl = (address) =>
