@@ -366,32 +366,36 @@ class NostrlyTools
 
         return <<<EOL
                 <style>
-                    #cashu-lock {
+                    #cashu-lock-form {
                       margin-bottom: 40px;
                     }
-                    #cashu-lock label {
+                    #cashu-lock-form label {
                       font-weight: bold;
                       margin-bottom: 0;
                       text-align: left;
                     }
-                    #cashu-lock div {
+                    #cashu-lock-form div {
                         margin-bottom: 1rem;
                     }
                     #cashu-lock-pay .subtitle {
                       font-weight: bold;
                     }
-                    #cashu-lock input, #cashu-lock textarea, #cashu-lock select {
+                    #cashu-lock-form input,
+                    #cashu-lock-form textarea,
+                    #cashu-lock-form select {
                       border-radius: 6px;
                       margin-bottom: 0.25em;
                       padding: 6px 15px;
                       width: 100%;
                     }
-                    // #cashu-lock input[data-valid="yes"] {
+                    // #cashu-lock-form input[data-valid="yes"],
+                    // #cashu-lock-form select[data-valid="yes"] {
                     //   border: 2px solid rgb(49, 194, 54);
                     //   background-color: rgba(49, 194, 54, 0.3);
                     //   color: white;
                     // }
-                    #cashu-lock input[data-valid="no"] {
+                    #cashu-lock-form input[data-valid="no"],
+                    #cashu-lock-form select[data-valid="no"] {
                       border: 2px solid rgb(204, 55, 55);
                       background-color: rgba(204, 55, 55, 0.3);
                       color: white;
@@ -434,7 +438,7 @@ class NostrlyTools
                         width: fit-content;
                     }
                 </style>
-                <div id="cashu-lock">
+                <div id="cashu-lock-form">
                     <div>
                         <label for="mint-select">Choose a Mint:</label>
                         <select id="mint-select" name="mint-select" required>

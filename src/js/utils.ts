@@ -7,6 +7,7 @@ import {
   type Proof,
   type MintActiveKeys,
   type MintAllKeysets,
+  type Token.
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import confetti from "canvas-confetti";
@@ -109,18 +110,29 @@ export function getMintProofs(mintUrl: string): Array<Proof> {
   return stored ? JSON.parse(stored) : [];
 }
 
+// Store locked tokens to localStorage
+export function storeLockedToken(token: Token): void {
+  const stored: Array<Token> = getLockedTokens();
+  token = [token, ...stored];
+  localStorage.setItem("cashu.lockedTokens", JSON.stringify(token));
+}
+
+// Get mint proofs from localStorage
+export function getLockedTokens(): Array<Token> {
+  const stored: string | null = localStorage.getItem("cashu.lockedTokens");
+  return stored ? JSON.parse(stored) : [];
+}
+
 // Load mint data (from cache or network)
 export async function loadMint(mintUrl: string): Promise<MintData> {
   const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
   const cachedData: MintData | null = stored ? JSON.parse(stored) : null;
-
   const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   if (cachedData && Date.now() - cachedData.lastUpdated < ONE_DAY_MS) {
     // Use cached data if < 24 hours old
     console.log("loadMint:>> using cached");
     return cachedData;
   }
-
   // Fetch fresh data from the mint
   try {
     const cashuMint = new CashuMint(mintUrl);
@@ -134,7 +146,6 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
       keysets: mintAllKeysets.keysets,
       lastUpdated: Date.now(),
     };
-
     storeMintData(mintUrl, freshData);
     console.log("loadMint:>> using fresh");
     return freshData;
@@ -159,6 +170,18 @@ export const getWalletWithUnit = async (
 };
 
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+// Debounce utility function
+export const debounce = <T extends (...args: any[]) => void>(
+  func: T,
+  delay: number,
+): ((...args: Parameters<T>) => void) => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+};
 
 function fallbackCopyTextToClipboard(text: string) {
   var textArea = document.createElement("textarea");

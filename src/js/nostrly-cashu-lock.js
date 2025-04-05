@@ -5,6 +5,7 @@ import {
   getDecodedToken,
   CheckStateEnum,
   getEncodedTokenV4,
+  MintQuoteState,
 } from "@cashu/cashu-ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import {
@@ -23,11 +24,15 @@ import { getContactDetails, sendViaNostr, maybeConvertNpub } from "./nostr.ts";
 import {
   copyTextToClipboard,
   delay,
+  debounce,
+  formatAmount,
   getTokenAmount,
   getWalletWithUnit,
   getMintProofs,
   storeMintProofs,
+  storeLockedToken,
 } from "./utils.ts";
+import { handleCashuDonation } from "./cashu-donate.js";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 import toastr from "toastr";
@@ -47,9 +52,10 @@ jQuery(function ($) {
   let refundP2PK; // P2PKey
   let proofs = [];
   let tokenAmount = 0;
+  let feeAmount = 0;
 
   // DOM elements
-  const $divOrderFm = $("#cashu-lock");
+  const $divOrderFm = $("#cashu-lock-form");
   const $divPayment = $("#cashu-lock-pay");
   const $divSuccess = $("#cashu-lock-success");
   const $mintSelect = $("#mint-select");
@@ -61,9 +67,27 @@ jQuery(function ($) {
   const $orderButton = $("#lock-next");
   const $amountToPay = $("#amount_to_pay");
   const $invoiceLink = $("#invoice-link");
+  const $invoiceImg = $("#invoice-img");
   const $invoiceCopy = $("#invoice-copy");
   const $payByCashu = $("#payby_cashu");
   const $lockedToken = $("#locked_token");
+
+  // Page handlers
+  function showOrderForm() {
+    $divOrderFm.show();
+    $divPayment.hide();
+    $divSuccess.hide();
+  }
+  function showPaymentPage() {
+    $divOrderFm.hide();
+    $divPayment.show();
+    $divSuccess.hide();
+  }
+  function showSuccessPage() {
+    $divOrderFm.hide();
+    $divPayment.hide();
+    $divSuccess.show();
+  }
 
   // Input handlers
   $mintSelect.on("input", async () => {
@@ -73,20 +97,41 @@ jQuery(function ($) {
       proofs = getMintProofs(mintUrl); // Load saved proofs
       console.log("proofs:>>", getTokenAmount(proofs));
       toastr.success(`Loaded Mint: ${mintUrl}`);
+      $mintSelect.attr("data-valid", "");
     } catch (e) {
       toastr.error(e);
+      $mintSelect.attr("data-valid", "no");
     }
     console.log("mintUrl:>>", mintUrl);
+    checkIsReadyToOrder();
   });
   $lockValue.on("input", () => {
-    tokenAmount = parseInt($lockValue.val(), 10);
+    tokenAmount = parseInt($lockValue.val(), 10); // Base10 int
     console.log("tokenAmount:>>", tokenAmount);
+    feeAmount = Math.max(Math.ceil(tokenAmount * 0.01), 10); // 1%, min 10 sats
+    console.log("feeAmount:>>", feeAmount);
+    checkIsReadyToOrder();
   });
   $lockExpiry.on("input", () => {
     expireTime = Math.floor(new Date($lockExpiry.val()).getTime() / 1000);
     console.log("expireTime:>>", expireTime);
+    checkIsReadyToOrder();
   });
-  // $orderButton.on("click", getMintQuote);
+  $orderButton.on("click", async () => {
+    showPaymentPage();
+    const quote = await wallet.createMintQuote(tokenAmount + feeAmount);
+    console.log("quote:>>", quote);
+    $amountToPay.text(formatAmount(tokenAmount + feeAmount));
+    $invoiceLink.attr("href", `lightning:${quote.request}`);
+    const img =
+      "https://quickchart.io/chart?cht=qr&chs=200x200&chl=" + quote.request;
+    $invoiceImg.attr("src", img);
+    $invoiceCopy.on("click", () => {
+      copyTextToClipboard(quote.request);
+    });
+
+    setTimeout(() => checkQuote(quote.quote), 5000);
+  });
 
   // Checks Lock and Refund Public Keys
   const handlePubkeyInput = ($input, setKeyFn, errorMsgPrefix) => {
@@ -96,7 +141,11 @@ jQuery(function ($) {
       timeout = setTimeout(async () => {
         const key = $input.val();
         $input.attr("data-valid", "");
-        if (!key) return;
+        setKeyFn(undefined);
+        if (!key) {
+          checkIsReadyToOrder();
+          return;
+        }
         if (isPublicKeyValid(key)) {
           const p2pk = maybeConvertNpub(key);
           setKeyFn(p2pk);
@@ -111,7 +160,8 @@ jQuery(function ($) {
           toastr.error(`${errorMsgPrefix} Public Key`);
           $input.attr("data-valid", "no");
         }
-      }, 1000);
+        checkIsReadyToOrder();
+      }, 200);
     });
   };
   handlePubkeyInput($lockNpub, (key) => (lockP2PK = key), "Invalid Lock");
@@ -142,6 +192,42 @@ jQuery(function ($) {
       return true;
     }
     return false;
+  };
+
+  // Handles order button status
+  const setOrderButtonState = debounce((isDisabled) => {
+    $orderButton.prop("disabled", isDisabled);
+  }, 200);
+  const checkIsReadyToOrder = () => {
+    if (
+      wallet &&
+      tokenAmount > 0 &&
+      expireTime &&
+      lockP2PK &&
+      (refundP2PK || !$refundNpub.val())
+    ) {
+      setOrderButtonState(false);
+      return true;
+    }
+    setOrderButtonState(true);
+    return false;
+  };
+  checkIsReadyToOrder();
+
+  // Check Mint Quote for payment
+  const checkQuote = async (quote) => {
+    const newquote = await wallet.checkMintQuote(quote);
+    if (newquote.state === MintQuoteState.PAID) {
+      const ps = await wallet.mintProofs(tokenAmount + feeAmount, quote);
+      proofs = [...proofs, ...ps];
+      storeMintProofs(mintUrl, proofs, true); // Store all for safety
+      createLockedToken();
+    } else if (getTokenAmount(proofs) > tokenAmount+feeAmount) {
+      // Paid by Cashu, or previous lightning payment, so stop checking
+    } else {
+      await delay(5000);
+      checkQuote(quote);
+    }
   };
 
   // Handle Cashu payment
@@ -204,12 +290,28 @@ jQuery(function ($) {
           },
         },
       );
-      // Send donation
+      // Send donation (will spend these proofs)
       if (donationProofs) {
+        const donationToken = getEncodedTokenV4({
+          mint: mintUrl,
+          proofs: donationProofs,
+        });
+        handleCashuDonation(donationToken);
       }
+      // Return locked token
+      const lockedToken = getEncodedTokenV4({
+        mint: mintUrl,
+        proofs: p2pkProofs,
+      });
+      storeLockedToken(lockedToken); // for safety / history
+      $lockedToken.val(lockedToken);
+      showSuccessPage();
+      storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
       toastr.error(error.message);
       console.error(error);
+      storeMintProofs(mintUrl, proofs, true); // overwrite proofs store
+      showOrderForm();
     }
   };
 });

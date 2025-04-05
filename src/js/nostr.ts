@@ -42,14 +42,14 @@ export const sendViaNostr = async (
   };
   const signedEvent = finalizeEvent(event, sk);
   // localStorage.setItem("nostrly-donation", JSON.stringify(signedEvent));
-  pool.publish(DEFAULT_RELAYS, signedEvent);
+  pool.publish(relays, signedEvent);
 };
 
-export const getContactDetails = async (
-  npub: string,
-  relays: string[] = DEFAULT_RELAYS,
-) => {
+export const getContactDetails = async (npub: string, relays: string[]) => {
   try {
+    if (!relays) {
+      relays = DEFAULT_RELAYS; // Fallback
+    }
     const hexpub = nip19.decode(npub).data as string;
     const filter: Filter = { kinds: [0], authors: [hexpub] };
     const event = await pool.get(relays, filter);
