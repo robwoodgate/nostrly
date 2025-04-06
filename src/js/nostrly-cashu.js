@@ -7,7 +7,7 @@ import {
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
 import { getP2PKPublicKey } from "./utils.ts";
-import { p2pkeyToNpub } from "./nostr.ts";
+import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
