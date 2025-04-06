@@ -225,7 +225,7 @@ jQuery(function ($) {
   checkIsReadyToOrder();
   // Set default expire time and trigger check ready
   $lockExpiry
-    .val(new Date(Date.now() + 864e5).toISOString().slice(0, 16)) // default +1 day
+    .val(new Date(Date.now() + 864e5).toISOString().slice(0, 11) + "23:59") // default midnight
     .trigger("input");
 
   // Check Mint Quote for payment
