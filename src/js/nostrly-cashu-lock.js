@@ -20,7 +20,12 @@ import {
   encode as emojiEncode,
   decode as emojiDecode,
 } from "./emoji-encoder.ts";
-import { getContactDetails, sendViaNostr, maybeConvertNpub } from "./nostr.ts";
+import {
+  getContactDetails,
+  sendViaNostr,
+  maybeConvertNpub,
+  isPublicKeyValid,
+} from "./nostr.ts";
 import {
   copyTextToClipboard,
   delay,
@@ -69,8 +74,9 @@ jQuery(function ($) {
   const $invoiceLink = $("#invoice-link");
   const $invoiceImg = $("#invoice-img");
   const $invoiceCopy = $("#invoice-copy");
-  const $payByCashu = $("#payby_cashu");
-  const $lockedToken = $("#locked_token");
+  const $payByCashu = $("#payby-cashu");
+  const $lockedToken = $("#locked-token");
+  const $lockedCopy = $("#locked-token-copy");
 
   // Page handlers
   function showOrderForm() {
@@ -198,16 +204,6 @@ jQuery(function ($) {
     }
   }
 
-  // Checks public key is valid
-  const isPublicKeyValid = (key) => {
-    key = maybeConvertNpub(key); // converts if in npub format
-    const regex = /^(02|03)[0-9a-fA-F]{64}$/; // P2PK ECC Key
-    if (key && regex.test(key)) {
-      return true;
-    }
-    return false;
-  };
-
   // Handles order button status
   const setOrderButtonState = debounce((isDisabled) => {
     $orderButton.prop("disabled", isDisabled);
@@ -329,7 +325,9 @@ jQuery(function ($) {
       $lockedToken.val(lockedToken);
       showSuccessPage();
       $lockedToken.on("click", () => {
-        $lockedToken.select();
+        copyTextToClipboard(lockedToken);
+      });
+      $lockedCopy.on("click", () => {
         copyTextToClipboard(lockedToken);
       });
       storeMintProofs(mintUrl, [], true); // zap the proof store

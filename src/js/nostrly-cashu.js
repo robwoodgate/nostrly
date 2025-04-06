@@ -7,6 +7,7 @@ import {
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
 import { getP2PKPublicKey } from "./utils.ts";
+import { p2pkeyToNpub } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
@@ -185,16 +186,18 @@ jQuery(function ($) {
         console.log("P2PK locked proofs found:>>", lockedProofs);
         try {
           const p2pkSecret = JSON.parse(lockedProofs[0].secret); // first one
-          hexpub = getP2PKPublicKey(p2pkSecret).slice(2); // remove the prefix (02|03)
+          hexpub = getP2PKPublicKey(p2pkSecret); // 02|03...
           console.log("p2pkSecret:>>", p2pkSecret);
         } catch (e) {}
       }
       if (hexpub) {
         // Token is currently locked to this npub
-        lockNpub = nip19.npubEncode(hexpub);
-        $lightningStatus.html(
-          `Token is P2PK locked to <a href="https://njump.me/${lockNpub}" target="_blank">${lockNpub.substring(0, 12)}...`,
-        );
+        lockNpub = p2pkeyToNpub(hexpub);
+        const { name } = await getContactDetails(lockNpub, nostrly_ajax.relays);
+        let msg = `Token is P2PK locked to <a href="https://njump.me/${lockNpub}" target="_blank">`;
+        msg += name ? name : lockNpub;
+        msg += "</a>";
+        $lightningStatus.html(msg);
 
         // If no signString() compatible extension detected, we'll have
         // to ask for an nsec/private key :(

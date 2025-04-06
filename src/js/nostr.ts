@@ -75,3 +75,24 @@ export const maybeConvertNpub = (key: string) => {
   }
   return key;
 };
+
+export const p2pkeyToNpub = (key: string): string | null => {
+  // Check and convert P2PK to npub
+  try {
+    return nip19.npubEncode(key.slice(2));
+  } catch (e) {
+    console.error(e);
+  }
+
+  return key;
+};
+
+// Checks public key is valid
+export const isPublicKeyValid = (key: string): boolean => {
+  key = maybeConvertNpub(key); // converts if in npub format
+  const regex = /^(02|03)[0-9a-fA-F]{64}$/; // P2PK ECC Key
+  if (key && regex.test(key)) {
+    return true;
+  }
+  return false;
+};

@@ -478,13 +478,13 @@ class NostrlyTools
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
                     <div class="subtitle">Or paste a <span id="amount_to_pay"></span> Cashu token from:</div>
                     <div class="mint_url">https://mint.minibits.cash/Bitcoin</div>
-                    <div><input id="payby_cashu" type="text" placeholder="CashuB..."></p></div>
+                    <div><input id="payby-cashu" type="text" placeholder="CashuB..."></p></div>
                     <p class="description">*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
                 </div>
                 <div id="cashu-lock-success" class="center hidden">
                     <h2>Your Locked Token</h2>
-                    <textarea id="locked_token" rows="10" cols="50"></textarea>
-                    <p class="description">*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
+                    <textarea id="locked-token" rows="10" cols="50"></textarea>
+                    <p><button id="locked-token-copy" class="button">{$copy_inv}</button></p>
                 </div>
             EOL;
     }
