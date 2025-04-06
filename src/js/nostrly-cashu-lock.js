@@ -95,7 +95,8 @@ jQuery(function ($) {
     try {
       wallet = await getWalletWithUnit(mintUrl); // Load wallet
       proofs = getMintProofs(mintUrl); // Load saved proofs
-      console.log("proofs:>>", getTokenAmount(proofs));
+      console.log("proofs total:>>", getTokenAmount(proofs));
+      console.log("proofs:>>", proofs);
       toastr.success(`Loaded Mint: ${mintUrl}`);
       $mintSelect.attr("data-valid", "");
     } catch (e) {
@@ -108,13 +109,26 @@ jQuery(function ($) {
   $lockValue.on("input", () => {
     tokenAmount = parseInt($lockValue.val(), 10); // Base10 int
     console.log("tokenAmount:>>", tokenAmount);
-    feeAmount = Math.max(Math.ceil(tokenAmount * 0.01), 10); // 1%, min 10 sats
+    feeAmount = Math.max(Math.ceil(tokenAmount * 0.01), 3); // 1%, min 3 sats
     console.log("feeAmount:>>", feeAmount);
     checkIsReadyToOrder();
   });
+  const checkMinDate = debounce((expireTime) => {
+    const now = Math.floor(new Date().getTime() / 1000);
+    console.log("now:>>", now);
+    if (expireTime < now) {
+      $lockExpiry.attr("data-valid", "no");
+      toastr.error("Expiry is in the past.");
+      console.log("Expiry is in the past.");
+    } else {
+      $lockExpiry.attr("data-valid", "");
+    }
+  }, 500);
   $lockExpiry.on("input", () => {
     expireTime = Math.floor(new Date($lockExpiry.val()).getTime() / 1000);
     console.log("expireTime:>>", expireTime);
+    // Check if expireTime is less than now
+    checkMinDate(expireTime);
     checkIsReadyToOrder();
   });
   $orderButton.on("click", async () => {
@@ -213,6 +227,10 @@ jQuery(function ($) {
     return false;
   };
   checkIsReadyToOrder();
+  // Set default expire time and trigger check ready
+  $lockExpiry
+    .val(new Date(Date.now() + 864e5).toISOString().slice(0, 16)) // default +1 day
+    .trigger("input");
 
   // Check Mint Quote for payment
   const checkQuote = async (quote) => {
@@ -222,7 +240,7 @@ jQuery(function ($) {
       proofs = [...proofs, ...ps];
       storeMintProofs(mintUrl, proofs, true); // Store all for safety
       createLockedToken();
-    } else if (getTokenAmount(proofs) > tokenAmount+feeAmount) {
+    } else if (getTokenAmount(proofs) > tokenAmount + feeAmount) {
       // Paid by Cashu, or previous lightning payment, so stop checking
     } else {
       await delay(5000);
@@ -264,9 +282,9 @@ jQuery(function ($) {
 
         toastr.success("Received! Creating locked token...");
         createLockedToken();
-      } catch (error) {
-        toastr.error(error.message);
-        console.error(error);
+      } catch (e) {
+        toastr.error(e);
+        console.error(e);
       } finally {
         $payByCashu.val("");
       }
@@ -277,19 +295,23 @@ jQuery(function ($) {
   // handle Locked token and donation
   const createLockedToken = async () => {
     try {
-      const { send: p2pkProofs, keep: donationProofs } = await wallet.send(
+      // const refundKeys = refundP2PK ? [refundP2PK] : undefined;
+      // Current cashu-ts library doesn't spread the array, so for now...
+      // see: https://github.com/cashubtc/cashu-ts/pull/282
+      const refundKeys = refundP2PK ? refundP2PK : undefined;
+      const { send: p2pkProofs, keep: donationProofs } = await wallet.swap(
         tokenAmount,
         proofs,
         {
-          includeFees: true, // Account for potential swap fees
-          includeDleq: true, // Allows offline spending
           p2pk: {
             pubkey: lockP2PK,
             locktime: expireTime,
-            refundKeys: [refundP2PK],
+            refundKeys: refundKeys,
           },
         },
       );
+      console.log("p2pkProofs:>>", p2pkProofs);
+      console.log("donationProofs:>>", donationProofs);
       // Send donation (will spend these proofs)
       if (donationProofs) {
         const donationToken = getEncodedTokenV4({
@@ -306,10 +328,14 @@ jQuery(function ($) {
       storeLockedToken(lockedToken); // for safety / history
       $lockedToken.val(lockedToken);
       showSuccessPage();
+      $lockedToken.on("click", () => {
+        $lockedToken.select();
+        copyTextToClipboard(lockedToken);
+      });
       storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
-      toastr.error(error.message);
-      console.error(error);
+      toastr.error(e);
+      console.error(e);
       storeMintProofs(mintUrl, proofs, true); // overwrite proofs store
       showOrderForm();
     }

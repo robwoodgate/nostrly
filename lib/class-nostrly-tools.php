@@ -450,7 +450,7 @@ class NostrlyTools
                     </div>
                     <div>
                         <label for="lock-value">Token Value (sats):</label>
-                        <input type="number" id="lock-value" name="lock-value" min="100" step="1" placeholder="1000" required>
+                        <input type="number" id="lock-value" name="lock-value" min="1" step="1" placeholder="1000" required>
                     </div>
                     <div>
                         <label for="lock-npub">Lock Token to Public Key (NPUB/P2PK):</label>
@@ -469,22 +469,21 @@ class NostrlyTools
                     </div>
                     <div class="center">
                         <button type="submit" id="lock-next">Create Locked Token</button>
-                        <div class="description">A 1% locking fee (min 10 sats) applies.</div>
+                        <div class="description">A 1% locking fee (min 3 sats) applies.</div>
                     </div>
                 </div>
                 <div id="cashu-lock-pay" class="center hidden">
-                    <h2 id="amount_to_pay"></h2>
                     <div class="subtitle">Pay Lightning Invoice:</div>
                     <p><a id="invoice-link"><img id="invoice-img"/></a></p>
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
-                    <div class="subtitle">Or paste a Cashu token from:</div>
+                    <div class="subtitle">Or paste a <span id="amount_to_pay"></span> Cashu token from:</div>
                     <div class="mint_url">https://mint.minibits.cash/Bitcoin</div>
                     <div><input id="payby_cashu" type="text" placeholder="CashuB..."></p></div>
                     <p class="description">*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
                 </div>
                 <div id="cashu-lock-success" class="center hidden">
                     <h2>Your Locked Token</h2>
-                    <textarea id="locked_token" rows="4" cols="50"></textarea>
+                    <textarea id="locked_token" rows="10" cols="50"></textarea>
                     <p class="description">*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
                 </div>
             EOL;

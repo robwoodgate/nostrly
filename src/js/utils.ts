@@ -7,7 +7,6 @@ import {
   type Proof,
   type MintActiveKeys,
   type MintAllKeysets,
-  type Token.
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import confetti from "canvas-confetti";
@@ -111,14 +110,14 @@ export function getMintProofs(mintUrl: string): Array<Proof> {
 }
 
 // Store locked tokens to localStorage
-export function storeLockedToken(token: Token): void {
-  const stored: Array<Token> = getLockedTokens();
-  token = [token, ...stored];
-  localStorage.setItem("cashu.lockedTokens", JSON.stringify(token));
+export function storeLockedToken(token: string): void {
+  let stored: string[] = getLockedTokens();
+  stored = [token, ...stored];
+  localStorage.setItem("cashu.lockedTokens", JSON.stringify(stored));
 }
 
 // Get mint proofs from localStorage
-export function getLockedTokens(): Array<Token> {
+export function getLockedTokens(): Array<string> {
   const stored: string | null = localStorage.getItem("cashu.lockedTokens");
   return stored ? JSON.parse(stored) : [];
 }

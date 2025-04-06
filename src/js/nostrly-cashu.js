@@ -173,6 +173,7 @@ jQuery(function ($) {
       );
       // Check if proofs are P2PK locked
       const lockedProofs = proofs.filter(function (k) {
+        console.log("secret:>>", JSON.parse(k.secret));
         return k.secret.includes("P2PK");
       });
       if (lockedProofs.length) {
