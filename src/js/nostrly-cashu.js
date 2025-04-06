@@ -6,7 +6,7 @@ import {
   CheckStateEnum,
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
-import { getP2PKPublicKey } from "./utils.ts";
+import { getP2PKPublicKey, doConfettiBomb } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
@@ -429,40 +429,6 @@ jQuery(function ($) {
     $(".preamble").hide();
     $lnurl.val(to);
     $lnurl.trigger("input");
-  }
-
-  // Confetti bomb
-  function doConfettiBomb() {
-    // Do the confetti bomb
-    var duration = 0.25 * 1000; //secs
-    var end = Date.now() + duration;
-
-    (function frame() {
-      // launch a few confetti from the left edge
-      confetti({
-        particleCount: 7,
-        angle: 60,
-        spread: 55,
-        origin: {
-          x: 0,
-        },
-      });
-      // and launch a few from the right edge
-      confetti({
-        particleCount: 7,
-        angle: 120,
-        spread: 55,
-        origin: {
-          x: 1,
-        },
-      });
-
-      // keep going until we are out of time
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    })();
-    confetti.reset();
   }
 
   // Sign P2PK proofs using Alby Nostr Extension
