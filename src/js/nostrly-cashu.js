@@ -6,6 +6,7 @@ import {
   CheckStateEnum,
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
+import { getP2PKPublicKey } from "./utils.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
@@ -23,6 +24,7 @@ jQuery(function ($) {
   let tokenAmount = 0;
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
+  let lockNpub;
 
   // DOM elements
   const $lnurl = $("#lnurl");
@@ -114,6 +116,7 @@ jQuery(function ($) {
         $pkeyWrapper.hide();
         $redeemButton.prop("disabled", true);
         tokenAmount = 0;
+        lockNpub = null;
         return;
       }
       let token; // scope
@@ -173,18 +176,26 @@ jQuery(function ($) {
       );
       // Check if proofs are P2PK locked
       const lockedProofs = proofs.filter(function (k) {
-        console.log("secret:>>", JSON.parse(k.secret));
         return k.secret.includes("P2PK");
       });
+      let hexpub;
       if (lockedProofs.length) {
-        // they are
+        // they are... so lookup the npub currently able to unlock
+        // This can vary dependingo on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
-        // Show the npub this token is locked to
-        const p2pkSecret = JSON.parse(lockedProofs[0].secret); // first one
-        const npub = nip19.npubEncode(p2pkSecret[1].data.slice(2));
+        try {
+          const p2pkSecret = JSON.parse(lockedProofs[0].secret); // first one
+          hexpub = getP2PKPublicKey(p2pkSecret).slice(2); // remove the prefix (02|03)
+          console.log("p2pkSecret:>>", p2pkSecret);
+        } catch (e) {}
+      }
+      if (hexpub) {
+        // Token is currently locked to this npub
+        lockNpub = nip19.npubEncode(hexpub);
         $lightningStatus.html(
-          `Token is P2PK locked to <a href="https://njump.me/${npub}" target="_blank">${npub.substring(0, 12)}...`,
+          `Token is P2PK locked to <a href="https://njump.me/${lockNpub}" target="_blank">${lockNpub.substring(0, 12)}...`,
         );
+
         // If no signString() compatible extension detected, we'll have
         // to ask for an nsec/private key :(
         // Hey fiatjaf... free the nsec, it's 2025 !!!!
@@ -456,6 +467,7 @@ jQuery(function ($) {
     if (typeof window?.nostr?.signSchnorr === "undefined") return;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
+      if (!lockNpub) continue;
       const hash = bytesToHex(sha256(proof.secret));
       // console.log('hash:>>', hash);
       const schnorr = await window.nostr.signSchnorr(hash);
@@ -472,6 +484,7 @@ jQuery(function ($) {
     if (typeof window?.nostr?.signString === "undefined") return;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
+      if (!lockNpub) continue;
       const expHash = bytesToHex(sha256(proof.secret));
       const { hash, sig, pubkey } = await window.nostr.signString(proof.secret);
       // Check we got a signature from expected pubkey on expected hash

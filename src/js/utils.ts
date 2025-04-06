@@ -168,6 +168,57 @@ export const getWalletWithUnit = async (
   return wallet;
 };
 
+// Define the structure of a NUT-11 P2PK secret
+type P2PKSecret = [
+  string, // "P2PK"
+  {
+    nonce: string;
+    data: string;
+    tags: Array<string[]>;
+  },
+];
+
+/**
+ * Returns the appropriate public key from a NUT-11 P2PK secret based on locktime.
+ * - Returns the `data` pubkey if locktime is in the future.
+ * - Returns the first `refund` pubkey if locktime has passed.
+ * - Returns null if no P2PK lock
+ * @param secret - The NUT-11 P2PK secret.
+ * @param now - Optional current timestamp in seconds (defaults to current time).
+ * @returns The public key (string) or null
+ */
+export function getP2PKPublicKey(
+  secret: P2PKSecret,
+  now: number = Math.floor(Date.now() / 1000),
+): string | null {
+  // Validate secret format
+  if (secret[0] !== "P2PK") {
+    throw new Error('Invalid P2PK secret: must start with "P2PK"');
+  }
+
+  const { data, tags } = secret[1];
+
+  // Find locktime tag
+  const locktimeTag = tags.find((tag) => tag[0] === "locktime");
+  const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity; // Default to future if no locktime
+
+  // Find refund tag
+  const refundTag = tags.find((tag) => tag[0] === "refund");
+  const refundKey = refundTag && refundTag.length > 1 ? refundTag[1] : null;
+
+  // If locktime is in the future, return the data pubkey
+  if (locktime > now) {
+    return data;
+  }
+
+  // If locktime has passed, return the first refund pubkey
+  if (refundKey) {
+    return refundKey;
+  }
+
+  return null;
+}
+
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 // Debounce utility function
