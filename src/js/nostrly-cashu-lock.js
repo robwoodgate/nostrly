@@ -83,6 +83,7 @@ jQuery(function ($) {
   const $historyDiv = $("#nutlock-history");
   const $refreshHistory = $("#refresh-history");
   const $clearHistory = $("#clear-history");
+  const $preamble = $(".preamble");
 
   // Page handlers
   function showOrderForm() {
@@ -94,11 +95,13 @@ jQuery(function ($) {
     $divOrderFm.hide();
     $divPayment.show();
     $divSuccess.hide();
+    $preamble.hide();
   }
   function showSuccessPage() {
     $divOrderFm.hide();
     $divPayment.hide();
     $divSuccess.show();
+    $preamble.hide();
   }
 
   // Input handlers
