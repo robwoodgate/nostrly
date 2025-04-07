@@ -81,7 +81,6 @@ jQuery(function ($) {
   const $lockedToken = $("#locked-token");
   const $lockedCopy = $("#locked-token-copy");
   const $historyDiv = $("#nutlock-history");
-  const $refreshHistory = $("#refresh-history");
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
 
@@ -160,9 +159,6 @@ jQuery(function ($) {
     });
 
     setTimeout(() => checkQuote(quote.quote), 5000);
-  });
-  $refreshHistory.on("click", () => {
-    loadNutLockHistory();
   });
   $clearHistory.on("click", () => {
     clearLockedTokens();

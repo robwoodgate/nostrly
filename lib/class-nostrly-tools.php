@@ -512,7 +512,6 @@ class NostrlyTools
                     <div id="history" class="center">
                         <h2>NutLock History</h2>
                         <div>
-                            <button id="refresh-history">Refresh History</button>
                             <button id="clear-history">Clear History</button>
                         </div>
                         <div id="nutlock-history"></div>
