@@ -90,17 +90,28 @@ function storeMintData(mintUrl: string, mintData: MintData): void {
   localStorage.setItem(`cashu.mint.${mintUrl}`, JSON.stringify(mintData));
 }
 
-// Store mint proofs to localStorage
+// Store mint proofs to localStorage, ensuring uniqueness by secret
 export function storeMintProofs(
   mintUrl: string,
   proofs: Array<Proof>,
   replace: boolean = false,
 ): void {
-  if (!replace) {
+  // Remove duplicate proofs
+  const uniqueNewProofs = Array.from(
+    new Map(proofs.map((proof) => [proof.secret, proof])).values(),
+  );
+  let finalProofs: Array<Proof>;
+  if (replace) {
+    finalProofs = uniqueNewProofs;
+  } else {
     const stored: Array<Proof> = getMintProofs(mintUrl);
-    proofs = [...proofs, ...stored];
+    const combinedProofs = [...uniqueNewProofs, ...stored];
+    // Ensure all proofs are unique
+    finalProofs = Array.from(
+      new Map(combinedProofs.map((proof) => [proof.secret, proof])).values(),
+    );
   }
-  localStorage.setItem(`cashu.proofs.${mintUrl}`, JSON.stringify(proofs));
+  localStorage.setItem(`cashu.proofs.${mintUrl}`, JSON.stringify(finalProofs));
 }
 
 // Get mint proofs from localStorage
@@ -109,17 +120,51 @@ export function getMintProofs(mintUrl: string): Array<Proof> {
   return stored ? JSON.parse(stored) : [];
 }
 
-// Store locked tokens to localStorage
-export function storeLockedToken(token: string): void {
-  let stored: string[] = getLockedTokens();
-  stored = [token, ...stored];
-  localStorage.setItem("cashu.lockedTokens", JSON.stringify(stored));
+// Define the NutLock history entry
+interface NutLockEntry {
+  date: string;
+  name: string;
+  token: string;
+  amount: number;
+}
+const TOKEN_HISTORY_KEY = "cashu.lockedTokens";
+
+// Store a new locked token with metadata in localStorage
+export function storeLockedToken(
+  token: string,
+  amount: number,
+  name: string,
+): void {
+  const stored = getLockedTokens();
+  const newEntry: NutLockEntry = {
+    date: new Date().toISOString(),
+    name,
+    token,
+    amount,
+  };
+  const updated = [newEntry, ...stored];
+  localStorage.setItem(TOKEN_HISTORY_KEY, JSON.stringify(updated));
 }
 
-// Get mint proofs from localStorage
-export function getLockedTokens(): Array<string> {
-  const stored: string | null = localStorage.getItem("cashu.lockedTokens");
-  return stored ? JSON.parse(stored) : [];
+// Get the history of locked tokens from localStorage
+export function getLockedTokens(): NutLockEntry[] {
+  const stored = localStorage.getItem(TOKEN_HISTORY_KEY);
+  if (!stored) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    return parsed as NutLockEntry[];
+  } catch (e) {
+    // Clear the invalid data and return an empty array
+    localStorage.removeItem(TOKEN_HISTORY_KEY);
+    return [];
+  }
+}
+
+// Get the history of locked tokens from localStorage
+export function clearLockedTokens(): void {
+  localStorage.removeItem(TOKEN_HISTORY_KEY);
 }
 
 // Load mint data (from cache or network)
@@ -138,7 +183,6 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
     const mintInfo = await cashuMint.getInfo();
     const mintAllKeysets: MintAllKeysets = await cashuMint.getKeySets();
     const mintActiveKeys: MintActiveKeys = await cashuMint.getKeys();
-
     const freshData: MintData = {
       info: mintInfo,
       keys: mintActiveKeys.keysets,
@@ -195,27 +239,21 @@ export function getP2PKPublicKey(
   if (secret[0] !== "P2PK") {
     throw new Error('Invalid P2PK secret: must start with "P2PK"');
   }
-
+  // Find locktime and refund tags
   const { data, tags } = secret[1];
-
-  // Find locktime tag
   const locktimeTag = tags.find((tag) => tag[0] === "locktime");
   const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity; // Default to future if no locktime
-
-  // Find refund tag
   const refundTag = tags.find((tag) => tag[0] === "refund");
   const refundKey = refundTag && refundTag.length > 1 ? refundTag[1] : null;
-
   // If locktime is in the future, return the data pubkey
   if (locktime > now) {
     return data;
   }
-
   // If locktime has passed, return the first refund pubkey
   if (refundKey) {
     return refundKey;
   }
-
+  // Lock has expired
   return null;
 }
 

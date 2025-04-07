@@ -379,6 +379,7 @@ class NostrlyTools
                     }
                     #cashu-lock-pay .subtitle {
                       font-weight: bold;
+                      margin-top: 2rem;
                     }
                     #cashu-lock-form input,
                     #cashu-lock-form textarea,
@@ -432,11 +433,44 @@ class NostrlyTools
                         padding: 0 10px;
                         width: fit-content;
                     }
-                    #pay_cashu {
+                    #payby-cashu {
                         margin-top: 0.5rem;
-                        padding: 10px;
-                        width: fit-content;
+                        padding: 1rem;
+                        max-width: 300px;
                     }
+                    #amount_to_pay {
+                      border-radius: 6px;
+                      display:inline-block;
+                      background-color: #FF9900;
+                      color: #000;
+                      padding: 0 0.25rem;
+                    }
+                    #history {
+                      border: 1px solid #ccc;
+                      border-radius: 6px;
+                      margin-top: 3rem;
+                      padding: 1px;
+                    }
+                    #history ul {
+                      margin-left:0;
+                      padding-left:0;
+                    }
+                    .history-item {
+                      border-top: 1px solid #ccc;
+                      cursor: pointer;
+                      list-style: none;
+                      padding: 5px;
+                      text-align: left;
+                    }
+                    .history-item:hover {
+                      background-color: #f0f0f0;
+                      color: #000;
+                    }
+                    #refresh-history, #clear-history {
+                        display: inline-block;
+                        margin: 0 0.25rem;
+                    }
+                }
                 </style>
                 <div id="cashu-lock-form">
                     <div>
@@ -469,11 +503,19 @@ class NostrlyTools
                     </div>
                     <div class="center">
                         <button type="submit" id="lock-next">Create Locked Token</button>
-                        <div class="description">A 1% locking fee (min 3 sats) applies.</div>
+                        <div class="description">A 1% locking fee (min 50 sats) applies.</div>
+                    </div>
+                    <div id="history" class="center">
+                        <h2>NutLock History</h2>
+                        <div>
+                            <button id="refresh-history">Refresh History</button>
+                            <button id="clear-history">Clear History</button>
+                        </div>
+                        <div id="nutlock-history"></div>
                     </div>
                 </div>
                 <div id="cashu-lock-pay" class="center hidden">
-                    <div class="subtitle">Pay Lightning Invoice:</div>
+                    <div class="strong">Pay Lightning Invoice:</div>
                     <p><a id="invoice-link"><img id="invoice-img"/></a></p>
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
                     <div class="subtitle">Or paste a <span id="amount_to_pay"></span> Cashu token from:</div>

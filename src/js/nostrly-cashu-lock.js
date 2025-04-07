@@ -25,6 +25,7 @@ import {
   sendViaNostr,
   maybeConvertNpub,
   isPublicKeyValid,
+  p2pkeyToNpub,
 } from "./nostr.ts";
 import {
   copyTextToClipboard,
@@ -35,7 +36,9 @@ import {
   getWalletWithUnit,
   getMintProofs,
   storeMintProofs,
+  getLockedTokens,
   storeLockedToken,
+  clearLockedTokens,
 } from "./utils.ts";
 import { handleCashuDonation } from "./cashu-donate.js";
 import { sha256 } from "@noble/hashes/sha256";
@@ -77,6 +80,9 @@ jQuery(function ($) {
   const $payByCashu = $("#payby-cashu");
   const $lockedToken = $("#locked-token");
   const $lockedCopy = $("#locked-token-copy");
+  const $historyDiv = $("#nutlock-history");
+  const $refreshHistory = $("#refresh-history");
+  const $clearHistory = $("#clear-history");
 
   // Page handlers
   function showOrderForm() {
@@ -115,7 +121,7 @@ jQuery(function ($) {
   $lockValue.on("input", () => {
     tokenAmount = parseInt($lockValue.val(), 10); // Base10 int
     console.log("tokenAmount:>>", tokenAmount);
-    feeAmount = Math.max(Math.ceil(tokenAmount * 0.01), 3); // 1%, min 3 sats
+    feeAmount = Math.max(Math.ceil(tokenAmount * 0.01), 50); // 1%, min 50 sats
     console.log("feeAmount:>>", feeAmount);
     checkIsReadyToOrder();
   });
@@ -151,6 +157,13 @@ jQuery(function ($) {
     });
 
     setTimeout(() => checkQuote(quote.quote), 5000);
+  });
+  $refreshHistory.on("click", () => {
+    loadNutLockHistory();
+  });
+  $clearHistory.on("click", () => {
+    clearLockedTokens();
+    loadNutLockHistory(); // refresh
   });
 
   // Checks Lock and Refund Public Keys
@@ -265,9 +278,10 @@ jQuery(function ($) {
           );
         }
         // Check token was big enough
-        if (getTokenAmount(token.proofs) < tokenAmount) {
+        const totalNeeded = tokenAmount + feeAmount;
+        if (getTokenAmount(token.proofs) < totalNeeded) {
           throw new Error(
-            `Amount mismatch: Needed at least ${tokenAmount}, Received ${getTokenAmount(token.proofs)}`,
+            `Token is ${formatAmount(getTokenAmount(token.proofs))}.<br>Expected at least ${formatAmount(totalNeeded)}. `,
           );
         }
         // Add token proofs to our working array
@@ -321,7 +335,12 @@ jQuery(function ($) {
         mint: mintUrl,
         proofs: p2pkProofs,
       });
-      storeLockedToken(lockedToken); // for safety / history
+      const npub = p2pkeyToNpub(lockP2PK);
+      let { name } = await getContactDetails(npub, relays);
+      if (!name) {
+        name = npub.slice(0, 11);
+      }
+      storeLockedToken(lockedToken, tokenAmount, name); // for safety / history
       $lockedToken.val(lockedToken);
       showSuccessPage();
       $lockedToken.on("click", () => {
@@ -338,4 +357,39 @@ jQuery(function ($) {
       showOrderForm();
     }
   };
+
+  const loadNutLockHistory = () => {
+    // Load history
+    const history = getLockedTokens();
+    $historyDiv.empty();
+    if (history.length === 0) {
+      $historyDiv.html("<p>No NutLocks found.</p>");
+      return;
+    }
+    // Create a list of history items
+    const $list = $("<ul></ul>");
+    history.forEach((entry) => {
+      const date = new Date(entry.date).toLocaleString();
+      const name =
+        entry.name.length > 20 ? entry.name.slice(0, 20) + "..." : entry.name;
+      const amount = formatAmount(entry.amount);
+      const token =
+        entry.token.length > 20
+          ? entry.token.slice(0, 20) + "..."
+          : entry.token;
+      const $item = $(`
+        <li class="history-item">
+          ${date} - ${name} - ${amount}
+        </li>
+      `);
+      // Add click handler to select the token
+      $item.on("click", () => {
+        copyTextToClipboard(entry.token);
+      });
+      $list.append($item);
+    });
+    // Append list to div
+    $historyDiv.append($list);
+  };
+  loadNutLockHistory(); // load now
 });
