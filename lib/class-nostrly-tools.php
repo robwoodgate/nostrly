@@ -370,6 +370,7 @@ class NostrlyTools
                       margin-bottom: 40px;
                     }
                     #cashu-lock-form label {
+                      display: inline-block;
                       font-weight: bold;
                       margin-bottom: 0;
                       text-align: left;
