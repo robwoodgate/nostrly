@@ -426,6 +426,9 @@ class NostrlyTools
                         margin: 1em auto;
                         width: 20em;
                     }
+                    #lock-next:disabled {
+                      opacity: 0.6;
+                    }
                     .mint_url {
                         border: 1px solid white;
                         border-radius: 6px;
