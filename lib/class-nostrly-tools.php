@@ -506,7 +506,7 @@ class NostrlyTools
                         <label for="refund-npub">Refund Public Key (NPUB/P2PK):</label>
                         <input type="text" id="refund-npub" name="refund-npub" placeholder="npub1... | 02...">
                         <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
-                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>WARNING:</strong> Not all Cashu wallets support refund locks yet. <a href="https://www.nostrly.com/cashu-redeem/">Nostrly Cashu Redeem</a> does.</div>
+                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>WARNING:</strong> Not all Cashu wallets support refund public keys yet. <a href="https://www.nostrly.com/cashu-redeem/">Nostrly Cashu Redeem</a> does.</div>
                     </div>
                     <div class="center">
                         <button type="submit" id="lock-next">Create Locked Token</button>
