@@ -417,12 +417,19 @@ class NostrlyTools
                         font-size: 0.9rem;
                         margin-top: 0.5rem;
                     }
+                    #refund-npub-container {
+                        display: flex;
+                    }
                     #refund-npub {
+                        flex: 1;
                         margin-right: 5px;
-                        max-width: 32rem;
+                        max-width: calc(100% - 14rem);
                         text-align: left;
                         width: 100%;
-
+                    }
+                    #use-nip07 {
+                        flex: 0 0 auto;
+                        width: 13rem;
                     }
                     #lock-next {
                         margin: 1em auto;
@@ -480,6 +487,19 @@ class NostrlyTools
                         margin: 0 0.25rem;
                         padding: 0 0.5rem;
                     }
+                    @media (max-width: 600px) {
+                      #refund-npub-container {
+                        flex-direction: column;
+                      }
+                      #refund-npub {
+                        max-width: 100%;
+                        margin-right: 0;
+                        margin-bottom: 5px;
+                      }
+                      #use-nip07 {
+                        width: 100%;
+                      }
+                    }
                 }
                 </style>
                 <div id="cashu-lock-form">
@@ -508,8 +528,10 @@ class NostrlyTools
                     </div>
                     <div>
                         <label for="refund-npub">Refund Public Key (NPUB/P2PK):</label>
-                        <input type="text" id="refund-npub" name="refund-npub" placeholder="npub1... | 02...">
-                        <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
+                        <div id="refund-npub-container">
+                            <input type="text" id="refund-npub" name="refund-npub" placeholder="npub1... | 02...">
+                            <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
+                        </div>
                         <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. <a href="https://www.nostrly.com/cashu-redeem/">Nostrly Cashu Redeem</a> does.</div>
                     </div>
                     <div class="center">
