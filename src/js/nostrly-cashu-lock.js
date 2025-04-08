@@ -273,8 +273,9 @@ jQuery(function ($) {
       proofs = [...proofs, ...ps];
       storeMintProofs(mintUrl, proofs, true); // Store all for safety
       createLockedToken();
-    } else if (getTokenAmount(proofs) > tokenAmount + feeAmount) {
-      // Paid by Cashu, or previous lightning payment, so stop checking
+    } else if (getTokenAmount(proofs) >= tokenAmount + feeAmount) {
+      // Paid by Cashu token, or saved lightning payment
+      createLockedToken();
     } else {
       await delay(5000);
       checkQuote(quote);
@@ -308,14 +309,19 @@ jQuery(function ($) {
             `Token is ${formatAmount(getTokenAmount(token.proofs))}.<br>Expected at least ${formatAmount(totalNeeded)}. `,
           );
         }
-        // Add token proofs to our working array
+        // Add token proofs to our working array, ensuring all secrets are unique
         // NB: Not saving them here as the token proofs have not been received
         // and so could be already spent or subject to double spend.
         proofs = [...proofs, ...token.proofs];
+        const uniqueProofs = Array.from(
+          new Map(proofs.map((proof) => [proof.secret, proof])).values(),
+        );
+        proofs = uniqueProofs;
         console.log("proofs:>>", getTokenAmount(proofs));
 
         toastr.success("Received! Creating locked token...");
-        createLockedToken();
+        // We don't createLockedToken() here...
+        // We let checkQuote() handle it as it checks stored proofs
       } catch (e) {
         toastr.error(e);
         console.error(e);
@@ -378,10 +384,13 @@ jQuery(function ($) {
       });
       storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
+      toastr.remove(); // clears any messages
       toastr.error(e);
       console.error(e);
-      storeMintProofs(mintUrl, proofs, true); // overwrite proofs store
+      proofs = getMintProofs(mintUrl); // revert to saved proofs
+      console.log("proofs:>>", proofs);
       showOrderForm();
+      toastr.info("There was an error creating your token. Please try again.");
     }
   };
 
