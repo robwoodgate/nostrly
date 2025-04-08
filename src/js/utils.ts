@@ -347,6 +347,21 @@ export function getP2PKPublicKey(
   return null;
 }
 
+/**
+ * Returns the locktime from a NUT-11 P2PK secret or null if no locktime
+ * @param secret - The NUT-11 P2PK secret.
+ * @returns The locktime unix timestamp or null
+ */
+export function getP2PKLocktime(secret: P2PKSecret): number | null {
+  // Validate secret format
+  if (secret[0] !== "P2PK") {
+    throw new Error('Invalid P2PK secret: must start with "P2PK"');
+  }
+  const { tags } = secret[1];
+  const locktimeTag = tags.find((tag) => tag[0] === "locktime");
+  return locktimeTag ? parseInt(locktimeTag[1], 10) : null;
+}
+
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 // Debounce utility function

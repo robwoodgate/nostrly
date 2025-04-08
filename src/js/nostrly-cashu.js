@@ -6,7 +6,7 @@ import {
   CheckStateEnum,
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
-import { getP2PKPublicKey, doConfettiBomb } from "./utils.ts";
+import { getP2PKPublicKey, getP2PKLocktime, doConfettiBomb } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
@@ -180,6 +180,7 @@ jQuery(function ($) {
         return k.secret.includes("P2PK");
       });
       let hexpub;
+      let locktime;
       if (lockedProofs.length) {
         // they are... so lookup the npub currently able to unlock
         // This can vary dependingo on the P2PK locktime
@@ -188,15 +189,22 @@ jQuery(function ($) {
           const p2pkSecret = JSON.parse(lockedProofs[0].secret); // first one
           hexpub = getP2PKPublicKey(p2pkSecret); // 02|03...
           console.log("p2pkSecret:>>", p2pkSecret);
+          locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
+          console.log("locktime:>>", locktime);
         } catch (e) {}
       }
       if (hexpub) {
-        // Token is currently locked to this npub
+        // Token is currently locked to this npub...
         lockNpub = p2pkeyToNpub(hexpub);
         const { name } = await getContactDetails(lockNpub, nostrly_ajax.relays);
         let msg = `Token is P2PK locked to <a href="https://njump.me/${lockNpub}" target="_blank">`;
         msg += name ? name : lockNpub;
         msg += "</a>";
+        // ... until this date
+        if (locktime > Math.floor(new Date().getTime() / 1000)) {
+          msg +=
+            " until " + new Date(locktime * 1000).toLocaleString().slice(0, -3);
+        }
         $lightningStatus.html(msg);
 
         // If no signString() compatible extension detected, we'll have
