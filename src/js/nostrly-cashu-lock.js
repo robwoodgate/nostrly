@@ -406,7 +406,7 @@ jQuery(function ($) {
           : entry.token;
       const $item = $(`
         <li class="history-item">
-          ${date} - ${name} - ${amount} &nbsp; <span class="copytkn">Copy Token</span>&nbsp;&nbsp;<span class="copyemj">Copy 🥜</span>
+          <span class="copytkn">Copy Token</span>&nbsp;&nbsp;<span class="copyemj">Copy 🥜</span> &nbsp; ${date} - ${name} - ${amount}
         </li>
       `);
       // Add click handler to select the token
