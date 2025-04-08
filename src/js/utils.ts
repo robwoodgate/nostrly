@@ -132,7 +132,8 @@ export const discoverMints = async (nut: string, relays: string[]) => {
     // @see https://github.com/nostr-protocol/nips/pull/1110
     const filter: Filter = { kinds: [38000], limit: 2000 };
     await new Promise<void>((resolve) => {
-      pool.subscribeMany(relays, [filter], {
+      pool.subscribeManyEose(relays, [filter], {
+        // autocloses on eose
         onevent: (event: Event) => {
           // console.log(event);
           const uTag = event.tags.find((t) => t[0] === "u");
@@ -150,11 +151,60 @@ export const discoverMints = async (nut: string, relays: string[]) => {
             discoveredMints.push(mintUrl);
           }
         },
-        oneose: () => resolve(), // Resolve when stored events are found
+        onclose: resolve as any,
       });
     });
   } catch (e) {
     console.error(e);
+  }
+  console.log("discoveredMints:>>", discoveredMints);
+  return discoveredMints;
+};
+
+interface MintRead {
+  id: number;
+  url: string;
+  info?: string;
+  name?: string;
+  balance: number;
+  sum_donations?: number;
+  updated_at: string;
+  next_update?: string;
+  state: string;
+  n_errors: number;
+  n_mints: number;
+  n_melts: number;
+}
+
+export const getNut11Mints = async (
+  auditorApiUrl: string = "https://api.audit.8333.space",
+): Promise<string[]> => {
+  let discoveredMints: Array<string> = [];
+  try {
+    const response = await fetch(`${auditorApiUrl}/mints/`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    const mintList = (await response.json()) as Array<MintRead>;
+    console.log("MintList:>>", mintList);
+    mintList.forEach((mint: MintRead) => {
+      if ("OK" != mint.state) {
+        console.log("Mint not OK:>>", mint);
+        return;
+      }
+      const info = JSON.parse(mint.info || "{}");
+      console.log("MintInfo", info);
+      if (!info?.nuts[11]?.supported === true) {
+        console.log("Nut11 not supported:>", mint.url, info);
+        return;
+      }
+      if (discoveredMints.indexOf(mint.url) === -1) {
+        discoveredMints.push(mint.url);
+      }
+    });
+  } catch (err) {
+    console.error("Error fetching mint info:", err);
+    throw err;
   }
   console.log("discoveredMints:>>", discoveredMints);
   return discoveredMints;

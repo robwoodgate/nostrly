@@ -31,7 +31,7 @@ import {
   copyTextToClipboard,
   delay,
   debounce,
-  discoverMints,
+  getNut11Mints,
   formatAmount,
   getTokenAmount,
   getWalletWithUnit,
@@ -110,7 +110,7 @@ jQuery(function ($) {
     if ("discover" == $mintSelect.val()) {
       $mintSelect.prop("disabled", true);
       toastr.info("Updating Mint list...");
-      const mints = await discoverMints();
+      const mints = await getNut11Mints();
       console.log("mints:>>", mints);
       if (mints) {
         $mintSelect.children("option:not(:first)").remove(); // remove current

@@ -484,7 +484,7 @@ class NostrlyTools
                         <select id="mint-select" name="mint-select" required>
                             <option value="" disabled selected>Select a mint...</option>
                             <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
-                            <option value="https://stablenut.umint.cash">https://stablenut.umint.cash</option>
+                            <option value="https://stablenut.cashu.network">https://stablenut.cashu.network</option>
                             <option value="https://mint.lnvoltz.com">https://mint.lnvoltz.com</option>
                             <option value="discover">Discover more mints...</option>
                         </select>
