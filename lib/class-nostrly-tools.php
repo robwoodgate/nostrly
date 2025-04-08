@@ -536,7 +536,7 @@ class NostrlyTools
                     </div>
                     <div class="center">
                         <button type="submit" id="lock-next">Create Locked Token</button>
-                        <div class="description">A 1% locking fee (min 50 sats) applies.</div>
+                        <div class="description" id="min_fee"></div>
                     </div>
                     <div id="history" class="center">
                         <h2>NutLock History</h2>

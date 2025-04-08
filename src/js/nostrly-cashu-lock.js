@@ -52,6 +52,8 @@ jQuery(function ($) {
   const relays = nostrly_ajax.relays;
   const pool = new SimplePool();
   const params = new URL(document.location.href).searchParams;
+  const MIN_FEE = 21; // sats
+  const PCT_FEE = 1; // 1%
 
   // Init vars
   let wallet;
@@ -85,7 +87,8 @@ jQuery(function ($) {
   const $historyDiv = $("#nutlock-history");
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
-
+  const $minFee = $("#min_fee");
+  $minFee.text(`A ${PCT_FEE}% locking fee (min ${MIN_FEE} sats) applies.`);
   // Page handlers
   function showOrderForm() {
     $divOrderFm.show();
@@ -148,7 +151,7 @@ jQuery(function ($) {
   $lockValue.on("input", () => {
     tokenAmount = parseInt($lockValue.val(), 10); // Base10 int
     console.log("tokenAmount:>>", tokenAmount);
-    feeAmount = Math.max(Math.ceil(tokenAmount * 0.01), 50); // 1%, min 50 sats
+    feeAmount = Math.max(Math.ceil((tokenAmount * PCT_FEE) / 100), MIN_FEE); // 1% with MIN_FEE
     console.log("feeAmount:>>", feeAmount);
     checkIsReadyToOrder();
   });
