@@ -362,6 +362,8 @@ class NostrlyTools
         $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
         $subtitle = esc_html('Lightning Invoice', 'nostrly');
         $copy_inv = esc_html('Copy', 'nostrly');
+        $copy_token = esc_html('Copy Token', 'nostrly');
+        $copy_emoji = esc_html('Copy 🥜', 'nostrly');
         $cancel = esc_html('Cancel', 'nostrly');
 
         return <<<EOL
@@ -432,7 +434,7 @@ class NostrlyTools
                     .mint_url {
                         border: 1px solid white;
                         border-radius: 6px;
-                        display: inline-flex;
+                        display: inline-block;
                         margin: 0.5rem;
                         padding: 0 10px;
                         width: fit-content;
@@ -442,12 +444,15 @@ class NostrlyTools
                         padding: 1rem;
                         max-width: 300px;
                     }
-                    #amount_to_pay {
+                    #amount_to_pay, .copytkn, .copyemj {
                       border-radius: 6px;
                       display:inline-block;
                       background-color: #FF9900;
                       color: #000;
                       padding: 0 0.25rem;
+                    }
+                    #locked-emoji-copy {
+                        margin-left: 1rem;
                     }
                     #history {
                       border: 1px solid #ccc;
@@ -467,8 +472,7 @@ class NostrlyTools
                       text-align: left;
                     }
                     .history-item:hover {
-                      background-color: #f0f0f0;
-                      color: #000;
+                      color: #fff;
                     }
                     #clear-history {
                         border-radius: 6px;
@@ -532,7 +536,7 @@ class NostrlyTools
                 <div id="cashu-lock-success" class="center hidden">
                     <h2>Your Locked Token</h2>
                     <textarea id="locked-token" rows="10" cols="50"></textarea>
-                    <p><button id="locked-token-copy" class="button">{$copy_inv}</button></p>
+                    <p><button id="locked-token-copy" class="button">{$copy_token}</button><button id="locked-emoji-copy" class="button">{$copy_emoji}</button></p>
                 </div>
             EOL;
     }

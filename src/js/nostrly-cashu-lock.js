@@ -80,7 +80,8 @@ jQuery(function ($) {
   const $invoiceCopy = $("#invoice-copy");
   const $payByCashu = $("#payby-cashu");
   const $lockedToken = $("#locked-token");
-  const $lockedCopy = $("#locked-token-copy");
+  const $lockedCopyToken = $("#locked-token-copy");
+  const $lockedCopyEmoji = $("#locked-emoji-copy");
   const $historyDiv = $("#nutlock-history");
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
@@ -369,8 +370,11 @@ jQuery(function ($) {
       $lockedToken.on("click", () => {
         copyTextToClipboard(lockedToken);
       });
-      $lockedCopy.on("click", () => {
+      $lockedCopyToken.on("click", () => {
         copyTextToClipboard(lockedToken);
+      });
+      $lockedCopyEmoji.on("click", () => {
+        copyTextToClipboard(emojiEncode("\uD83E\uDD5C", lockedToken)); // Nut Emoji
       });
       storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
@@ -402,12 +406,15 @@ jQuery(function ($) {
           : entry.token;
       const $item = $(`
         <li class="history-item">
-          ${date} - ${name} - ${amount}
+          ${date} - ${name} - ${amount} &nbsp; <span class="copytkn">Copy Token</span>&nbsp;&nbsp;<span class="copyemj">Copy 🥜</span>
         </li>
       `);
       // Add click handler to select the token
-      $item.on("click", () => {
+      $item.children(".copytkn").on("click", () => {
         copyTextToClipboard(entry.token);
+      });
+      $item.children(".copyemj").on("click", () => {
+        copyTextToClipboard(emojiEncode("\uD83E\uDD5C", entry.token));
       });
       $list.append($item);
     });
