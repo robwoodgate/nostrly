@@ -412,7 +412,7 @@ class NostrlyTools
                       font-weight: bold;
                     }
                     .description {
-                        font-size: 0.8rem;
+                        font-size: 0.9rem;
                         margin-top: 0.5rem;
                     }
                     #refund-npub {
@@ -424,7 +424,7 @@ class NostrlyTools
                     }
                     #lock-next {
                         margin: 1em auto;
-                        width: 20em;
+                        max-width: 20em;
                     }
                     #lock-next:disabled {
                       opacity: 0.6;
@@ -470,9 +470,11 @@ class NostrlyTools
                       background-color: #f0f0f0;
                       color: #000;
                     }
-                    #refresh-history, #clear-history {
+                    #clear-history {
+                        border-radius: 6px;
                         display: inline-block;
                         margin: 0 0.25rem;
+                        padding: 0 0.5rem;
                     }
                 }
                 </style>
@@ -484,6 +486,7 @@ class NostrlyTools
                             <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
                             <option value="https://stablenut.umint.cash">https://stablenut.umint.cash</option>
                             <option value="https://mint.lnvoltz.com">https://mint.lnvoltz.com</option>
+                            <option value="discover">Discover more mints...</option>
                         </select>
                     </div>
                     <div>
@@ -511,10 +514,10 @@ class NostrlyTools
                     </div>
                     <div id="history" class="center">
                         <h2>NutLock History</h2>
+                        <div id="nutlock-history"></div>
                         <div>
                             <button id="clear-history">Clear History</button>
                         </div>
-                        <div id="nutlock-history"></div>
                     </div>
                 </div>
                 <div id="cashu-lock-pay" class="center hidden">

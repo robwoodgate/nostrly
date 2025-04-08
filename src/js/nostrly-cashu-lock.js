@@ -31,6 +31,7 @@ import {
   copyTextToClipboard,
   delay,
   debounce,
+  discoverMints,
   formatAmount,
   getTokenAmount,
   getWalletWithUnit,
@@ -105,6 +106,29 @@ jQuery(function ($) {
 
   // Input handlers
   $mintSelect.on("input", async () => {
+    // Handle discover mints option
+    if ("discover" == $mintSelect.val()) {
+      $mintSelect.prop("disabled", true);
+      toastr.info("Updating Mint list...");
+      const mints = await discoverMints();
+      console.log("mints:>>", mints);
+      if (mints) {
+        $mintSelect.children("option:not(:first)").remove(); // remove current
+        $.each(mints, function (key, value) {
+          $mintSelect.append(
+            $("<option></option>").attr("value", value).text(value),
+          );
+        });
+        toastr.clear();
+        toastr.success("Mint list updated");
+      } else {
+        toastr.clear();
+        toastr.error("Mint discovery failed.");
+      }
+      $mintSelect.prop("disabled", false);
+      return;
+    }
+    // Lookup selected mint
     mintUrl = $mintSelect.val();
     try {
       wallet = await getWalletWithUnit(mintUrl); // Load wallet
