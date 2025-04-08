@@ -260,9 +260,14 @@ jQuery(function ($) {
     return false;
   };
   checkIsReadyToOrder();
-  // Set default expire time and trigger check ready
+  // Set local date to 23:59 in YYYY-MM-DDThh:mm format (for datetime-local
+  // input) and trigger checkReadyToOrder... uses Swedish ('sv') locale hack
   $lockExpiry
-    .val(new Date(Date.now() + 864e5).toISOString().slice(0, 11) + "23:59") // default midnight
+    .val(
+      new Date(new Date().setHours(23, 59))
+        .toLocaleString("sv", { dateStyle: "short", timeStyle: "short" })
+        .replace(" ", "T"),
+    ) // default midnight
     .trigger("input");
 
   // Check Mint Quote for payment
