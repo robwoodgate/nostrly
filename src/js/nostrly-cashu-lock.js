@@ -52,7 +52,7 @@ jQuery(function ($) {
   const relays = nostrly_ajax.relays;
   const pool = new SimplePool();
   const params = new URL(document.location.href).searchParams;
-  const MIN_FEE = 3; // sats
+  const MIN_FEE = 5; // sats
   const PCT_FEE = 1; // 1%
 
   // Init vars
