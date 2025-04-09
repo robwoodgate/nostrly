@@ -536,7 +536,6 @@ class NostrlyTools
                     </div>
                     <div class="center">
                         <button type="submit" id="lock-next">Create Locked Token</button>
-                        <div class="description" id="min_fee"></div>
                     </div>
                     <div id="history" class="center">
                         <h2>NutLock History</h2>
@@ -553,7 +552,7 @@ class NostrlyTools
                     <div class="subtitle">Or paste a <span id="amount_to_pay"></span> Cashu token from:</div>
                     <div class="mint_url">https://mint.minibits.cash/Bitcoin</div>
                     <div><input id="payby-cashu" type="text" placeholder="CashuB..."></p></div>
-                    <p class="description">*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
+                    <p class="description"><span id="min_fee"></span><br>*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
                 </div>
                 <div id="cashu-lock-success" class="center hidden">
                     <h2>Your Locked Token</h2>

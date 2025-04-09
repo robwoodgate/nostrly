@@ -52,7 +52,7 @@ jQuery(function ($) {
   const relays = nostrly_ajax.relays;
   const pool = new SimplePool();
   const params = new URL(document.location.href).searchParams;
-  const MIN_FEE = 21; // sats
+  const MIN_FEE = 3; // sats
   const PCT_FEE = 1; // 1%
 
   // Init vars
@@ -88,7 +88,9 @@ jQuery(function ($) {
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
   const $minFee = $("#min_fee");
-  $minFee.text(`A ${PCT_FEE}% locking fee (min ${MIN_FEE} sats) applies.`);
+  $minFee.text(
+    `Includes estimated Mint fees of ${PCT_FEE}% (min ${MIN_FEE} sats).`,
+  );
   // Page handlers
   function showOrderForm() {
     $divOrderFm.show();
