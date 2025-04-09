@@ -52,7 +52,7 @@ jQuery(function ($) {
   const relays = nostrly_ajax.relays;
   const pool = new SimplePool();
   const params = new URL(document.location.href).searchParams;
-  const MIN_FEE = 5; // sats
+  const MIN_FEE = 3; // sats
   const PCT_FEE = 1; // 1%
 
   // Init vars
@@ -64,6 +64,7 @@ jQuery(function ($) {
   let proofs = [];
   let tokenAmount = 0;
   let feeAmount = 0;
+  let donationAmount = 0;
 
   // DOM elements
   const $divOrderFm = $("#cashu-lock-form");
@@ -87,6 +88,7 @@ jQuery(function ($) {
   const $historyDiv = $("#nutlock-history");
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
+  const $addDonation = $("#add_donation");
   const $minFee = $("#min_fee");
   $minFee.text(
     `Includes estimated Mint fees of ${PCT_FEE}% (min ${MIN_FEE} sats).`,
@@ -157,6 +159,10 @@ jQuery(function ($) {
     console.log("feeAmount:>>", feeAmount);
     checkIsReadyToOrder();
   });
+  $addDonation.on("input", () => {
+    donationAmount = parseInt($addDonation.val(), 10); // Base10 int
+    console.log("donationAmount:>>", donationAmount);
+  });
   const checkMinDate = debounce((expireTime) => {
     const now = Math.floor(new Date().getTime() / 1000);
     console.log("now:>>", now);
@@ -177,9 +183,10 @@ jQuery(function ($) {
   });
   $orderButton.on("click", async () => {
     showPaymentPage();
-    const quote = await wallet.createMintQuote(tokenAmount + feeAmount);
+    const totalNeeded = tokenAmount + feeAmount + donationAmount;
+    const quote = await wallet.createMintQuote(totalNeeded);
     console.log("quote:>>", quote);
-    $amountToPay.text(formatAmount(tokenAmount + feeAmount));
+    $amountToPay.text(formatAmount(totalNeeded));
     $invoiceLink.attr("href", `lightning:${quote.request}`);
     const img =
       "https://quickchart.io/chart?cht=qr&chs=200x200&chl=" + quote.request;
@@ -278,12 +285,13 @@ jQuery(function ($) {
   // Check Mint Quote for payment
   const checkQuote = async (quote) => {
     const newquote = await wallet.checkMintQuote(quote);
+    const totalNeeded = tokenAmount + feeAmount + donationAmount;
     if (newquote.state === MintQuoteState.PAID) {
-      const ps = await wallet.mintProofs(tokenAmount + feeAmount, quote);
+      const ps = await wallet.mintProofs(totalNeeded, quote);
       proofs = [...proofs, ...ps];
       storeMintProofs(mintUrl, proofs, true); // Store all for safety
       createLockedToken();
-    } else if (getTokenAmount(proofs) >= tokenAmount + feeAmount) {
+    } else if (getTokenAmount(proofs) >= totalNeeded) {
       // Paid by Cashu token, or saved lightning payment
       createLockedToken();
     } else {
@@ -313,7 +321,7 @@ jQuery(function ($) {
           );
         }
         // Check token was big enough
-        const totalNeeded = tokenAmount + feeAmount;
+        const totalNeeded = tokenAmount + feeAmount + donationAmount;
         if (getTokenAmount(token.proofs) < totalNeeded) {
           throw new Error(
             `Token is ${formatAmount(getTokenAmount(token.proofs))}.<br>Expected at least ${formatAmount(totalNeeded)}. `,

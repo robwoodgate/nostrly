@@ -447,6 +447,11 @@ class NostrlyTools
                         padding: 0 10px;
                         width: fit-content;
                     }
+                    #add_donation {
+                        max-width:  180px;
+                        display: block;
+                        margin: 0 auto;
+                    }
                     #payby-cashu {
                         margin-top: 0.5rem;
                         padding: 1rem;
@@ -536,6 +541,8 @@ class NostrlyTools
                         <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. <a href="https://www.nostrly.com/cashu-redeem/">Nostrly Cashu Redeem</a> does.</div>
                     </div>
                     <div class="center">
+                        <div class="description strong">Do you want to add a donation for the NutLock developers?</div>
+                        <input id="add_donation" type="number" placeholder="100"/>
                         <button type="submit" id="lock-next">Create Locked Token</button>
                     </div>
                     <div id="history" class="center">
@@ -553,7 +560,7 @@ class NostrlyTools
                     <div class="subtitle">Or paste a <span id="amount_to_pay"></span> Cashu token from:</div>
                     <div class="mint_url">https://mint.minibits.cash/Bitcoin</div>
                     <div><input id="payby-cashu" type="text" placeholder="CashuB..."></p></div>
-                    <p class="description"><span id="min_fee"></span><br>*overpaid tokens / LN Fees will be donated to Cashu Lock</p>
+                    <p class="description"><span id="min_fee"></span><br>*overpaid tokens / LN Fees will be donated to Cashu NutLock</p>
                 </div>
                 <div id="cashu-lock-success" class="center hidden">
                     <h2>Your Locked Token</h2>
