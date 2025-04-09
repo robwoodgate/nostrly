@@ -377,6 +377,9 @@ class NostrlyTools
                       margin-bottom: 0;
                       text-align: left;
                     }
+                    #cashu-lock-form label.center {
+                      text-align: center;
+                    }
                     #cashu-lock-form div {
                         margin-bottom: 1rem;
                     }
@@ -541,7 +544,7 @@ class NostrlyTools
                         <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. <a href="https://www.nostrly.com/cashu-redeem/">Nostrly Cashu Redeem</a> does.</div>
                     </div>
                     <div class="center">
-                        <div class="description strong">Do you want to add a donation for the NutLock developers?</div>
+                        <label for="add_donation" class="center">Do you want to add a donation for the NutLock developers?</label>
                         <input id="add_donation" type="number" placeholder="100"/>
                         <button type="submit" id="lock-next">Create Locked Token</button>
                     </div>
