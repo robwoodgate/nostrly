@@ -386,7 +386,8 @@ class NostrlyTools
                     }
                     #cashu-lock-form input,
                     #cashu-lock-form textarea,
-                    #cashu-lock-form select {
+                    #cashu-lock-form select,
+                    #cashu-lock-success textarea {
                       border-radius: 6px;
                       margin-bottom: 0.25em;
                       padding: 6px 15px;
