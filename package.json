@@ -4,8 +4,8 @@
   "type": "module",
   "main": "index.js",
   "dependencies": {
-    "@cashu/cashu-ts": "^2.4.1",
     "@gandlaf21/bolt11-decode": "^3.1.1",
+    "@noble/hashes": "^1.7.1",
     "canvas-confetti": "^1.9.3",
     "nostr-tools": "2.10.3",
     "toastr": "^2.1.4"

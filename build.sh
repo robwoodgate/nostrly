@@ -7,7 +7,7 @@ rm assets/js/nostrly*
 
 # Build packages
 composer install --no-dev
-npm i
+# npm i
 npm run format
 npm run build
 

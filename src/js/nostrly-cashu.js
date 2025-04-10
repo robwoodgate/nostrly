@@ -186,6 +186,7 @@ jQuery(function ($) {
         // This can vary dependingo on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
         try {
+          console.log("secret length:>>", lockedProofs[0].secret.length);
           const p2pkSecret = JSON.parse(lockedProofs[0].secret); // first one
           hexpub = getP2PKPublicKey(p2pkSecret); // 02|03...
           console.log("p2pkSecret:>>", p2pkSecret);

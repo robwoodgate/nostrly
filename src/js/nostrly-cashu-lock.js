@@ -6,6 +6,7 @@ import {
   CheckStateEnum,
   getEncodedTokenV4,
   MintQuoteState,
+  OutputData,
 } from "@cashu/cashu-ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import {
@@ -54,6 +55,7 @@ jQuery(function ($) {
   const params = new URL(document.location.href).searchParams;
   const MIN_FEE = 3; // sats
   const PCT_FEE = 1; // 1%
+  const MAX_SECRET = 512; // Characters (mint limit)
 
   // Init vars
   let wallet;
@@ -65,6 +67,9 @@ jQuery(function ($) {
   let tokenAmount = 0;
   let feeAmount = 0;
   let donationAmount = 0;
+  let extraLockKeys = [];
+  let extraRefundKeys = [];
+  let nSigValue = 1;
 
   // DOM elements
   const $divOrderFm = $("#cashu-lock-form");
@@ -89,6 +94,13 @@ jQuery(function ($) {
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
   const $addDonation = $("#add_donation");
+  const $addMultisig = $("#add-multisig");
+  const $multisigOptions = $("#multisig-options");
+  const $extraLockKeys = $("#extra-lock-keys");
+  const $nSig = $("#n-sig");
+  const $addRefundKeys = $("#add-refund-keys");
+  const $refundKeysOptions = $("#refund-keys-options");
+  const $extraRefundKeys = $("#extra-refund-keys");
   const $minFee = $("#min_fee");
   $minFee.text(
     `Includes estimated Mint fees of ${PCT_FEE}% (min ${MIN_FEE} sats).`,
@@ -201,6 +213,15 @@ jQuery(function ($) {
     clearLockedTokens();
     loadNutLockHistory(); // refresh
   });
+  // Toggle multisig options
+  $addMultisig.on("click", (e) => {
+    e.preventDefault();
+    $multisigOptions.slideToggle();
+  });
+  $addRefundKeys.on("click", (e) => {
+    e.preventDefault();
+    $refundKeysOptions.slideToggle();
+  });
 
   // Checks Lock and Refund Public Keys
   const handlePubkeyInput = ($input, setKeyFn, errorMsgPrefix) => {
@@ -236,6 +257,68 @@ jQuery(function ($) {
   handlePubkeyInput($lockNpub, (key) => (lockP2PK = key), "Invalid Lock");
   handlePubkeyInput($refundNpub, (key) => (refundP2PK = key), "Invalid Refund");
 
+  // Parse and validate pubkeys from textarea
+  function parsePubkeys(text) {
+    const lines = text
+      .trim()
+      .split(/[\n,]+/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+    const validKeys = [];
+    for (const key of lines) {
+      if (isPublicKeyValid(key)) {
+        validKeys.push(maybeConvertNpub(key));
+      } else {
+        toastr.error(`Invalid pubkey: ${key}`);
+        return null;
+      }
+    }
+    return validKeys;
+  }
+
+  // Handle extra lock keys
+  $extraLockKeys.on(
+    "input",
+    debounce(() => {
+      const keys = parsePubkeys($extraLockKeys.val());
+      if (keys) {
+        extraLockKeys = keys;
+        $extraLockKeys.attr("data-valid", "");
+      } else {
+        extraLockKeys = [];
+        $extraLockKeys.attr("data-valid", "no");
+      }
+      checkIsReadyToOrder();
+    }, 200),
+  );
+
+  // Handle n_sig
+  $nSig.on("input", () => {
+    nSigValue = parseInt($nSig.val(), 10);
+    if (nSigValue < 1) {
+      $nSig.val(1);
+      nSigValue = 1;
+      toastr.error("Signatures required must be at least 1");
+    }
+    checkIsReadyToOrder();
+  });
+
+  // Handle extra refund keys
+  $extraRefundKeys.on(
+    "input",
+    debounce(() => {
+      const keys = parsePubkeys($extraRefundKeys.val());
+      if (keys) {
+        extraRefundKeys = keys;
+        $extraRefundKeys.attr("data-valid", "");
+      } else {
+        extraRefundKeys = [];
+        $extraRefundKeys.attr("data-valid", "no");
+      }
+      checkIsReadyToOrder();
+    }, 200),
+  );
+
   // Use NIP-07 to fetch public key
   $nip07Button.on("click", useNip07);
   async function useNip07() {
@@ -257,13 +340,45 @@ jQuery(function ($) {
   const setOrderButtonState = debounce((isDisabled) => {
     $orderButton.prop("disabled", isDisabled);
   }, 200);
-  const checkIsReadyToOrder = () => {
+  const checkIsReadyToOrder = async () => {
+    // Deduplicate lockKeys and refundKeys while filtering falsy values
+    const lockKeys = [...new Set([lockP2PK, ...extraLockKeys].filter(Boolean))];
+    const refundKeys = [
+      ...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean)),
+    ];
+    const hasValidRefunds = !$refundNpub.val() || refundKeys.length > 0;
+    console.log("lockKeys:>", lockKeys);
+    console.log("refundKeys:>", refundKeys);
+    // Check secret length is under MAX_SECRET characters as some mints have
+    // this limit. To do this, let's create a 1 sat blinded message with p2pk
+    // @see: https://github.com/cashubtc/nuts/pull/234
+    const keyset = await wallet.getKeys();
+    const testBlindedMessage = OutputData.createSingleP2PKData(
+      {
+        pubkey: lockKeys,
+        locktime: expireTime,
+        refundKeys: refundKeys.length ? refundKeys : undefined,
+        nsig: nSigValue,
+      },
+      1, // for testing
+      keyset.id,
+    );
+    const secretLength = testBlindedMessage.secret.length;
+    console.log("sanity check secret length:>>", secretLength);
+    if (secretLength > MAX_SECRET) {
+      toastr.error(
+        "Your token's secret will be too long. Please remove some Lock or Refund keys.",
+      );
+    }
     if (
       wallet &&
       tokenAmount > 0 &&
       expireTime &&
       lockP2PK &&
-      (refundP2PK || !$refundNpub.val())
+      hasValidRefunds &&
+      $extraLockKeys.attr("data-valid") !== "no" &&
+      $extraRefundKeys.attr("data-valid") !== "no" &&
+      secretLength <= MAX_SECRET
     ) {
       setOrderButtonState(false);
       return true;
@@ -272,8 +387,9 @@ jQuery(function ($) {
     return false;
   };
   checkIsReadyToOrder();
+
   // Set local date to 23:59 in YYYY-MM-DDThh:mm format (for datetime-local
-  // input) and trigger checkReadyToOrder... uses Swedish ('sv') locale hack
+  // input) and trigger checkIsReadyToOrder... uses Swedish ('sv') locale hack
   $lockExpiry
     .val(
       new Date(new Date().setHours(23, 59))
@@ -353,24 +469,41 @@ jQuery(function ($) {
   // handle Locked token and donation
   const createLockedToken = async () => {
     try {
-      // const refundKeys = refundP2PK ? [refundP2PK] : undefined;
-      // Current cashu-ts library doesn't spread the array, so for now...
-      // see: https://github.com/cashubtc/cashu-ts/pull/282
-      const refundKeys = refundP2PK ? refundP2PK : undefined;
+      // Deduplicate lockKeys and refundKeys while filtering falsy values
+      const lockKeys = [
+        ...new Set([lockP2PK, ...extraLockKeys].filter(Boolean)),
+      ];
+      const refundKeys = [
+        ...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean)),
+      ];
       const { send: p2pkProofs, keep: donationProofs } = await wallet.swap(
         tokenAmount,
         proofs,
         {
           p2pk: {
-            pubkey: lockP2PK,
+            pubkey: lockKeys,
             locktime: expireTime,
-            refundKeys: refundKeys,
+            refundKeys: refundKeys.length ? refundKeys : undefined,
+            nsig: nSigValue,
           },
         },
       );
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
-      // Send donation (will spend these proofs)
+
+      // Check if locked
+      if (p2pkProofs.length) {
+        try {
+          const secretData = JSON.parse(p2pkProofs[0].secret);
+          console.log("secretData:>>", secretData);
+          if (secretData[0] !== "P2PK") {
+            toastr.warning("Token not locked—unexpected P2PK format.");
+          }
+        } catch (e) {
+          toastr.warning("Token not locked—random secret detected.");
+        }
+      }
+
       if (donationProofs) {
         const donationToken = getEncodedTokenV4({
           mint: mintUrl,
@@ -378,35 +511,28 @@ jQuery(function ($) {
         });
         handleCashuDonation(donationToken);
       }
-      // Return locked token
+
       const lockedToken = getEncodedTokenV4({
         mint: mintUrl,
         proofs: p2pkProofs,
       });
       const npub = p2pkeyToNpub(lockP2PK);
       let { name } = await getContactDetails(npub, relays);
-      if (!name) {
-        name = npub.slice(0, 11);
-      }
+      if (!name) name = npub.slice(0, 11);
       storeLockedToken(lockedToken, tokenAmount, name); // for safety / history
       $lockedToken.val(lockedToken);
       showSuccessPage();
-      $lockedToken.on("click", () => {
-        copyTextToClipboard(lockedToken);
-      });
-      $lockedCopyToken.on("click", () => {
-        copyTextToClipboard(lockedToken);
-      });
-      $lockedCopyEmoji.on("click", () => {
-        copyTextToClipboard(emojiEncode("\uD83E\uDD5C", lockedToken)); // Nut Emoji
-      });
+      $lockedToken.on("click", () => copyTextToClipboard(lockedToken));
+      $lockedCopyToken.on("click", () => copyTextToClipboard(lockedToken));
+      $lockedCopyEmoji.on("click", () =>
+        copyTextToClipboard(emojiEncode("\uD83E\uDD5C", lockedToken)),
+      );
       storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
       toastr.remove(); // clears any messages
-      toastr.error(e);
+      toastr.error(e.message || "Error creating locked token.");
       console.error(e);
       proofs = getMintProofs(mintUrl); // revert to saved proofs
-      console.log("proofs:>>", proofs);
       showOrderForm();
       toastr.info("There was an error creating your token. Please try again.");
     }
