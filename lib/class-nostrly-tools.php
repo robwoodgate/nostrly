@@ -671,7 +671,6 @@ class NostrlyTools
                 /* Common input styles */
                 #cashu-witness-form input,
                 #cashu-witness-form textarea,
-                #cashu-witness-form select,
                 #cashu-witness-success textarea {
                     border-radius: 6px;
                     margin-bottom: 0.25em;
@@ -701,9 +700,11 @@ class NostrlyTools
                 }
                 /* NIP-07 button */
                 #use-nip07 {
-                    margin-top: 0.5rem;
-                    width: 100%;
+                    margin: 1em auto;
                     max-width: 200px;
+                }
+                #use-nip07:disabled {
+                    opacity: 0.6;
                 }
                 /* Witness info and status */
                 #witness-info {
@@ -713,28 +714,50 @@ class NostrlyTools
                     border-radius: 6px;
                     text-align: left;
                     font-size: 0.9rem;
+                    border: 1px solid #444;
                 }
                 #witness-info ul {
                     margin: 0.5rem 0;
                     padding-left: 20px;
                 }
+                #witness-info li {
+                    margin-bottom: 0.25rem;
+                }
                 #witness-status {
+                    margin-top: 0.75rem;
+                    padding-top: 0.5rem;
+                    border-top: 1px solid #666;
+                }
+                #witness-status strong {
+                    display: block;
+                    margin-bottom: 0.5rem;
+                }
+                #witness-status ul {
+                    list-style: none;
+                    padding-left: 0;
+                }
+                #witness-status li {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 0.5rem;
+                    font-family: monospace;
+                }
+                #witness-status .status-icon {
+                    width: 16px;
+                    height: 16px;
+                    margin-right: 8px;
+                    border-radius: 50%;
+                }
+                #witness-status .signed .status-icon {
+                    background-color: #0f0;
+                }
+                #witness-status .pending .status-icon {
+                    background-color: #f00;
+                }
+                #witness-status .summary {
                     margin-top: 0.5rem;
-                    font-size: 0.85rem;
-                }
-                #witness-status .signed {
-                    color: #0f0;
-                }
-                #witness-status .pending {
-                    color: #f00;
-                }
-                /* Buttons and interactive elements */
-                #witness-submit {
-                    margin: 1em auto;
-                    max-width: 20em;
-                }
-                #witness-submit:disabled {
-                    opacity: 0.6;
+                    font-style: italic;
+                    color: #ccc;
                 }
                 /* Success section */
                 #cashu-witness-success .subtitle {
@@ -792,13 +815,12 @@ class NostrlyTools
                     <div id="witness-info" class="hidden"></div>
                 </div>
                 <div>
-                    <label for="privkeys">Private Keys (NSEC or Hex, one per line or CSV):</label>
-                    <textarea id="privkeys" name="privkeys" rows="3" placeholder="nsec1...\n02..."></textarea>
-                    <div class="description">Enter private keys to sign the P2PK proofs. Multiple keys can be added for multisig tokens.</div>
-                    <button type="button" id="use-nip07" class="button hidden">Or Use NIP-07 Signer</button>
+                    <label for="privkey">Private Key (NSEC or Hex):</label>
+                    <input type="text" id="privkey" name="privkey" placeholder="nsec1... | 02...">
+                    <div class="description">Paste a private key to automatically sign the P2PK proofs.</div>
                 </div>
                 <div class="center">
-                    <button type="submit" id="witness-submit" disabled>Sign and Witness Token</button>
+                    <button type="button" id="use-nip07" class="button hidden" disabled>Use NIP-07 Signer</button>
                 </div>
                 <div id="history" class="center">
                     <h2>Witness History</h2>

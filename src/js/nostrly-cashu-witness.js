@@ -24,14 +24,14 @@ import toastr from "toastr";
 // Cashu-crypto-ts functions
 const parseSecret = (secret) => {
   try {
-    return JSON.parse(secret);
+    return JSON.parse(secret); // proof.secret is a string
   } catch {
     throw new Error("Invalid secret format");
   }
 };
 
 const signP2PKsecret = (secret, privateKey) => {
-  const msghash = sha256(new TextDecoder().decode(secret));
+  const msghash = sha256(secret); // secret is a string
   const sig = schnorr.sign(msghash, privateKey);
   return sig;
 };
@@ -73,27 +73,18 @@ const getSignedProof = (proof, privateKey) => {
   return proof;
 };
 
-const getSignedProofs = (proofs, privateKeys) => {
-  const keypairs = privateKeys.map((priv) => ({
-    priv,
-    pub: bytesToHex(schnorr.getPublicKey(priv)),
-  }));
+const getSignedProofs = (proofs, privateKey) => {
+  const pubkey = bytesToHex(schnorr.getPublicKey(privateKey));
   return proofs.map((proof) => {
     try {
       const parsed = parseSecret(proof.secret);
       if (parsed[0] !== "P2PK") return proof;
       const { pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(parsed);
-      if (!pubkeys.length) return proof;
+      if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof;
       let signedProof = { ...proof };
       let signatures = signedProof.witness?.signatures || [];
       if (signatures.length >= n_sigs) return signedProof;
-      for (const { priv, pub } of keypairs) {
-        if (pubkeys.includes(pub) && signatures.length < n_sigs) {
-          signedProof = getSignedProof(signedProof, hexToBytes(priv));
-          signatures = signedProof.witness.signatures;
-        }
-      }
-      return signedProof;
+      return getSignedProof(signedProof, privateKey);
     } catch {
       return proof;
     }
@@ -107,20 +98,19 @@ jQuery(function ($) {
   let mintUrl = "";
   let proofs = [];
   let tokenAmount = 0;
-  let privkeys = [];
+  let privkey = "";
   let p2pkParams = { pubkeys: [], n_sigs: 0 };
 
   // DOM elements
   const $divForm = $("#cashu-witness-form");
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
-  const $privkeys = $("#privkeys");
-  const $nip07Button = $("#use-nip07");
+  const $privkey = $("#privkey");
+  const $useNip07 = $("#use-nip07");
   const $witnessInfo = $("#witness-info");
-  const $submitButton = $("#witness-submit");
   const $witnessedToken = $("#witnessed-token");
   const $copyToken = $("#witnessed-token-copy");
-  const $copyEmoji = "#witnessed-emoji-copy";
+  const $copyEmoji = $("#witnessed-emoji-copy");
   const $historyDiv = $("#witness-history");
   const $clearHistory = $("#clear-history");
 
@@ -129,7 +119,7 @@ jQuery(function ($) {
     typeof window?.nostr?.signSchnorr !== "undefined" ||
     typeof window?.nostr?.signString !== "undefined"
   ) {
-    $nip07Button.removeClass("hidden");
+    $useNip07.removeClass("hidden");
   }
 
   // Page handlers
@@ -144,27 +134,34 @@ jQuery(function ($) {
 
   // Input handlers
   $token.on("input", debounce(processToken, 200));
-  $privkeys.on(
+  $privkey.on("paste", (e) => {
+    setTimeout(() => {
+      privkey = $privkey.val();
+      if (isPrivkeyValid(privkey)) {
+        $privkey.attr("data-valid", "");
+        signAndWitnessToken(false);
+      } else {
+        $privkey.attr("data-valid", "no");
+        toastr.error("Invalid private key");
+      }
+    }, 100); // Delay to ensure paste value is available
+  });
+  $privkey.on(
     "input",
     debounce(() => {
-      const keys = parsePrivkeys($privkeys.val());
-      if (keys) {
-        privkeys = keys;
-        $privkeys.attr("data-valid", "");
+      privkey = $privkey.val();
+      if (privkey && !isPrivkeyValid(privkey)) {
+        $privkey.attr("data-valid", "no");
       } else {
-        privkeys = [];
-        $privkeys.attr("data-valid", "no");
+        $privkey.attr("data-valid", "");
       }
       updateWitnessStatus();
-      checkIsReadyToSign();
+      checkNip07ButtonState();
     }, 200),
   );
-  $nip07Button.on("click", () => {
-    signAndWitnessToken(true);
-  });
-  $submitButton.on("click", () => signAndWitnessToken(false));
+  $useNip07.on("click", () => signAndWitnessToken(true));
   $copyToken.on("click", () => copyTextToClipboard($witnessedToken.val()));
-  $(document).on("click", $copyEmoji, () =>
+  $copyEmoji.on("click", () =>
     copyTextToClipboard(emojiEncode("\uD83E\uDD5C", $witnessedToken.val())),
   );
   $clearHistory.on("click", () => {
@@ -183,10 +180,9 @@ jQuery(function ($) {
         mintUrl = "";
         p2pkParams = { pubkeys: [], n_sigs: 0 };
         $witnessInfo.addClass("hidden").empty();
-        checkIsReadyToSign();
+        checkNip07ButtonState();
         return;
       }
-      // Handle emoji-encoded tokens
       if (!tokenEncoded.startsWith("cashu")) {
         const decoded = emojiDecode(tokenEncoded);
         if (decoded) {
@@ -207,11 +203,11 @@ jQuery(function ($) {
         throw "No P2PK proofs found in token";
       }
       tokenAmount = getTokenAmount(proofs);
-      // Parse P2PK params from first proof (assume consistent)
-      console.log("token:>>", token);
       p2pkParams = getP2PExpectedKWitnessPubkeys(parseSecret(proofs[0].secret));
       displayWitnessInfo();
       updateWitnessStatus();
+      console.log("token:>>", token);
+      console.log("proofs:>>", proofs);
       toastr.success(
         `Valid token: ${formatAmount(tokenAmount)} from ${mintUrl}`,
       );
@@ -225,7 +221,7 @@ jQuery(function ($) {
       p2pkParams = { pubkeys: [], n_sigs: 0 };
       $witnessInfo.addClass("hidden").empty();
     }
-    checkIsReadyToSign();
+    checkNip07ButtonState();
   }
 
   // Display witness requirements
@@ -250,7 +246,7 @@ jQuery(function ($) {
     }
     html += `<li>Expected Public Keys:</li><ul>`;
     pubkeys.forEach((pub) => {
-      const npub = nip19.npubEncode(pub);
+      const npub = nip19.npubEncode(pub.slice(2));
       html += `<li>${npub.slice(0, 12)}...${npub.slice(-12)}</li>`;
     });
     html += `</ul>`;
@@ -261,7 +257,7 @@ jQuery(function ($) {
       } else if (refundKeys.length) {
         html += `<li>Refund keys active:</li><ul>`;
         refundKeys.forEach((pub) => {
-          const npub = nip19.npubEncode(pub);
+          const npub = nip19.npubEncode(pub.slice(2));
           html += `<li>${npub.slice(0, 12)}...${npub.slice(-12)}</li>`;
         });
         html += `</ul>`;
@@ -280,7 +276,6 @@ jQuery(function ($) {
     const { pubkeys, n_sigs } = p2pkParams;
     let signatures = proofs[0].witness?.signatures || [];
     let signedPubkeys = [];
-    // Verify signatures against expected pubkeys
     signatures.forEach((sig) => {
       pubkeys.forEach((pub) => {
         try {
@@ -295,43 +290,24 @@ jQuery(function ($) {
     let html =
       '<div id="witness-status"><strong>Signature Status:</strong><ul>';
     pubkeys.forEach((pub) => {
-      const npub = nip19.npubEncode(pub);
+      const npub = nip19.npubEncode(pub.slice(2));
       const shortNpub = `${npub.slice(0, 12)}...${npub.slice(-12)}`;
       const isSigned = signedPubkeys.includes(pub);
-      html += `<li class="${isSigned ? "signed" : "pending"}">${shortNpub}: ${
+      html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${shortNpub}: ${
         isSigned ? "Signed" : "Pending"
       }</li>`;
     });
     html += `</ul>`;
     if (signedPubkeys.length >= n_sigs) {
-      html += `<p>All required signatures (${n_sigs}) collected!</p>`;
+      html += `<p class="summary">All required signatures (${n_sigs}) collected!</p>`;
     } else {
-      html += `<p>Need ${n_sigs - signedPubkeys.length} more signature${
+      html += `<p class="summary">Need ${n_sigs - signedPubkeys.length} more signature${
         n_sigs - signedPubkeys.length > 1 ? "s" : ""
       }.</p>`;
     }
     html += `</div>`;
     $witnessInfo.find("#witness-status").remove();
     $witnessInfo.append(html);
-  }
-
-  // Parse and validate private keys from textarea
-  function parsePrivkeys(text) {
-    const lines = text
-      .trim()
-      .split(/[\n,]+/)
-      .map((k) => k.trim())
-      .filter(Boolean);
-    const validKeys = [];
-    for (const key of lines) {
-      if (isPrivkeyValid(key)) {
-        validKeys.push(convertToHexPrivkey(key));
-      } else {
-        toastr.error(`Invalid private key: ${key}`);
-        return null;
-      }
-    }
-    return validKeys;
   }
 
   // Validate private key
@@ -357,18 +333,16 @@ jQuery(function ($) {
     return key;
   }
 
-  // Check if ready to sign
-  function checkIsReadyToSign() {
-    const hasSigner =
-      privkeys.length > 0 ||
+  // Check NIP-07 button state
+  function checkNip07ButtonState() {
+    const hasNip07 =
       typeof window?.nostr?.signSchnorr !== "undefined" ||
       typeof window?.nostr?.signString !== "undefined";
-    if (wallet && tokenAmount > 0 && proofs.length && hasSigner) {
-      $submitButton.prop("disabled", false);
-      return true;
+    if (hasNip07 && tokenAmount > 0 && proofs.length) {
+      $useNip07.prop("disabled", false);
+    } else {
+      $useNip07.prop("disabled", true);
     }
-    $submitButton.prop("disabled", true);
-    return false;
   }
 
   // Sign and witness the token
@@ -377,33 +351,27 @@ jQuery(function ($) {
       toastr.info("Signing token...");
       let signedProofs = [...proofs];
       let signedCount = 0;
+      console.log("signedProofs:>>", signedProofs);
 
       if (useNip07) {
-        if (
-          typeof window?.nostr?.signSchnorr === "undefined" &&
-          typeof window?.nostr?.signString === "undefined"
-        ) {
-          throw new Error("NIP-07 signer not detected");
-        }
         signedProofs = await signWithNip07(signedProofs);
       } else {
-        if (!privkeys.length) {
-          throw new Error("No private keys provided");
+        if (!privkey || !isPrivkeyValid(privkey)) {
+          throw new Error("No valid private key provided");
         }
-        signedProofs = getSignedProofs(signedProofs, privkeys);
+        signedProofs = getSignedProofs(
+          signedProofs,
+          convertToHexPrivkey(privkey),
+        );
       }
 
-      // Count signed proofs
       signedCount = signedProofs.filter(
-        (p) =>
-          p.witness?.signatures?.length >= p2pkParams.n_sigs ||
-          p2pkParams.n_sigs,
+        (p) => p.witness?.signatures?.length >= p2pkParams.n_sigs,
       ).length;
       if (signedCount === 0) {
         throw new Error("No proofs were signed");
       }
 
-      // Regenerate token
       const witnessedToken = getEncodedTokenV4({
         mint: mintUrl,
         proofs: signedProofs,
@@ -421,9 +389,9 @@ jQuery(function ($) {
     }
   }
 
-  // Sign proofs with NIP-07
+  // Sign proofs with NIP-07 (aligned with reference functions)
   async function signWithNip07(proofs) {
-    const signedProofs = [...proofs];
+    const signedProofs = proofs.map((proof) => ({ ...proof }));
     for (const [index, proof] of signedProofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
       const parsed = parseSecret(proof.secret);
@@ -433,20 +401,35 @@ jQuery(function ($) {
       if (signatures.length >= n_sigs) continue;
       const hash = bytesToHex(sha256(proof.secret));
       let sig = "";
-      if (typeof window?.nostr?.signSchnorr !== "undefined") {
-        sig = await window.nostr.signSchnorr(hash);
-      } else if (typeof window?.nostr?.signString !== "undefined") {
-        const { hash: signedHash, sig: signedSig } =
-          await window.nostr.signString(proof.secret);
-        if (signedHash === hash) sig = signedSig;
+      try {
+        if (typeof window?.nostr?.signSchnorr !== "undefined") {
+          sig = await window.nostr.signSchnorr(hash);
+          console.log("signSchnorr sig:", sig);
+        } else if (typeof window?.nostr?.signString !== "undefined") {
+          const {
+            hash: signedHash,
+            sig: signedSig,
+            pubkey,
+          } = await window.nostr.signString(proof.secret);
+          console.log("signString result:", {
+            hash: signedHash,
+            sig: signedSig,
+            pubkey,
+          });
+          if (signedHash === hash && pubkeys.includes(pubkey)) {
+            sig = signedSig;
+          }
+        }
+      } catch (e) {
+        toastr.warning(`Skipped signing proof ${index + 1}: ${e.message}`);
+        console.error("NIP-07 signing error:", e);
+        continue;
       }
       if (sig && !signatures.includes(sig)) {
         signedProofs[index].witness = {
           signatures: [...signatures, sig],
         };
       }
-      // Stop if we have enough signatures
-      if (signedProofs[index].witness?.signatures.length >= n_sigs) continue;
     }
     return signedProofs;
   }
