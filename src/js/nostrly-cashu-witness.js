@@ -60,16 +60,23 @@ const getP2PExpectedKWitnessPubkeys = (secret) => {
       return { pubkeys: refundKeys, n_sigs: 1 };
     }
   } catch {}
-  return { pubkeys: [], n_sigs: 0 };
+  return { pubkeys: [], n_sigs: 0 }; // Unlocked or expired with no refund keys
 };
 
 const getSignedProof = (proof, privateKey) => {
   const signature = bytesToHex(signP2PKsecret(proof.secret, privateKey));
-  if (!proof.witness) {
-    proof.witness = { signatures: [signature] };
-  } else if (!proof.witness.signatures.includes(signature)) {
-    proof.witness.signatures = [...(proof.witness.signatures || []), signature];
+  let signatures = [];
+  if (proof.witness) {
+    if (typeof proof.witness === "string") {
+      signatures = JSON.parse(proof.witness).signatures || [];
+    } else {
+      signatures = proof.witness.signatures || [];
+    }
   }
+  if (!signatures.includes(signature)) {
+    signatures.push(signature);
+  }
+  proof.witness = { signatures };
   return proof;
 };
 
@@ -86,7 +93,11 @@ const getSignedProofs = (proofs, privateKey) => {
       if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof;
       console.log("sig not witnessed yet:>", n_sigs);
       let signedProof = { ...proof };
-      let signatures = signedProof.witness?.signatures || [];
+      let signatures = signedProof.witness
+        ? typeof signedProof.witness === "string"
+          ? JSON.parse(signedProof.witness).signatures || []
+          : signedProof.witness.signatures || []
+        : [];
       if (signatures.length >= n_sigs) return signedProof;
       return getSignedProof(signedProof, privateKey);
     } catch (e) {
@@ -111,6 +122,7 @@ jQuery(function ($) {
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
   const $privkey = $("#privkey");
+  const $privkeyDiv = $privkey.parent();
   const $useNip07 = $("#use-nip07");
   const $witnessInfo = $("#witness-info");
   const $witnessedToken = $("#witnessed-token");
@@ -160,7 +172,6 @@ jQuery(function ($) {
       } else {
         $privkey.attr("data-valid", "");
       }
-      updateWitnessStatus();
       checkNip07ButtonState();
     }, 200),
   );
@@ -210,7 +221,6 @@ jQuery(function ($) {
       tokenAmount = getTokenAmount(proofs);
       p2pkParams = getP2PExpectedKWitnessPubkeys(parseSecret(proofs[0].secret));
       displayWitnessInfo();
-      updateWitnessStatus();
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
@@ -232,54 +242,22 @@ jQuery(function ($) {
   // Display witness requirements
   function displayWitnessInfo() {
     if (!p2pkParams.pubkeys.length) {
-      $witnessInfo.addClass("hidden").empty();
-      return;
-    }
-    const { pubkeys, n_sigs } = p2pkParams;
-    const parsed = parseSecret(proofs[0].secret);
-    const { tags } = parsed[1];
-    const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
-    const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
-    const refundTag = tags && tags.find((tag) => tag[0] === "refund");
-    const refundKeys =
-      refundTag && refundTag.length > 1 ? refundTag.slice(1) : [];
-    let html = "<strong>Witness Requirements:</strong><ul>";
-    if (n_sigs > 1) {
-      html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
-    } else {
-      html += `<li>Single signature required</li>`;
-    }
-    html += `<li>Expected Public Keys:</li><ul>`;
-    pubkeys.forEach((pub) => {
-      const npub = convertHexkeyToNpub(pub);
-      html += `<li>${npub.slice(0, 12)}...${npub.slice(-12)}</li>`;
-    });
-    html += `</ul>`;
-    if (locktime) {
       const now = Math.floor(Date.now() / 1000);
-      if (locktime > now) {
-        html += `<li>Locked until: ${new Date(locktime * 1000).toLocaleString()}</li>`;
-      } else if (refundKeys.length) {
-        html += `<li>Refund keys active:</li><ul>`;
-        refundKeys.forEach((pub) => {
-          const npub = convertHexkeyToNpub(pub);
-          html += `<li>${npub.slice(0, 12)}...${npub.slice(-12)}</li>`;
-        });
-        html += `</ul>`;
+      const parsed = parseSecret(proofs[0].secret);
+      const { tags } = parsed[1];
+      const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
+      const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
+      let html = "<strong>Witness Requirements:</strong><ul>";
+      if (!locktime || locktime <= now) {
+        html += `<li>Token is unlocked (no signatures required).</li>`;
+      } else {
+        html += `<li>No valid pubkeys found.</li>`;
       }
-    }
-    html += `</ul>`;
-    $witnessInfo.removeClass("hidden").html(html);
-  }
-
-  // Update witness signature status
-  function updateWitnessStatus() {
-    if (!p2pkParams.pubkeys.length) {
-      $witnessInfo.find("#witness-status").remove();
+      html += `</ul>`;
+      $witnessInfo.removeClass("hidden").html(html);
       return;
     }
     const { pubkeys, n_sigs } = p2pkParams;
-    // Handle witness as string or object
     let signatures = proofs[0].witness;
     if (typeof signatures === "string") {
       try {
@@ -296,16 +274,9 @@ jQuery(function ($) {
       pubkeys.forEach((pub) => {
         try {
           const msghash = bytesToHex(sha256(proofs[0].secret));
-          // Strip 02 prefix for Schnorr verification (32-byte x-coordinate)
           const pubkeyX = pub.slice(2);
-          console.log("Verifying sig:", sig);
-          console.log("Against pubkey:", pub);
-          console.log("With msghash:", msghash);
           if (schnorr.verify(sig, msghash, hexToBytes(pubkeyX))) {
             signedPubkeys.push(pub);
-            console.log("Signature verified for pubkey:", pub);
-          } else {
-            console.log("Signature verification failed for pubkey:", pub);
           }
         } catch (e) {
           console.error("Verification error:", e);
@@ -313,8 +284,13 @@ jQuery(function ($) {
       });
     });
     signedPubkeys = [...new Set(signedPubkeys)];
-    let html =
-      '<div id="witness-status"><strong>Signature Status:</strong><ul>';
+    let html = "<strong>Witness Requirements:</strong><ul>";
+    if (n_sigs > 1) {
+      html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
+    } else {
+      html += `<li>Single signature required</li>`;
+    }
+    html += `<li>Expected Public Keys:</li><ul>`;
     pubkeys.forEach((pub) => {
       const npub = convertHexkeyToNpub(pub);
       const shortNpub = `${npub.slice(0, 12)}...${npub.slice(-12)}`;
@@ -324,16 +300,16 @@ jQuery(function ($) {
       }</li>`;
     });
     html += `</ul>`;
-    if (signedPubkeys.length >= n_sigs) {
-      html += `<p class="summary">All required signatures (${n_sigs}) collected!</p>`;
-    } else {
-      html += `<p class="summary">Need ${n_sigs - signedPubkeys.length} more signature${
-        n_sigs - signedPubkeys.length > 1 ? "s" : ""
+    const remainingSigs = n_sigs - signedPubkeys.length;
+    if (remainingSigs > 0) {
+      html += `<p class="summary">Need ${remainingSigs} more signature${
+        remainingSigs > 1 ? "s" : ""
       }.</p>`;
+    } else {
+      html += `<p class="summary">All required signatures (${n_sigs}) collected!</p>`;
     }
-    html += `</div>`;
-    $witnessInfo.find("#witness-status").remove();
-    $witnessInfo.append(html);
+    html += `</ul>`;
+    $witnessInfo.removeClass("hidden").html(html);
   }
 
   // Validate private key
@@ -364,7 +340,7 @@ jQuery(function ($) {
     return nip19.npubEncode(key.slice(2));
   }
 
-  // Check NIP-07 button state
+  // Check NIP-07 button state and handle unlocked tokens
   function checkNip07ButtonState() {
     const hasNip07 =
       typeof window?.nostr?.signSchnorr !== "undefined" ||
@@ -372,9 +348,17 @@ jQuery(function ($) {
     console.log("hasNip07", hasNip07);
     console.log("tokenAmount", tokenAmount);
     console.log("proofs length", proofs.length);
-    if (hasNip07 && tokenAmount > 0 && proofs.length) {
-      $useNip07.prop("disabled", false);
+    const isLocked = p2pkParams.pubkeys.length > 0;
+    if (isLocked && tokenAmount > 0 && proofs.length) {
+      $privkeyDiv.show();
+      $privkey.prop("disabled", false);
+      if (hasNip07) {
+        $useNip07.prop("disabled", false);
+      } else {
+        $useNip07.prop("disabled", true);
+      }
     } else {
+      $privkeyDiv.hide();
       $useNip07.prop("disabled", true);
     }
   }
@@ -401,7 +385,11 @@ jQuery(function ($) {
       // Count proofs that had signatures added in this operation
       let signedCount = 0;
       for (let i = 0; i < proofs.length; i++) {
-        const originalSigs = proofs[i].witness?.signatures || [];
+        const originalSigs = proofs[i].witness
+          ? typeof proofs[i].witness === "string"
+            ? JSON.parse(proofs[i].witness).signatures || []
+            : proofs[i].witness.signatures || []
+          : [];
         const newSigs = signedProofs[i].witness?.signatures || [];
         if (newSigs.length > originalSigs.length) {
           signedCount++;
@@ -424,8 +412,6 @@ jQuery(function ($) {
       console.log("Setting witnessed token...");
       storeWitnessHistory(witnessedToken, tokenAmount);
       console.log("Stored history...");
-      updateWitnessStatus();
-      console.log("Updated witness status...");
       showSuccess();
       console.log("Showing success...");
       toastr.success(
@@ -518,7 +504,7 @@ jQuery(function ($) {
     localStorage.removeItem("cashu-witness-history");
   }
 
-  // Load witness history
+  // Load witness history (descending order)
   function loadWitnessHistory() {
     const history = getWitnessHistory();
     $historyDiv.empty();
@@ -527,26 +513,28 @@ jQuery(function ($) {
       return;
     }
     const $list = $("<ul></ul>");
-    history.forEach((entry) => {
-      const date = new Date(entry.date).toLocaleString();
-      const amount = formatAmount(entry.amount);
-      const token =
-        entry.token.length > 20
-          ? entry.token.slice(0, 20) + "..."
-          : entry.token;
-      const $item = $(`
-        <li class="history-item">
-          <span class="copytkn">Copy Token</span> <span class="copyemj">Copy 🥜</span> ${date} - ${amount}
-        </li>
-      `);
-      $item.children(".copytkn").on("click", () => {
-        copyTextToClipboard(entry.token);
+    history
+      .sort((a, b) => new Date(b.date) - new Date(a.date)) // Descending order
+      .forEach((entry) => {
+        const date = new Date(entry.date).toLocaleString();
+        const amount = formatAmount(entry.amount);
+        const token =
+          entry.token.length > 20
+            ? entry.token.slice(0, 20) + "..."
+            : entry.token;
+        const $item = $(`
+          <li class="history-item">
+            <span class="copytkn">Copy Token</span> <span class="copyemj">Copy 🥜</span> ${date} - ${amount}
+          </li>
+        `);
+        $item.children(".copytkn").on("click", () => {
+          copyTextToClipboard(entry.token);
+        });
+        $item.children(".copyemj").on("click", () => {
+          copyTextToClipboard(emojiEncode("\uD83E\uDD5C", entry.token));
+        });
+        $list.append($item);
       });
-      $item.children(".copyemj").on("click", () => {
-        copyTextToClipboard(emojiEncode("\uD83E\uDD5C", entry.token));
-      });
-      $list.append($item);
-    });
     $historyDiv.append($list);
   }
 
