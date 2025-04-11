@@ -51,7 +51,7 @@ const getP2PExpectedKWitnessPubkeys = (secret) => {
     const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
     const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : 1;
     if (locktime > now) {
-      if (n_sigs && n_sigs > 1) {
+      if (n_sigs && n_sigs >= 1) {
         return { pubkeys: [data, ...pubkeys], n_sigs };
       }
       return { pubkeys: [data], n_sigs: 1 };
