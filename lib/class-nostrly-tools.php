@@ -722,39 +722,24 @@ class NostrlyTools
                 }
                 #witness-info li {
                     margin-bottom: 0.25rem;
-                }
-                #witness-status {
-                    margin-top: 0.75rem;
-                    padding-top: 0.5rem;
-                    border-top: 1px solid #666;
-                }
-                #witness-status strong {
-                    display: block;
-                    margin-bottom: 0.5rem;
-                }
-                #witness-status ul {
-                    list-style: none;
-                    padding-left: 0;
-                }
-                #witness-status li {
                     display: flex;
                     align-items: center;
-                    margin-bottom: 0.5rem;
                     font-family: monospace;
                 }
-                #witness-status .status-icon {
-                    width: 16px;
-                    height: 16px;
+                #witness-info .status-icon {
+                    width: 10px;
+                    height: 10px;
                     margin-right: 8px;
                     border-radius: 50%;
+                    display: inline-block;
                 }
-                #witness-status .signed .status-icon {
+                #witness-info .signed .status-icon {
                     background-color: #0f0;
                 }
-                #witness-status .pending .status-icon {
+                #witness-info .pending .status-icon {
                     background-color: #f00;
                 }
-                #witness-status .summary {
+                #witness-info .summary {
                     margin-top: 0.5rem;
                     font-style: italic;
                     color: #ccc;

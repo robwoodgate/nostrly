@@ -65,23 +65,21 @@ const getP2PExpectedKWitnessPubkeys = (secret) => {
 
 const getSignedProof = (proof, privateKey) => {
   const signature = bytesToHex(signP2PKsecret(proof.secret, privateKey));
-  let signatures = [];
-  if (proof.witness) {
-    if (typeof proof.witness === "string") {
-      signatures = JSON.parse(proof.witness).signatures || [];
-    } else {
-      signatures = proof.witness.signatures || [];
-    }
-  }
+  console.log("getSignedProof proof.witness:>>", proof.witness);
+  let signatures = proof.witness
+    ? typeof proof.witness === "string"
+      ? JSON.parse(proof.witness).signatures || []
+      : proof.witness.signatures || []
+    : [];
   if (!signatures.includes(signature)) {
     signatures.push(signature);
   }
-  proof.witness = { signatures };
-  return proof;
+  return { ...proof, witness: { signatures } };
 };
 
 const getSignedProofs = (proofs, privateKey) => {
-  const pubkey = bytesToHex(schnorr.getPublicKey(privateKey));
+  // Add '02' prefix to match SEC1 format in pubkeys
+  const pubkey = "02" + bytesToHex(schnorr.getPublicKey(privateKey));
   console.log("getSignedProofs pubkey:>", pubkey);
   return proofs.map((proof) => {
     try {
@@ -92,14 +90,7 @@ const getSignedProofs = (proofs, privateKey) => {
       console.log("n_sigs:>", n_sigs);
       if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof;
       console.log("sig not witnessed yet:>", n_sigs);
-      let signedProof = { ...proof };
-      let signatures = signedProof.witness
-        ? typeof signedProof.witness === "string"
-          ? JSON.parse(signedProof.witness).signatures || []
-          : signedProof.witness.signatures || []
-        : [];
-      if (signatures.length >= n_sigs) return signedProof;
-      return getSignedProof(signedProof, privateKey);
+      return getSignedProof(proof, privateKey);
     } catch (e) {
       console.error(e);
       return proof;
@@ -163,18 +154,6 @@ jQuery(function ($) {
       }
     }, 100); // Delay to ensure paste value is available
   });
-  $privkey.on(
-    "input",
-    debounce(() => {
-      privkey = $privkey.val();
-      if (privkey && !isPrivkeyValid(privkey)) {
-        $privkey.attr("data-valid", "no");
-      } else {
-        $privkey.attr("data-valid", "");
-      }
-      checkNip07ButtonState();
-    }, 200),
-  );
   $useNip07.on("click", () => signAndWitnessToken(true));
   $copyToken.on("click", () => copyTextToClipboard($witnessedToken.val()));
   $copyEmoji.on("click", () =>
@@ -367,6 +346,7 @@ jQuery(function ($) {
   async function signAndWitnessToken(useNip07 = false) {
     try {
       toastr.info("Signing token...");
+      let originalProofs = [...proofs]; // Store original state
       let signedProofs = [...proofs];
       console.log("signedProofs before:>>", signedProofs);
 
@@ -380,17 +360,23 @@ jQuery(function ($) {
           signedProofs,
           convertToHexPrivkey(privkey),
         );
+        console.log(
+          "signedProofs after:>>",
+          signedProofs.map((p) => p.witness),
+        );
       }
 
       // Count proofs that had signatures added in this operation
       let signedCount = 0;
-      for (let i = 0; i < proofs.length; i++) {
-        const originalSigs = proofs[i].witness
-          ? typeof proofs[i].witness === "string"
-            ? JSON.parse(proofs[i].witness).signatures || []
-            : proofs[i].witness.signatures || []
+      for (let i = 0; i < originalProofs.length; i++) {
+        const originalSigs = originalProofs[i].witness
+          ? typeof originalProofs[i].witness === "string"
+            ? JSON.parse(originalProofs[i].witness).signatures || []
+            : originalProofs[i].witness.signatures || []
           : [];
         const newSigs = signedProofs[i].witness?.signatures || [];
+        console.log("newSigs:>>", newSigs);
+        console.log("originalSigs:>>", originalSigs);
         if (newSigs.length > originalSigs.length) {
           signedCount++;
         }
@@ -458,7 +444,6 @@ jQuery(function ($) {
             pubkey,
           });
         }
-        // Normalize pubkey from NIP-07 (no 02 prefix) to match P2PK format
         const normalizedPubkey = "02" + pubkey;
         console.log("normalizedPubkey:", normalizedPubkey);
         console.log("signedHash:", signedHash);
