@@ -377,11 +377,14 @@ class NostrlyTools
                         font-weight: bold;
                         margin-bottom: 0;
                         text-align: left;
-                    }                    #cashu-lock-form label.center {
+                    }
+                    #cashu-lock-form label.center {
                         text-align: center;
-                    }                    #cashu-lock-form div {
+                    }
+                    #cashu-lock-form div {
                         margin-bottom: 1rem;
-                    }                    /* Common input styles */
+                    }
+                    /* Common input styles */
                     #cashu-lock-form input,
                     #cashu-lock-form textarea,
                     #cashu-lock-form select,
@@ -390,64 +393,80 @@ class NostrlyTools
                         margin-bottom: 0.25em;
                         padding: 6px 15px;
                         width: 100%;
-                    }                    /* Validation feedback */
+                    }
+                    /* Validation feedback */
                     #cashu-lock-form [data-valid="no"] {
                         border: 2px solid rgb(204, 55, 55);
                         background-color: rgba(204, 55, 55, 0.3);
                         color: white;
-                    }                    /* Utility classes */
+                    }
+                    /* Utility classes */
                     .center {
                         text-align: center;
-                    }                    .hidden {
+                    }
+                    .hidden {
                         display: none;
-                    }                    .strong {
+                    }
+                    .strong {
                         font-weight: bold;
-                    }                    .description {
+                    }
+                    .description {
                         font-size: 0.85rem;
                         margin-top: 0.5rem;
                         color: #ccc;
-                    }                    /* Refund NPUB container */
+                    }
+                    /* Refund NPUB container */
                     #refund-npub-container {
                         display: flex;
-                    }                    #refund-npub {
+                    }
+                    #refund-npub {
                         flex: 1;
                         margin-right: 5px;
                         max-width: calc(100% - 14rem);
                         text-align: left;
-                    }                    #use-nip07 {
+                    }
+                    #use-nip07 {
                         flex: 0 0 auto;
                         width: 13rem;
-                    }                    /* Buttons and interactive elements */
+                    }
+                    /* Buttons and interactive elements */
                     #lock-next {
                         margin: 1em auto;
                         max-width: 20em;
-                    }                    #lock-next:disabled {
+                    }
+                    #lock-next:disabled {
                         opacity: 0.6;
-                    }                    #add_donation {
+                    }
+                    #add_donation {
                         max-width: 180px;
                         display: block;
                         margin: 0 auto;
-                    }                    #clear-history {
+                    }
+                    #clear-history {
                         border-radius: 6px;
                         display: inline-block;
                         margin: 0 0.25rem;
                         padding: 0 0.5rem;
-                    }                    /* Payment section */
+                    }
+                    /* Payment section */
                     #cashu-lock-pay .subtitle {
                         font-weight: bold;
                         margin-top: 2rem;
-                    }                    #payby-cashu {
+                    }
+                    #payby-cashu {
                         margin-top: 0.5rem;
                         padding: 1rem;
                         max-width: 300px;
-                    }                    .mint_url {
+                    }
+                    .mint_url {
                         border: 1px solid white;
                         border-radius: 6px;
                         display: inline-block;
                         margin: 0.5rem;
                         padding: 0 10px;
                         width: fit-content;
-                    }                    #amount_to_pay,
+                    }
+                    #amount_to_pay,
                     .copytkn,
                     .copyemj {
                         border-radius: 6px;
@@ -455,26 +474,32 @@ class NostrlyTools
                         background-color: #FF9900;
                         color: #000;
                         padding: 0 0.25rem;
-                    }                    #locked-emoji-copy {
+                    }
+                    #locked-emoji-copy {
                         margin-left: 1rem;
-                    }                    /* History section */
+                    }
+                    /* History section */
                     #history {
                         border: 1px solid #ccc;
                         border-radius: 6px;
                         margin-top: 3rem;
                         padding: 1px;
-                    }                    #history ul {
+                    }
+                    #history ul {
                         margin-left: 0;
                         padding-left: 0;
-                    }                    .history-item {
+                    }
+                    .history-item {
                         border-top: 1px solid #ccc;
                         cursor: pointer;
                         list-style: none;
                         padding: 5px;
                         text-align: left;
-                    }                    .history-item:hover {
+                    }
+                    .history-item:hover {
                         color: #fff;
-                    }                    /* Multisig and refund key options */
+                    }
+                    /* Multisig and refund key options */
                     #cashu-lock-form a#add-multisig,
                     #cashu-lock-form a#add-refund-keys {
                         display: block;
@@ -482,25 +507,30 @@ class NostrlyTools
                         font-size: 0.9rem;
                         color: #FF9900;
                         text-decoration: none;
-                    }                    #cashu-lock-form a#add-multisig:hover,
+                    }
+                    #cashu-lock-form a#add-multisig:hover,
                     #cashu-lock-form a#add-refund-keys:hover {
                         text-decoration: underline;
-                    }                    #multisig-options,
+                    }
+                    #multisig-options,
                     #refund-keys-options {
                         margin-top: 0.75rem;
                         padding: 0.75rem;
                         background-color: rgba(255, 255, 255, 0.05);
                         border-radius: 6px;
                         transition: all 0.3s ease;
-                    }                    #cashu-lock-form textarea {
+                    }
+                    #cashu-lock-form textarea {
                         resize: vertical;
                         min-height: 60px;
                         font-family: monospace;
-                    }                    #n-sig {
+                    }
+                    #n-sigs {
                         width: 80px;
                         display: inline-block;
                         margin-left: 0.5rem;
-                    }                    /* Media queries */
+                    }
+                    /* Media queries */
                     @media (max-width: 600px) {
                         #refund-npub-container {
                             flex-direction: column;
@@ -513,7 +543,7 @@ class NostrlyTools
                         #use-nip07 {
                             width: 100%;
                         }
-                        #n-sig {
+                        #n-sigs {
                             width: 100%;
                             margin-left: 0;
                             margin-top: 0.25rem;
@@ -547,8 +577,8 @@ class NostrlyTools
                         <div id="multisig-options" class="hidden">
                             <label for="extra-lock-keys">Additional Locking Pubkeys (one per line or CSV):</label>
                             <textarea id="extra-lock-keys" name="extra-lock-keys" rows="3" placeholder="npub1...\n02..."></textarea>
-                            <label for="n-sig">Signatures Required (n_sig):</label>
-                            <input type="number" id="n-sig" name="n-sig" min="1" step="1" value="1" required>
+                            <label for="n-sigs">Signatures Required (n_sigs):</label>
+                            <input type="number" id="n-sigs" name="n-sigs" min="1" step="1" value="1" required>
                             <div class="description">Number of signatures needed to unlock (e.g., 2 for 2-of-3 multisig).</div>
                         </div>
                     </div>

@@ -70,6 +70,8 @@ jQuery(function ($) {
   let extraLockKeys = [];
   let extraRefundKeys = [];
   let nSigValue = 1;
+  let lockKeys = []; // sanitized keys
+  let refundKeys = []; // sanitized keys
 
   // DOM elements
   const $divOrderFm = $("#cashu-lock-form");
@@ -97,7 +99,7 @@ jQuery(function ($) {
   const $addMultisig = $("#add-multisig");
   const $multisigOptions = $("#multisig-options");
   const $extraLockKeys = $("#extra-lock-keys");
-  const $nSig = $("#n-sig");
+  const $nSigs = $("#n-sigs");
   const $addRefundKeys = $("#add-refund-keys");
   const $refundKeysOptions = $("#refund-keys-options");
   const $extraRefundKeys = $("#extra-refund-keys");
@@ -292,14 +294,15 @@ jQuery(function ($) {
     }, 200),
   );
 
-  // Handle n_sig
-  $nSig.on("input", () => {
-    nSigValue = parseInt($nSig.val(), 10);
+  // Handle n_sigs
+  $nSigs.on("input", () => {
+    nSigValue = parseInt($nSigs.val(), 10);
     if (nSigValue < 1) {
-      $nSig.val(1);
+      $nSigs.val(1);
       nSigValue = 1;
       toastr.error("Signatures required must be at least 1");
     }
+    console.log("n_sigs:>>", nSigValue);
     checkIsReadyToOrder();
   });
 
@@ -342,10 +345,8 @@ jQuery(function ($) {
   }, 200);
   const checkIsReadyToOrder = async () => {
     // Deduplicate lockKeys and refundKeys while filtering falsy values
-    const lockKeys = [...new Set([lockP2PK, ...extraLockKeys].filter(Boolean))];
-    const refundKeys = [
-      ...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean)),
-    ];
+    lockKeys = [...new Set([lockP2PK, ...extraLockKeys].filter(Boolean))];
+    refundKeys = [...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean))];
     const hasValidRefunds = !$refundNpub.val() || refundKeys.length > 0;
     console.log("lockKeys:>", lockKeys);
     console.log("refundKeys:>", refundKeys);
@@ -363,8 +364,10 @@ jQuery(function ($) {
       1, // for testing
       keyset.id,
     );
-    const secretLength = testBlindedMessage.secret.length;
-    console.log("sanity check secret length:>>", secretLength);
+    const secretDecode = new TextDecoder().decode(testBlindedMessage.secret);
+    const secretLength = secretDecode.length;
+    console.log("secret:>>", secretDecode);
+    console.log("secret length:>>", secretDecode.length);
     if (secretLength > MAX_SECRET) {
       toastr.error(
         "Your token's secret will be too long. Please remove some Lock or Refund keys.",
@@ -469,13 +472,6 @@ jQuery(function ($) {
   // handle Locked token and donation
   const createLockedToken = async () => {
     try {
-      // Deduplicate lockKeys and refundKeys while filtering falsy values
-      const lockKeys = [
-        ...new Set([lockP2PK, ...extraLockKeys].filter(Boolean)),
-      ];
-      const refundKeys = [
-        ...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean)),
-      ];
       const { send: p2pkProofs, keep: donationProofs } = await wallet.swap(
         tokenAmount,
         proofs,
