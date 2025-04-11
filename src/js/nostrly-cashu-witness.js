@@ -75,17 +75,22 @@ const getSignedProof = (proof, privateKey) => {
 
 const getSignedProofs = (proofs, privateKey) => {
   const pubkey = bytesToHex(schnorr.getPublicKey(privateKey));
+  console.log("getSignedProofs pubkey:>", pubkey);
   return proofs.map((proof) => {
     try {
       const parsed = parseSecret(proof.secret);
       if (parsed[0] !== "P2PK") return proof;
       const { pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(parsed);
+      console.log("pubkeys:>", pubkeys);
+      console.log("n_sigs:>", n_sigs);
       if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof;
+      console.log("sig not witnessed yet:>", n_sigs);
       let signedProof = { ...proof };
       let signatures = signedProof.witness?.signatures || [];
       if (signatures.length >= n_sigs) return signedProof;
       return getSignedProof(signedProof, privateKey);
-    } catch {
+    } catch (e) {
+      console.error(e);
       return proof;
     }
   });
@@ -246,7 +251,7 @@ jQuery(function ($) {
     }
     html += `<li>Expected Public Keys:</li><ul>`;
     pubkeys.forEach((pub) => {
-      const npub = nip19.npubEncode(pub.slice(2));
+      const npub = convertHexkeyToNpub(pub);
       html += `<li>${npub.slice(0, 12)}...${npub.slice(-12)}</li>`;
     });
     html += `</ul>`;
@@ -257,7 +262,7 @@ jQuery(function ($) {
       } else if (refundKeys.length) {
         html += `<li>Refund keys active:</li><ul>`;
         refundKeys.forEach((pub) => {
-          const npub = nip19.npubEncode(pub.slice(2));
+          const npub = convertHexkeyToNpub(pub);
           html += `<li>${npub.slice(0, 12)}...${npub.slice(-12)}</li>`;
         });
         html += `</ul>`;
@@ -274,23 +279,44 @@ jQuery(function ($) {
       return;
     }
     const { pubkeys, n_sigs } = p2pkParams;
-    let signatures = proofs[0].witness?.signatures || [];
+    // Handle witness as string or object
+    let signatures = proofs[0].witness;
+    if (typeof signatures === "string") {
+      try {
+        signatures = JSON.parse(signatures).signatures || [];
+      } catch (e) {
+        console.error("Failed to parse witness string:", e);
+        signatures = [];
+      }
+    } else {
+      signatures = signatures?.signatures || [];
+    }
     let signedPubkeys = [];
     signatures.forEach((sig) => {
       pubkeys.forEach((pub) => {
         try {
-          const msghash = sha256(proofs[0].secret);
-          if (schnorr.verify(sig, msghash, hexToBytes(pub))) {
+          const msghash = bytesToHex(sha256(proofs[0].secret));
+          // Strip 02 prefix for Schnorr verification (32-byte x-coordinate)
+          const pubkeyX = pub.slice(2);
+          console.log("Verifying sig:", sig);
+          console.log("Against pubkey:", pub);
+          console.log("With msghash:", msghash);
+          if (schnorr.verify(sig, msghash, hexToBytes(pubkeyX))) {
             signedPubkeys.push(pub);
+            console.log("Signature verified for pubkey:", pub);
+          } else {
+            console.log("Signature verification failed for pubkey:", pub);
           }
-        } catch {}
+        } catch (e) {
+          console.error("Verification error:", e);
+        }
       });
     });
     signedPubkeys = [...new Set(signedPubkeys)];
     let html =
       '<div id="witness-status"><strong>Signature Status:</strong><ul>';
     pubkeys.forEach((pub) => {
-      const npub = nip19.npubEncode(pub.slice(2));
+      const npub = convertHexkeyToNpub(pub);
       const shortNpub = `${npub.slice(0, 12)}...${npub.slice(-12)}`;
       const isSigned = signedPubkeys.includes(pub);
       html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${shortNpub}: ${
@@ -327,10 +353,15 @@ jQuery(function ($) {
   // Convert private key to hex
   function convertToHexPrivkey(key) {
     if (key.startsWith("nsec1")) {
-      const { data } = nip19.decode(key);
-      return bytesToHex(data);
+      let sk = nip19.decode(key).data; // `sk` is a Uint8Array
+      return bytesToHex(sk);
     }
     return key;
+  }
+
+  // Convert hex pubkey to npub
+  function convertHexkeyToNpub(key) {
+    return nip19.npubEncode(key.slice(2));
   }
 
   // Check NIP-07 button state
@@ -338,6 +369,9 @@ jQuery(function ($) {
     const hasNip07 =
       typeof window?.nostr?.signSchnorr !== "undefined" ||
       typeof window?.nostr?.signString !== "undefined";
+    console.log("hasNip07", hasNip07);
+    console.log("tokenAmount", tokenAmount);
+    console.log("proofs length", proofs.length);
     if (hasNip07 && tokenAmount > 0 && proofs.length) {
       $useNip07.prop("disabled", false);
     } else {
@@ -350,8 +384,7 @@ jQuery(function ($) {
     try {
       toastr.info("Signing token...");
       let signedProofs = [...proofs];
-      let signedCount = 0;
-      console.log("signedProofs:>>", signedProofs);
+      console.log("signedProofs before:>>", signedProofs);
 
       if (useNip07) {
         signedProofs = await signWithNip07(signedProofs);
@@ -365,27 +398,42 @@ jQuery(function ($) {
         );
       }
 
-      signedCount = signedProofs.filter(
-        (p) => p.witness?.signatures?.length >= p2pkParams.n_sigs,
-      ).length;
+      // Count proofs that had signatures added in this operation
+      let signedCount = 0;
+      for (let i = 0; i < proofs.length; i++) {
+        const originalSigs = proofs[i].witness?.signatures || [];
+        const newSigs = signedProofs[i].witness?.signatures || [];
+        if (newSigs.length > originalSigs.length) {
+          signedCount++;
+        }
+      }
+      console.log("p2pkParams:>>", p2pkParams);
+      console.log("signedCount:>>", signedCount);
       if (signedCount === 0) {
-        throw new Error("No proofs were signed");
+        throw new Error("No new signatures were added");
       }
 
+      console.log("signedProofs after:>>", signedProofs);
+      console.log("Encoding token...");
       const witnessedToken = getEncodedTokenV4({
         mint: mintUrl,
         proofs: signedProofs,
       });
+      console.log("Token encoded:", witnessedToken);
       $witnessedToken.val(witnessedToken);
+      console.log("Setting witnessed token...");
       storeWitnessHistory(witnessedToken, tokenAmount);
+      console.log("Stored history...");
       updateWitnessStatus();
+      console.log("Updated witness status...");
       showSuccess();
+      console.log("Showing success...");
       toastr.success(
-        `Signed ${signedCount} proof${signedCount > 1 ? "s" : ""} successfully!`,
+        `Added signatures to ${signedCount} proof${signedCount > 1 ? "s" : ""}!`,
       );
     } catch (e) {
+      console.error("Error in signAndWitnessToken:", e);
       toastr.error(e.message || "Failed to sign token");
-      console.error(e);
     }
   }
 
@@ -396,29 +444,42 @@ jQuery(function ($) {
       if (!proof.secret.includes("P2PK")) continue;
       const parsed = parseSecret(proof.secret);
       const { pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(parsed);
+      console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys);
       if (!pubkeys.length) continue;
       let signatures = proof.witness?.signatures || [];
       if (signatures.length >= n_sigs) continue;
       const hash = bytesToHex(sha256(proof.secret));
+      let pubkey = "";
       let sig = "";
+      let signedSig = "";
+      let signedHash = "";
       try {
         if (typeof window?.nostr?.signSchnorr !== "undefined") {
-          sig = await window.nostr.signSchnorr(hash);
-          console.log("signSchnorr sig:", sig);
+          pubkey = await window.nostr.getPublicKey();
+          signedSig = await window.nostr.signSchnorr(hash);
+          signedHash = hash;
+          console.log("signSchnorr pubkey:", pubkey);
+          console.log("signSchnorr sig:", signedSig);
         } else if (typeof window?.nostr?.signString !== "undefined") {
-          const {
+          ({
             hash: signedHash,
             sig: signedSig,
             pubkey,
-          } = await window.nostr.signString(proof.secret);
+          } = await window.nostr.signString(proof.secret));
           console.log("signString result:", {
             hash: signedHash,
             sig: signedSig,
             pubkey,
           });
-          if (signedHash === hash && pubkeys.includes(pubkey)) {
-            sig = signedSig;
-          }
+        }
+        // Normalize pubkey from NIP-07 (no 02 prefix) to match P2PK format
+        const normalizedPubkey = "02" + pubkey;
+        console.log("normalizedPubkey:", normalizedPubkey);
+        console.log("signedHash:", signedHash);
+        console.log("hash:", hash);
+        if (signedHash === hash && pubkeys.includes(normalizedPubkey)) {
+          sig = signedSig;
+          console.log("adding sig:", sig);
         }
       } catch (e) {
         toastr.warning(`Skipped signing proof ${index + 1}: ${e.message}`);
@@ -429,6 +490,7 @@ jQuery(function ($) {
         signedProofs[index].witness = {
           signatures: [...signatures, sig],
         };
+        console.log("added sig!", sig);
       }
     }
     return signedProofs;
