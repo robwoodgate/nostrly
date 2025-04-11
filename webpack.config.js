@@ -12,6 +12,7 @@ export default {
     "nostrly-tools": "./src/js/nostrly-tools.js",
     "nostrly-cashu": "./src/js/nostrly-cashu.js",
     "nostrly-cashu-lock": "./src/js/nostrly-cashu-lock.js",
+    "nostrly-cashu-witness": "./src/js/nostrly-cashu-witness.js",
   },
   output: {
     filename: "[name].min.js",

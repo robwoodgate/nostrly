@@ -18,6 +18,7 @@ class NostrlyTools
         add_shortcode('nostrly_nip09_deleter', [$this, 'nip09_deleter_shortcode']);
         add_shortcode('nostrly_cashu_redeem', [$this, 'cashu_redeem_shortcode']);
         add_shortcode('nostrly_cashu_lock', [$this, 'cashu_lock_shortcode']);
+        add_shortcode('nostrly_cashu_witness', [$this, 'cashu_witness_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
         add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
@@ -632,6 +633,195 @@ class NostrlyTools
     }
 
     /**
+     * Cashu Witness shortcode.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_witness_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-witness');
+
+        $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
+        $subtitle = esc_html('Lightning Invoice', 'nostrly');
+        $copy_inv = esc_html('Copy', 'nostrly');
+        $copy_token = esc_html('Copy Token', 'nostrly');
+        $copy_emoji = esc_html('Copy 🥜', 'nostrly');
+        $cancel = esc_html('Cancel', 'nostrly');
+
+        return <<<EOL
+            <style>
+                /* Base form styling */
+                #cashu-witness-form {
+                    margin-bottom: 40px;
+                }
+                #cashu-witness-form label {
+                    display: block;
+                    font-weight: bold;
+                    margin-bottom: 0;
+                    text-align: left;
+                }
+                #cashu-witness-form label.center {
+                    text-align: center;
+                }
+                #cashu-witness-form div {
+                    margin-bottom: 1rem;
+                }
+                /* Common input styles */
+                #cashu-witness-form input,
+                #cashu-witness-form textarea,
+                #cashu-witness-form select,
+                #cashu-witness-success textarea {
+                    border-radius: 6px;
+                    margin-bottom: 0.25em;
+                    padding: 6px 15px;
+                    width: 100%;
+                }
+                /* Validation feedback */
+                #cashu-witness-form [data-valid="no"] {
+                    border: 2px solid rgb(204, 55, 55);
+                    background-color: rgba(204, 55, 55, 0.3);
+                    color: white;
+                }
+                /* Utility classes */
+                .center {
+                    text-align: center;
+                }
+                .hidden {
+                    display: none;
+                }
+                .strong {
+                    font-weight: bold;
+                }
+                .description {
+                    font-size: 0.85rem;
+                    margin-top: 0.5rem;
+                    color: #ccc;
+                }
+                /* NIP-07 button */
+                #use-nip07 {
+                    margin-top: 0.5rem;
+                    width: 100%;
+                    max-width: 200px;
+                }
+                /* Witness info and status */
+                #witness-info {
+                    margin-top: 0.75rem;
+                    padding: 0.75rem;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    text-align: left;
+                    font-size: 0.9rem;
+                }
+                #witness-info ul {
+                    margin: 0.5rem 0;
+                    padding-left: 20px;
+                }
+                #witness-status {
+                    margin-top: 0.5rem;
+                    font-size: 0.85rem;
+                }
+                #witness-status .signed {
+                    color: #0f0;
+                }
+                #witness-status .pending {
+                    color: #f00;
+                }
+                /* Buttons and interactive elements */
+                #witness-submit {
+                    margin: 1em auto;
+                    max-width: 20em;
+                }
+                #witness-submit:disabled {
+                    opacity: 0.6;
+                }
+                /* Success section */
+                #cashu-witness-success .subtitle {
+                    font-weight: bold;
+                    margin-top: 1rem;
+                }
+                .copytkn,
+                .copyemj {
+                    border-radius: 6px;
+                    display: inline-block;
+                    background-color: #FF9900;
+                    color: #000;
+                    padding: 0 0.25rem;
+                    cursor: pointer;
+                }
+                #witnessed-emoji-copy {
+                    margin-left: 1rem;
+                }
+                /* History section */
+                #history {
+                    border: 1px solid #ccc;
+                    border-radius: 6px;
+                    margin-top: 3rem;
+                    padding: 1px;
+                }
+                #history ul {
+                    margin-left: 0;
+                    padding-left: 0;
+                }
+                .history-item {
+                    border-top: 1px solid #ccc;
+                    cursor: pointer;
+                    list-style: none;
+                    padding: 5px;
+                    text-align: left;
+                }
+                .history-item:hover {
+                    color: #fff;
+                }
+                /* Media queries */
+                @media (max-width: 600px) {
+                    #use-nip07 {
+                        max-width: 100%;
+                    }
+                    #witness-info {
+                        padding: 0.5rem;
+                    }
+                }
+            </style>
+            <div id="cashu-witness-form">
+                <div>
+                    <label for="token">P2PK Cashu Token:</label>
+                    <textarea id="token" name="token" rows="5" placeholder="cashuA..." required></textarea>
+                    <div class="description">Enter a valid P2PK-locked Cashu token to sign.</div>
+                    <div id="witness-info" class="hidden"></div>
+                </div>
+                <div>
+                    <label for="privkeys">Private Keys (NSEC or Hex, one per line or CSV):</label>
+                    <textarea id="privkeys" name="privkeys" rows="3" placeholder="nsec1...\n02..."></textarea>
+                    <div class="description">Enter private keys to sign the P2PK proofs. Multiple keys can be added for multisig tokens.</div>
+                    <button type="button" id="use-nip07" class="button hidden">Or Use NIP-07 Signer</button>
+                </div>
+                <div class="center">
+                    <button type="submit" id="witness-submit" disabled>Sign and Witness Token</button>
+                </div>
+                <div id="history" class="center">
+                    <h2>Witness History</h2>
+                    <div id="witness-history"></div>
+                    <div>
+                        <button id="clear-history">Clear History</button>
+                    </div>
+                </div>
+            </div>
+            <div id="cashu-witness-success" class="center hidden">
+                <h2>Your Witnessed Token</h2>
+                <textarea id="witnessed-token" rows="10" cols="50"></textarea>
+                <p>
+                    <button id="witnessed-token-copy" class="button">Copy Token</button>
+                    <button id="witnessed-emoji-copy" class="button">Copy 🥜</button>
+                </p>
+            </div>
+        EOL;
+    }
+
+
+
+    /**
      * Enqueue scripts and styles
      * NB: Called from registration_shortcode() so we only load scripts if needed.
      */
@@ -639,6 +829,7 @@ class NostrlyTools
     {
         wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-lock', NOSTRLY_URL.'assets/js/nostrly-cashu-lock.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
