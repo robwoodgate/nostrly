@@ -802,7 +802,7 @@ class NostrlyTools
                     <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only<br>Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank" rel="noopener"><code>signString()</code></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>.</div>
                 </div>
                 <div class="center">
-                    <button type="button" id="use-nip07" class="button hidden" disabled>Use NIP-07 Signer</button>
+                    <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>
                 </div>
                 <div id="history" class="center">
                     <h2>Witness History</h2>
