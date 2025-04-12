@@ -144,7 +144,7 @@ jQuery(function ($) {
 
   // Initialize NIP-07 button visibility
   if (
-    typeof window?.nostr?.signSchnorr !== "undefined" ||
+    typeof window?.nostr?.signSchnorr !== "undefined" &&
     typeof window?.nostr?.signString !== "undefined"
   ) {
     $useNip07.removeClass("hidden");
@@ -334,7 +334,7 @@ jQuery(function ($) {
   // Check NIP-07 button state and handle unlocked tokens
   function checkNip07ButtonState() {
     const hasNip07 =
-      typeof window?.nostr?.signSchnorr !== "undefined" ||
+      typeof window?.nostr?.signSchnorr !== "undefined" &&
       typeof window?.nostr?.signString !== "undefined";
     console.log("hasNip07", hasNip07);
     console.log("tokenAmount", tokenAmount);
