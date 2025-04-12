@@ -795,7 +795,7 @@ class NostrlyTools
             <div id="cashu-witness-form">
                 <div>
                     <label for="token">P2PK Cashu Token:</label>
-                    <textarea id="token" name="token" rows="5" placeholder="cashuA..." required></textarea>
+                    <textarea id="token" name="token" rows="5" placeholder="cashuB..." required></textarea>
                     <div class="description">Enter a valid P2PK-locked Cashu token to sign.</div>
                     <div id="witness-info" class="hidden"></div>
                 </div>

@@ -16,12 +16,12 @@ import {
   formatAmount,
   getTokenAmount,
 } from "./utils.ts";
+import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { bytesToHex, hexToBytes } from "@noble/curves/abstract/utils";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
 import toastr from "toastr";
 
-// Cashu-crypto-ts functions
 const getSignatures = (witness) => {
   if (!witness) return [];
   if (typeof witness === "string") {
@@ -250,7 +250,7 @@ jQuery(function ($) {
   }
 
   // Display witness requirements
-  function displayWitnessInfo() {
+  async function displayWitnessInfo() {
     if (!p2pkParams.pubkeys.length) {
       const now = Math.floor(Date.now() / 1000);
       const parsed = parseSecret(proofs[0].secret);
@@ -301,14 +301,18 @@ jQuery(function ($) {
       html += `<li>Single signature required</li>`;
     }
     html += `<li>Expected Public Keys:</li><ul>`;
-    pubkeys.forEach((pub) => {
-      const npub = convertHexkeyToNpub(pub);
-      const shortNpub = `${npub.slice(0, 12)}...${npub.slice(-12)}`;
+    for (const pub of pubkeys) {
+      const npub = p2pkeyToNpub(pub);
+      const { name } = await getContactDetails(npub, nostrly_ajax.relays);
+      let keyholder = `${pub.slice(0, 12)}...${pub.slice(-12)}`;
+      if (name) {
+        keyholder = `<a href="https://njump.me/${npub}" target="_blank">${name}</a>`;
+      }
       const isSigned = signedPubkeys.includes(pub);
-      html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${shortNpub}: ${
+      html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${
         isSigned ? "Signed" : "Pending"
       }</li>`;
-    });
+    }
     html += `</ul>`;
     const remainingSigs = n_sigs - signedPubkeys.length;
     if (remainingSigs > 0) {
@@ -345,11 +349,6 @@ jQuery(function ($) {
     return key;
   }
 
-  // Convert hex pubkey to npub
-  function convertHexkeyToNpub(key) {
-    return nip19.npubEncode(key.slice(2));
-  }
-
   // Check NIP-07 button state and handle unlocked tokens
   function checkNip07ButtonState() {
     const hasNip07 =
@@ -376,7 +375,7 @@ jQuery(function ($) {
   // Sign and witness the token
   async function signAndWitnessToken(useNip07 = false) {
     try {
-      toastr.info("Signing token...");
+      toastr.info("Signing each of the proofs in this token...");
       let originalProofs = [...proofs]; // Store original state
       let signedProofs = [...proofs];
       console.log("signedProofs before:>>", signedProofs);
@@ -407,7 +406,7 @@ jQuery(function ($) {
       console.log("p2pkParams:>>", p2pkParams);
       console.log("signedCount:>>", signedCount);
       if (signedCount === 0) {
-        toastr.info("All proofs already signed with this key.");
+        toastr.error("No proofs needed signing with this key");
         return;
       }
 
@@ -417,19 +416,15 @@ jQuery(function ($) {
         mint: mintUrl,
         proofs: signedProofs,
       });
-      console.log("Token encoded:", witnessedToken);
       $witnessedToken.val(witnessedToken);
-      console.log("Setting witnessed token...");
       storeWitnessHistory(witnessedToken, tokenAmount);
-      console.log("Stored history...");
       showSuccess();
-      console.log("Showing success...");
       toastr.success(
         `Added signatures to ${signedCount} proof${signedCount > 1 ? "s" : ""}!`,
       );
     } catch (e) {
       console.error("Error in signAndWitnessToken:", e);
-      toastr.error(e.message || "Failed to sign token");
+      toastr.info(e.message || "Failed to sign token");
     }
   }
 
