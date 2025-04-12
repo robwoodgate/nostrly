@@ -241,12 +241,12 @@ jQuery(function ($) {
 
   // Display witness requirements
   async function displayWitnessInfo() {
+    const now = Math.floor(Date.now() / 1000);
+    const parsed = parseSecret(proofs[0].secret);
+    const { tags } = parsed[1];
+    const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
+    const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
     if (!p2pkParams.pubkeys.length) {
-      const now = Math.floor(Date.now() / 1000);
-      const parsed = parseSecret(proofs[0].secret);
-      const { tags } = parsed[1];
-      const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
-      const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
       let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount)} from ${mintUrl}</li></ul></div>`;
       html += "<strong>Witness Requirements:</strong><ul>";
       if (!locktime || locktime <= now) {
@@ -277,6 +277,9 @@ jQuery(function ($) {
     signedPubkeys = [...new Set(signedPubkeys)];
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount)} from ${mintUrl}</li></ul></div>`;
     html += "<strong>Witness Requirements:</strong><ul>";
+    if (locktime > now) {
+      html += `<li>Locked until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
+    }
     if (n_sigs > 1) {
       html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
     } else {
