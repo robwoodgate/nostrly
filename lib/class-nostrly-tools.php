@@ -643,6 +643,7 @@ class NostrlyTools
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-cashu-witness');
 
+        $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
         $copy_token = esc_html('Copy Token', 'nostrly');
         $copy_emoji = esc_html('Copy 🥜', 'nostrly');
@@ -792,17 +793,19 @@ class NostrlyTools
             </style>
             <div id="cashu-witness-form">
                 <div>
-                    <label for="token">P2PK Cashu Token:</label>
+                    <label for="token">{$token_label}</label>
                     <textarea id="token" name="token" rows="5" placeholder="{$token}" required></textarea>
                     <div id="witness-info" class="hidden"></div>
                 </div>
-                <div>
-                    <label for="privkey">Private Key (NSEC or Hex):</label>
-                    <input type="text" id="privkey" name="privkey" placeholder="nsec1... | 02...">
-                    <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only<br>Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank" rel="noopener"><code>signString()</code></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. The button below will be enabled if a compatible signer is detected.</div>
-                </div>
-                <div class="center">
-                    <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>
+                <div id="signers" class="hidden">
+                    <div>
+                        <label for="privkey">Private Key (NSEC or Hex):</label>
+                        <input type="text" id="privkey" name="privkey" placeholder="nsec1... | 02...">
+                        <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only<br>Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank" rel="noopener"><code>signString()</code></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. The button below will be enabled if a compatible signer is detected.</div>
+                    </div>
+                    <div class="center">
+                        <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>
+                    </div>
                 </div>
                 <div id="history" class="center">
                     <h2>Witness History</h2>
@@ -813,7 +816,7 @@ class NostrlyTools
                 </div>
             </div>
             <div id="cashu-witness-success" class="center hidden">
-                <h2>Your Witnessed Token</h2>
+                <h2 id="witnessed-heading">Your Witnessed Token</h2>
                 <textarea id="witnessed-token" rows="10" cols="50"></textarea>
                 <p>
                     <button id="witnessed-token-copy" class="button">{$copy_token}</button>

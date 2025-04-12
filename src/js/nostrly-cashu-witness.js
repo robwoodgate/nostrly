@@ -133,7 +133,7 @@ jQuery(function ($) {
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
   const $privkey = $("#privkey");
-  const $privkeyDiv = $privkey.parent();
+  const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
   const $witnessInfo = $("#witness-info");
   const $witnessedToken = $("#witnessed-token");
@@ -278,17 +278,24 @@ jQuery(function ($) {
       html += `<li>Single signature required</li>`;
     }
     html += `<li>Expected Public Keys:</li><ul>`;
+    // Define a function to handle the async update
+    const updateContactName = (npub, relays) => {
+      getContactDetails(npub, relays).then(({ name }) => {
+        if (name) {
+          $(`#${npub}`).replaceWith(
+            `<a href="https://njump.me/${npub}" target="_blank">${name}</a>`,
+          );
+        }
+      });
+    };
     for (const pub of pubkeys) {
       const npub = p2pkeyToNpub(pub);
-      const { name } = await getContactDetails(npub, nostrly_ajax.relays);
-      let keyholder = `${pub.slice(0, 12)}...${pub.slice(-12)}`;
-      if (name) {
-        keyholder = `<a href="https://njump.me/${npub}" target="_blank">${name}</a>`;
-      }
       const isSigned = signedPubkeys.includes(pub);
+      const keyholder = `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
       html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${
         isSigned ? "Signed" : "Pending"
       }</li>`;
+      updateContactName(npub, nostrly_ajax.relays);
     }
     html += `</ul>`;
     const remainingSigs = n_sigs - signedPubkeys.length;
@@ -336,15 +343,14 @@ jQuery(function ($) {
     console.log("proofs length", proofs.length);
     const isLocked = p2pkParams.pubkeys.length > 0;
     if (isLocked && tokenAmount > 0 && proofs.length) {
-      $privkeyDiv.show();
-      $privkey.prop("disabled", false);
+      $signersDiv.show();
       if (hasNip07) {
         $useNip07.prop("disabled", false);
       } else {
         $useNip07.prop("disabled", true);
       }
     } else {
-      $privkeyDiv.hide();
+      $signersDiv.hide();
       $useNip07.prop("disabled", true);
     }
   }
