@@ -258,9 +258,9 @@ class NostrlyTools
         $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
         $pkey_label = esc_html('Compatible Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
-        $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$ssignString()%4$s compatible Nostr extension like %1$sAlby%4$s, or %2$sAKA Profiles (v1.0.9+)%4$s'/* or %3$snos2X%4$s.'*/, 'nostrly'),
+        $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$ssignString()%4$s compatible Nostr extension like %1$sAlby%4$s, or %2$sAKA Profiles%4$s'/* or %3$snos2X%4$s.'*/, 'nostrly'),
             '<a href="https://getalby.com/products/browser-extension" target="_blank">',
-            '<a href="https://github.com/neilck/aka-extension/" target="_blank">',
+            '<a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank">',
             '<a href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp" target="_blank">',
             '</a>',
             '<a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank">',
@@ -643,9 +643,7 @@ class NostrlyTools
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-cashu-witness');
 
-        $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
-        $subtitle = esc_html('Lightning Invoice', 'nostrly');
-        $copy_inv = esc_html('Copy', 'nostrly');
+        $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
         $copy_token = esc_html('Copy Token', 'nostrly');
         $copy_emoji = esc_html('Copy 🥜', 'nostrly');
         $cancel = esc_html('Cancel', 'nostrly');
@@ -795,18 +793,16 @@ class NostrlyTools
             <div id="cashu-witness-form">
                 <div>
                     <label for="token">P2PK Cashu Token:</label>
-                    <textarea id="token" name="token" rows="5" placeholder="cashuB..." required></textarea>
-                    <div class="description">Enter a valid P2PK-locked Cashu token to sign.</div>
+                    <textarea id="token" name="token" rows="5" placeholder="{$token}" required></textarea>
                     <div id="witness-info" class="hidden"></div>
                 </div>
                 <div>
                     <label for="privkey">Private Key (NSEC or Hex):</label>
                     <input type="text" id="privkey" name="privkey" placeholder="nsec1... | 02...">
-                    <div class="description">Paste a private key to automatically sign the P2PK proofs.</div>
+                    <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only<br>Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank" rel="noopener"><code>signString()</code></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>.</div>
                 </div>
                 <div class="center">
                     <button type="button" id="use-nip07" class="button hidden" disabled>Use NIP-07 Signer</button>
-                    <div class="description">Note: Requires a <code>signString()</code> compatible signer such as Alby or AKA Profiles</div>
                 </div>
                 <div id="history" class="center">
                     <h2>Witness History</h2>
@@ -820,8 +816,8 @@ class NostrlyTools
                 <h2>Your Witnessed Token</h2>
                 <textarea id="witnessed-token" rows="10" cols="50"></textarea>
                 <p>
-                    <button id="witnessed-token-copy" class="button">Copy Token</button>
-                    <button id="witnessed-emoji-copy" class="button">Copy 🥜</button>
+                    <button id="witnessed-token-copy" class="button">{$copy_token}</button>
+                    <button id="witnessed-emoji-copy" class="button">{$copy_emoji}</button>
                 </p>
             </div>
         EOL;

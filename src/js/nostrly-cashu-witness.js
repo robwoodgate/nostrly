@@ -62,7 +62,7 @@ const getP2PExpectedKWitnessPubkeys = (secret) => {
     const pubkeys =
       pubkeysTag && pubkeysTag.length > 1 ? pubkeysTag.slice(1) : [];
     const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
-    const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : 1;
+    const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : null;
     if (locktime > now) {
       if (n_sigs && n_sigs >= 1) {
         return { pubkeys: [data, ...pubkeys], n_sigs };
@@ -99,6 +99,7 @@ const getSignedProof = (proof, privateKey) => {
     console.log("pubkey already signed this proof:", pubkey);
     return proof; // Skip signing if pubkey has a valid signature
   }
+
   console.log("pubkey has not signed yet:", pubkey);
   // Add new signature
   const signature = bytesToHex(signP2PKsecret(proof.secret, privateKey));
@@ -258,17 +259,7 @@ jQuery(function ($) {
       return;
     }
     const { pubkeys, n_sigs } = p2pkParams;
-    let signatures = proofs[0].witness;
-    if (typeof signatures === "string") {
-      try {
-        signatures = JSON.parse(signatures).signatures || [];
-      } catch (e) {
-        console.error("Failed to parse witness string:", e);
-        signatures = [];
-      }
-    } else {
-      signatures = signatures?.signatures || [];
-    }
+    let signatures = getSignatures(proofs[0].witness);
     let signedPubkeys = [];
     signatures.forEach((sig) => {
       pubkeys.forEach((pub) => {
@@ -429,7 +420,7 @@ jQuery(function ($) {
       console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys);
       if (!pubkeys.length) continue;
       let signatures = proof.witness?.signatures || [];
-      if (signatures.length >= n_sigs) continue;
+
       const hash = bytesToHex(sha256(proof.secret));
       let pubkey = "";
       let sig = "";
