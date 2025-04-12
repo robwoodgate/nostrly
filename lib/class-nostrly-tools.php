@@ -806,6 +806,7 @@ class NostrlyTools
                 </div>
                 <div class="center">
                     <button type="button" id="use-nip07" class="button hidden" disabled>Use NIP-07 Signer</button>
+                    <div class="description">Note: Requires a <code>signString()</code> compatible signer such as Alby or AKA Profiles</div>
                 </div>
                 <div id="history" class="center">
                     <h2>Witness History</h2>

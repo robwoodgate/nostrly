@@ -246,7 +246,8 @@ jQuery(function ($) {
       const { tags } = parsed[1];
       const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
       const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
-      let html = "<strong>Witness Requirements:</strong><ul>";
+      let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount)} from ${mintUrl}</li></ul></div>`;
+      html += "<strong>Witness Requirements:</strong><ul>";
       if (!locktime || locktime <= now) {
         html += `<li>Token is unlocked (no signatures required).</li>`;
       } else {
@@ -283,7 +284,8 @@ jQuery(function ($) {
       });
     });
     signedPubkeys = [...new Set(signedPubkeys)];
-    let html = "<strong>Witness Requirements:</strong><ul>";
+    let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount)} from ${mintUrl}</li></ul></div>`;
+    html += "<strong>Witness Requirements:</strong><ul>";
     if (n_sigs > 1) {
       html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
     } else {
