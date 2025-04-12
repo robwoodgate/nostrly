@@ -212,7 +212,6 @@ jQuery(function ($) {
       }
       tokenAmount = getTokenAmount(proofs);
       p2pkParams = getP2PExpectedKWitnessPubkeys(parseSecret(proofs[0].secret));
-      displayWitnessInfo();
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
@@ -229,10 +228,11 @@ jQuery(function ($) {
       $witnessInfo.addClass("hidden").empty();
     }
     checkNip07ButtonState();
+    displayWitnessInfo();
   }
 
   // Display witness requirements
-  async function displayWitnessInfo() {
+  function displayWitnessInfo() {
     const now = Math.floor(Date.now() / 1000);
     const parsed = parseSecret(proofs[0].secret);
     const { tags } = parsed[1];
@@ -305,6 +305,7 @@ jQuery(function ($) {
       }.</p>`;
     } else {
       html += `<p class="summary">All required signatures (${n_sigs}) collected!</p>`;
+      $signersDiv.addClass("hidden");
     }
     html += `</ul>`;
     $witnessInfo.removeClass("hidden").html(html);
@@ -343,14 +344,14 @@ jQuery(function ($) {
     console.log("proofs length", proofs.length);
     const isLocked = p2pkParams.pubkeys.length > 0;
     if (isLocked && tokenAmount > 0 && proofs.length) {
-      $signersDiv.show();
+      $signersDiv.removeClass("hidden");
       if (hasNip07) {
         $useNip07.prop("disabled", false);
       } else {
         $useNip07.prop("disabled", true);
       }
     } else {
-      $signersDiv.hide();
+      $signersDiv.addClass("hidden");
       $useNip07.prop("disabled", true);
     }
   }
