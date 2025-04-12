@@ -22,6 +22,19 @@ import { schnorr } from "@noble/curves/secp256k1";
 import toastr from "toastr";
 
 // Cashu-crypto-ts functions
+const getSignatures = (witness) => {
+  if (!witness) return [];
+  if (typeof witness === "string") {
+    try {
+      return JSON.parse(witness).signatures || [];
+    } catch (e) {
+      console.error("Failed to parse witness string:", e);
+      return [];
+    }
+  }
+  return witness.signatures || [];
+};
+
 const parseSecret = (secret) => {
   try {
     return JSON.parse(secret); // proof.secret is a string
@@ -30,6 +43,7 @@ const parseSecret = (secret) => {
   }
 };
 
+// Cashu-crypto-ts functions
 const signP2PKsecret = (secret, privateKey) => {
   const msghash = sha256(secret); // secret is a string
   const sig = schnorr.sign(msghash, privateKey);
@@ -66,11 +80,7 @@ const getP2PExpectedKWitnessPubkeys = (secret) => {
 const getSignedProof = (proof, privateKey) => {
   const signature = bytesToHex(signP2PKsecret(proof.secret, privateKey));
   console.log("getSignedProof proof.witness:>>", proof.witness);
-  let signatures = proof.witness
-    ? typeof proof.witness === "string"
-      ? JSON.parse(proof.witness).signatures || []
-      : proof.witness.signatures || []
-    : [];
+  let signatures = getSignatures(proof.witness);
   if (!signatures.includes(signature)) {
     signatures.push(signature);
   }
@@ -78,7 +88,6 @@ const getSignedProof = (proof, privateKey) => {
 };
 
 const getSignedProofs = (proofs, privateKey) => {
-  // Add '02' prefix to match SEC1 format in pubkeys
   const pubkey = "02" + bytesToHex(schnorr.getPublicKey(privateKey));
   console.log("getSignedProofs pubkey:>", pubkey);
   return proofs.map((proof) => {
@@ -90,6 +99,27 @@ const getSignedProofs = (proofs, privateKey) => {
       console.log("n_sigs:>", n_sigs);
       if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof;
       console.log("sig not witnessed yet:>", n_sigs);
+      let signatures = getSignatures(proof.witness);
+      // Check if this pubkey has already signed
+      const alreadySigned = signatures.some((sig) => {
+        try {
+          return schnorr.verify(
+            sig,
+            sha256(proof.secret),
+            hexToBytes(pubkey.slice(2)),
+          );
+        } catch (e) {
+          return false; // Invalid signature, treat as not signed
+        }
+      });
+      if (alreadySigned) {
+        console.log("pubkey already signed this proof:", pubkey);
+        return proof; // Skip signing if pubkey has a valid signature
+      }
+      if (signatures.length >= n_sigs) {
+        console.log("proof already has x >= n_sigs:", signatures.length);
+        return proof; // Skip if n_sigs reached
+      }
       return getSignedProof(proof, privateKey);
     } catch (e) {
       console.error(e);
@@ -360,21 +390,13 @@ jQuery(function ($) {
           signedProofs,
           convertToHexPrivkey(privkey),
         );
-        console.log(
-          "signedProofs after:>>",
-          signedProofs.map((p) => p.witness),
-        );
       }
 
       // Count proofs that had signatures added in this operation
       let signedCount = 0;
       for (let i = 0; i < originalProofs.length; i++) {
-        const originalSigs = originalProofs[i].witness
-          ? typeof originalProofs[i].witness === "string"
-            ? JSON.parse(originalProofs[i].witness).signatures || []
-            : originalProofs[i].witness.signatures || []
-          : [];
-        const newSigs = signedProofs[i].witness?.signatures || [];
+        const originalSigs = getSignatures(originalProofs[i].witness);
+        const newSigs = getSignatures(signedProofs[i].witness);
         console.log("newSigs:>>", newSigs);
         console.log("originalSigs:>>", originalSigs);
         if (newSigs.length > originalSigs.length) {
@@ -384,7 +406,8 @@ jQuery(function ($) {
       console.log("p2pkParams:>>", p2pkParams);
       console.log("signedCount:>>", signedCount);
       if (signedCount === 0) {
-        throw new Error("No new signatures were added");
+        toastr.info("All proofs already signed with this key.");
+        return;
       }
 
       console.log("signedProofs after:>>", signedProofs);
