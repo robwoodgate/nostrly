@@ -43,7 +43,6 @@ const parseSecret = (secret) => {
   }
 };
 
-// Cashu-crypto-ts functions
 const signP2PKsecret = (secret, privateKey) => {
   const msghash = sha256(secret); // secret is a string
   const sig = schnorr.sign(msghash, privateKey);
@@ -78,51 +77,41 @@ const getP2PExpectedKWitnessPubkeys = (secret) => {
 };
 
 const getSignedProof = (proof, privateKey) => {
-  const signature = bytesToHex(signP2PKsecret(proof.secret, privateKey));
-  console.log("getSignedProof proof.witness:>>", proof.witness);
+  const rawkey = schnorr.getPublicKey(privateKey); // for schnorr
+  const pubkey = "02" + bytesToHex(rawkey); // for Cashu
+  const parsed = parseSecret(proof.secret);
+  if (parsed[0] !== "P2PK") return proof; // not p2pk
+  // Check if this pubkey is required to sign
+  const { pubkeys } = getP2PExpectedKWitnessPubkeys(parsed);
+  console.log("expected pubkeys:>", pubkeys);
+  if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof; // nothing to sign
+  // Check if this pubkey has already signed
+  const hash = sha256(proof.secret);
   let signatures = getSignatures(proof.witness);
-  if (!signatures.includes(signature)) {
-    signatures.push(signature);
+  const alreadySigned = signatures.some((sig) => {
+    try {
+      return schnorr.verify(sig, hash, rawkey);
+    } catch {
+      return false; // Invalid signature, treat as not signed
+    }
+  });
+  if (alreadySigned) {
+    console.log("pubkey already signed this proof:", pubkey);
+    return proof; // Skip signing if pubkey has a valid signature
   }
+  console.log("pubkey has not signed yet:", pubkey);
+  // Add new signature
+  const signature = bytesToHex(signP2PKsecret(proof.secret, privateKey));
+  signatures.push(signature);
   return { ...proof, witness: { signatures } };
 };
 
 const getSignedProofs = (proofs, privateKey) => {
-  const pubkey = "02" + bytesToHex(schnorr.getPublicKey(privateKey));
-  console.log("getSignedProofs pubkey:>", pubkey);
   return proofs.map((proof) => {
     try {
-      const parsed = parseSecret(proof.secret);
-      if (parsed[0] !== "P2PK") return proof;
-      const { pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(parsed);
-      console.log("pubkeys:>", pubkeys);
-      console.log("n_sigs:>", n_sigs);
-      if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof;
-      console.log("sig not witnessed yet:>", n_sigs);
-      let signatures = getSignatures(proof.witness);
-      // Check if this pubkey has already signed
-      const alreadySigned = signatures.some((sig) => {
-        try {
-          return schnorr.verify(
-            sig,
-            sha256(proof.secret),
-            hexToBytes(pubkey.slice(2)),
-          );
-        } catch (e) {
-          return false; // Invalid signature, treat as not signed
-        }
-      });
-      if (alreadySigned) {
-        console.log("pubkey already signed this proof:", pubkey);
-        return proof; // Skip signing if pubkey has a valid signature
-      }
-      if (signatures.length >= n_sigs) {
-        console.log("proof already has x >= n_sigs:", signatures.length);
-        return proof; // Skip if n_sigs reached
-      }
       return getSignedProof(proof, privateKey);
     } catch (e) {
-      console.error(e);
+      console.error("Error processing proof:", e);
       return proof;
     }
   });
