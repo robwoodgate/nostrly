@@ -142,18 +142,17 @@ jQuery(function ($) {
   const $historyDiv = $("#witness-history");
   const $clearHistory = $("#clear-history");
 
-  // Initialize NIP-07 button visibility
-  if (
-    typeof window?.nostr?.signSchnorr !== "undefined" ||
-    typeof window?.nostr?.signString !== "undefined"
-  ) {
-    $useNip07.removeClass("hidden");
-  }
-
   // Page handlers
   function showForm() {
     $divForm.show();
     $divSuccess.hide();
+    // Initialize NIP-07 button visibility
+    if (
+      typeof window?.nostr?.signSchnorr !== "undefined" ||
+      typeof window?.nostr?.signString !== "undefined"
+    ) {
+      $useNip07.removeClass("hidden");
+    }
   }
   function showSuccess() {
     $divForm.hide();
