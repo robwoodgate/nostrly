@@ -178,6 +178,7 @@ jQuery(function ($) {
       if (isPrivkeyValid(privkey)) {
         $privkey.attr("data-valid", "");
         signAndWitnessToken(false);
+        $privkey.val("");
       } else {
         $privkey.attr("data-valid", "no");
         toastr.error("Invalid private key");
