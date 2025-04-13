@@ -12,6 +12,7 @@ import {
   getTokenAmount,
   getWalletWithUnit,
   getP2PExpectedKWitnessPubkeys,
+  getP2PKNSigs,
   parseSecret,
 } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
@@ -45,7 +46,7 @@ const getSignedProof = (proof, privateKey) => {
   const parsed = parseSecret(proof.secret);
   if (parsed[0] !== "P2PK") return proof; // not p2pk
   // Check if this pubkey is required to sign
-  const { pubkeys } = getP2PExpectedKWitnessPubkeys(parsed);
+  const pubkeys = getP2PExpectedKWitnessPubkeys(parsed);
   console.log("expected pubkeys:>", pubkeys);
   if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof; // nothing to sign
   // Check if this pubkey has already signed
@@ -177,7 +178,10 @@ jQuery(function ($) {
         return;
       }
       tokenAmount = getTokenAmount(proofs);
-      p2pkParams = getP2PExpectedKWitnessPubkeys(parseSecret(proofs[0].secret));
+      p2pkParams.pubkeys = getP2PExpectedKWitnessPubkeys(
+        parseSecret(proofs[0].secret),
+      );
+      p2pkParams.n_sigs = getP2PKNSigs(parseSecret(proofs[0].secret));
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
@@ -391,7 +395,8 @@ jQuery(function ($) {
     for (const [index, proof] of signedProofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
       const parsed = parseSecret(proof.secret);
-      const { pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(parsed);
+      const pubkeys = getP2PExpectedKWitnessPubkeys(parsed);
+      const n_sigs = getP2PKNSigs(parsed);
       console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys);
       if (!pubkeys.length) continue;
       let signatures = proof.witness?.signatures || [];

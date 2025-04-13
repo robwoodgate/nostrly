@@ -325,38 +325,49 @@ export const parseSecret = (secret: string): P2PKSecret => {
 };
 
 /**
- * Returns the appropriate public key from a NUT-11 P2PK secret based on locktime.
- * - Returns the `data` pubkey if locktime is in the future.
- * - Returns the first `refund` pubkey if locktime has passed.
- * - Returns null if no P2PK lock
+ * Returns the expected witness public keys from a NUT-11 P2PK secret
  * @param secret - The NUT-11 P2PK secret.
- * @param now - Optional current timestamp in seconds (defaults to current time).
- * @returns The public key (string) or null
+ * @returns Array with the public keys or empty array
  */
-export function getP2PKPublicKey(
-  secret: P2PKSecret,
-  now: number = Math.floor(Date.now() / 1000),
-): string | null {
+export function getP2PExpectedKWitnessPubkeys(secret: P2PKSecret): string[] {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const { data, tags } = secret[1];
+    const locktime = getP2PKLocktime(secret);
+    const refundTag = tags && tags.find((tag) => tag[0] === "refund");
+    const refundKeys =
+      refundTag && refundTag.length > 1 ? refundTag.slice(1) : [];
+    const pubkeysTag = tags && tags.find((tag) => tag[0] === "pubkeys");
+    const pubkeys =
+      pubkeysTag && pubkeysTag.length > 1 ? pubkeysTag.slice(1) : [];
+    const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
+    const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : null;
+    if (locktime > now) {
+      if (n_sigs && n_sigs >= 1) {
+        return [data, ...pubkeys];
+      }
+      return [data];
+    }
+    if (refundKeys) {
+      return refundKeys;
+    }
+  } catch {}
+  return []; // Unlocked or expired with no refund keys
+}
+
+/**
+ * Returns the locktime from a NUT-11 P2PK secret or Infinity if no locktime
+ * @param secret - The NUT-11 P2PK secret.
+ * @returns The locktime unix timestamp or Infinity (permanent lock)
+ */
+export function getP2PKLocktime(secret: P2PKSecret): number {
   // Validate secret format
   if (secret[0] !== "P2PK") {
     throw new Error('Invalid P2PK secret: must start with "P2PK"');
   }
-  // Find locktime and refund tags
-  const { data, tags } = secret[1];
+  const { tags } = secret[1];
   const locktimeTag = tags.find((tag) => tag[0] === "locktime");
-  const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity; // Default to future if no locktime
-  const refundTag = tags.find((tag) => tag[0] === "refund");
-  const refundKey = refundTag && refundTag.length > 1 ? refundTag[1] : null;
-  // If locktime is in the future, return the data pubkey
-  if (locktime > now) {
-    return data;
-  }
-  // If locktime has passed, return the first refund pubkey
-  if (refundKey) {
-    return refundKey;
-  }
-  // Lock has expired
-  return null;
+  return locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity; // Permanent lock if not set
 }
 
 /**
@@ -364,14 +375,19 @@ export function getP2PKPublicKey(
  * @param secret - The NUT-11 P2PK secret.
  * @returns The locktime unix timestamp or null
  */
-export function getP2PKLocktime(secret: P2PKSecret): number | null {
+export function getP2PKNSigs(secret: P2PKSecret): number {
   // Validate secret format
   if (secret[0] !== "P2PK") {
     throw new Error('Invalid P2PK secret: must start with "P2PK"');
   }
+  const witness = getP2PExpectedKWitnessPubkeys(secret);
   const { tags } = secret[1];
-  const locktimeTag = tags.find((tag) => tag[0] === "locktime");
-  return locktimeTag ? parseInt(locktimeTag[1], 10) : null;
+  const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
+  const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : 1;
+  if (witness.length > 0) {
+    return n_sigs; // locked
+  }
+  return 0; // unlocked
 }
 
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -386,41 +402,6 @@ export const debounce = <T extends (...args: any[]) => void>(
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   };
-};
-
-// Define the return type
-interface P2PExpectedKWitnessPubkeys {
-  pubkeys: string[];
-  n_sigs: number | null;
-}
-
-export const getP2PExpectedKWitnessPubkeys = (
-  secret: P2PKSecret,
-): P2PExpectedKWitnessPubkeys => {
-  try {
-    const now = Math.floor(Date.now() / 1000);
-    const { data, tags } = secret[1];
-    const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
-    const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity;
-    const refundTag = tags && tags.find((tag) => tag[0] === "refund");
-    const refundKeys =
-      refundTag && refundTag.length > 1 ? refundTag.slice(1) : [];
-    const pubkeysTag = tags && tags.find((tag) => tag[0] === "pubkeys");
-    const pubkeys =
-      pubkeysTag && pubkeysTag.length > 1 ? pubkeysTag.slice(1) : [];
-    const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
-    const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : null;
-    if (locktime > now) {
-      if (n_sigs && n_sigs >= 1) {
-        return { pubkeys: [data, ...pubkeys], n_sigs };
-      }
-      return { pubkeys: [data], n_sigs: 1 };
-    }
-    if (refundKeys.length) {
-      return { pubkeys: refundKeys, n_sigs: 1 };
-    }
-  } catch {}
-  return { pubkeys: [], n_sigs: 0 }; // Unlocked or expired with no refund keys
 };
 
 function fallbackCopyTextToClipboard(text: string) {

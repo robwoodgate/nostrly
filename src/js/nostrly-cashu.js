@@ -5,7 +5,6 @@ import {
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
 import {
-  getP2PKPublicKey,
   getP2PKLocktime,
   doConfettiBomb,
   getP2PExpectedKWitnessPubkeys,
