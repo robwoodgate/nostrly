@@ -8,6 +8,7 @@ import {
   getP2PKLocktime,
   doConfettiBomb,
   getP2PExpectedKWitnessPubkeys,
+  getP2PKNSigs,
   parseSecret,
   getWalletWithUnit,
 } from "./utils.ts";
@@ -189,7 +190,8 @@ jQuery(function ($) {
         // This can vary dependingo on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
         const p2pkSecret = parseSecret(lockedProofs[0].secret);
-        ({ pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(p2pkSecret));
+        const pubkeys = getP2PExpectedKWitnessPubkeys(p2pkSecret);
+        const n_sigs = getP2PKNSigs(p2pkSecret);
         console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
         locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
         if (n_sigs > 1) {
