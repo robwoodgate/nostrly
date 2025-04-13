@@ -313,6 +313,18 @@ type P2PKSecret = [
 ];
 
 /**
+ * Parse a string secret into a P2PKSecret
+ * @type {[type]}
+ */
+export const parseSecret = (secret: string): P2PKSecret => {
+  try {
+    return JSON.parse(secret); // proof.secret is a string
+  } catch {
+    throw new Error("Invalid secret format");
+  }
+};
+
+/**
  * Returns the appropriate public key from a NUT-11 P2PK secret based on locktime.
  * - Returns the `data` pubkey if locktime is in the future.
  * - Returns the first `refund` pubkey if locktime has passed.
@@ -374,6 +386,41 @@ export const debounce = <T extends (...args: any[]) => void>(
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   };
+};
+
+// Define the return type
+interface P2PExpectedKWitnessPubkeys {
+  pubkeys: string[];
+  n_sigs: number | null;
+}
+
+export const getP2PExpectedKWitnessPubkeys = (
+  secret: P2PKSecret,
+): P2PExpectedKWitnessPubkeys => {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const { data, tags } = secret[1];
+    const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
+    const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity;
+    const refundTag = tags && tags.find((tag) => tag[0] === "refund");
+    const refundKeys =
+      refundTag && refundTag.length > 1 ? refundTag.slice(1) : [];
+    const pubkeysTag = tags && tags.find((tag) => tag[0] === "pubkeys");
+    const pubkeys =
+      pubkeysTag && pubkeysTag.length > 1 ? pubkeysTag.slice(1) : [];
+    const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
+    const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : null;
+    if (locktime > now) {
+      if (n_sigs && n_sigs >= 1) {
+        return { pubkeys: [data, ...pubkeys], n_sigs };
+      }
+      return { pubkeys: [data], n_sigs: 1 };
+    }
+    if (refundKeys.length) {
+      return { pubkeys: refundKeys, n_sigs: 1 };
+    }
+  } catch {}
+  return { pubkeys: [], n_sigs: 0 }; // Unlocked or expired with no refund keys
 };
 
 function fallbackCopyTextToClipboard(text: string) {

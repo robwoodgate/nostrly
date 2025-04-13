@@ -1,12 +1,17 @@
 // Imports
 import {
-  CashuMint,
-  CashuWallet,
   getDecodedToken,
   CheckStateEnum,
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
-import { getP2PKPublicKey, getP2PKLocktime, doConfettiBomb } from "./utils.ts";
+import {
+  getP2PKPublicKey,
+  getP2PKLocktime,
+  doConfettiBomb,
+  getP2PExpectedKWitnessPubkeys,
+  parseSecret,
+  getWalletWithUnit,
+} from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
@@ -138,9 +143,7 @@ jQuery(function ($) {
         throw "Token format invalid";
       }
       mintUrl = token.mint;
-      const mint = new CashuMint(mintUrl);
-      wallet = new CashuWallet(mint);
-      await wallet.loadMint();
+      wallet = await getWalletWithUnit(mintUrl); // Load wallet
       proofs = token.proofs ?? [];
       console.log("proofs :>>", proofs);
       const proofStates = await wallet.checkProofsStates(proofs);
@@ -179,29 +182,42 @@ jQuery(function ($) {
       const lockedProofs = proofs.filter(function (k) {
         return k.secret.includes("P2PK");
       });
-      let hexpub;
+      let pubkeys = [];
+      let n_sigs = 0;
       let locktime;
       if (lockedProofs.length) {
-        // they are... so lookup the npub currently able to unlock
+        // they are... so lookup the npubs currently able to unlock
         // This can vary dependingo on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
-        try {
-          console.log("secret length:>>", lockedProofs[0].secret.length);
-          const p2pkSecret = JSON.parse(lockedProofs[0].secret); // first one
-          hexpub = getP2PKPublicKey(p2pkSecret); // 02|03...
-          console.log("p2pkSecret:>>", p2pkSecret);
-          locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
-          console.log("locktime:>>", locktime);
-        } catch (e) {}
+        const p2pkSecret = parseSecret(lockedProofs[0].secret);
+        ({ pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(p2pkSecret));
+        console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
+        if (n_sigs > 1) {
+          throw "This is a MultiSig token. Please use Cashu Witness to unlock";
+        }
+        locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
+        console.log("locktime:>>", locktime);
       }
-      if (hexpub) {
-        // Token is currently locked to this npub...
-        lockNpub = p2pkeyToNpub(hexpub);
-        const { name } = await getContactDetails(lockNpub, nostrly_ajax.relays);
-        let msg = `Token is P2PK locked to <a href="https://njump.me/${lockNpub}" target="_blank">`;
-        msg += name ? name : lockNpub;
-        msg += "</a>";
-        // ... until this date
+      if (pubkeys.length > 0) {
+        const updateContactName = (npub, relays) => {
+          getContactDetails(npub, relays).then(({ name }) => {
+            if (name) {
+              $(`#${npub}`).replaceWith(
+                `<a href="https://njump.me/${npub}" target="_blank">${name}</a>`,
+              );
+            }
+          });
+        };
+        // Token is currently locked to these npubs...
+        let keyholders = [];
+        for (const pub of pubkeys) {
+          const npub = p2pkeyToNpub(pub);
+          keyholders.push(
+            `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
+          );
+          updateContactName(npub, nostrly_ajax.relays);
+        }
+        let msg = `Token is P2PK locked to ${keyholders.join(", ")}`;
         if (locktime > Math.floor(new Date().getTime() / 1000)) {
           msg +=
             " until " + new Date(locktime * 1000).toLocaleString().slice(0, -3);

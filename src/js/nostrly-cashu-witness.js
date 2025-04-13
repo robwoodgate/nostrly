@@ -1,8 +1,5 @@
 // Imports
-import {
-  getDecodedToken,
-  getEncodedTokenV4,
-} from "@cashu/cashu-ts";
+import { getDecodedToken, getEncodedTokenV4 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
 import {
   decode as emojiDecode,
@@ -14,6 +11,8 @@ import {
   formatAmount,
   getTokenAmount,
   getWalletWithUnit,
+  getP2PExpectedKWitnessPubkeys,
+  parseSecret,
 } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { bytesToHex, hexToBytes } from "@noble/curves/abstract/utils";
@@ -34,45 +33,10 @@ const getSignatures = (witness) => {
   return witness.signatures || [];
 };
 
-const parseSecret = (secret) => {
-  try {
-    return JSON.parse(secret); // proof.secret is a string
-  } catch {
-    throw new Error("Invalid secret format");
-  }
-};
-
 const signP2PKsecret = (secret, privateKey) => {
   const msghash = sha256(secret); // secret is a string
   const sig = schnorr.sign(msghash, privateKey);
   return sig;
-};
-
-const getP2PExpectedKWitnessPubkeys = (secret) => {
-  try {
-    const now = Math.floor(Date.now() / 1000);
-    const { data, tags } = secret[1];
-    const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
-    const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity;
-    const refundTag = tags && tags.find((tag) => tag[0] === "refund");
-    const refundKeys =
-      refundTag && refundTag.length > 1 ? refundTag.slice(1) : [];
-    const pubkeysTag = tags && tags.find((tag) => tag[0] === "pubkeys");
-    const pubkeys =
-      pubkeysTag && pubkeysTag.length > 1 ? pubkeysTag.slice(1) : [];
-    const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
-    const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : null;
-    if (locktime > now) {
-      if (n_sigs && n_sigs >= 1) {
-        return { pubkeys: [data, ...pubkeys], n_sigs };
-      }
-      return { pubkeys: [data], n_sigs: 1 };
-    }
-    if (refundKeys.length) {
-      return { pubkeys: refundKeys, n_sigs: 1 };
-    }
-  } catch {}
-  return { pubkeys: [], n_sigs: 0 }; // Unlocked or expired with no refund keys
 };
 
 const getSignedProof = (proof, privateKey) => {
