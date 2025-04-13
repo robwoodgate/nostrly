@@ -190,10 +190,10 @@ jQuery(function ($) {
         // This can vary dependingo on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
         const p2pkSecret = parseSecret(lockedProofs[0].secret);
-        const pubkeys = getP2PExpectedKWitnessPubkeys(p2pkSecret);
-        const n_sigs = getP2PKNSigs(p2pkSecret);
-        console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
+        pubkeys = getP2PExpectedKWitnessPubkeys(p2pkSecret);
+        n_sigs = getP2PKNSigs(p2pkSecret);
         locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
+        console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
         if (n_sigs > 1) {
           if (locktime > Math.floor(new Date().getTime() / 1000)) {
             throw `This is a MultiSig token until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait until the lock expires`;
