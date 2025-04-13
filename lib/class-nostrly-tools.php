@@ -643,8 +643,8 @@ class NostrlyTools
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-cashu-witness');
 
-        $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
-        $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
+        $token_label = esc_attr('Locked Cashu token (or emoji 🥜)', 'nostrly');
+        $token = esc_attr('Paste a Locked Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
         $copy_token = esc_html('Copy Token', 'nostrly');
         $copy_emoji = esc_html('Copy 🥜', 'nostrly');
         $cancel = esc_html('Cancel', 'nostrly');
@@ -806,6 +806,9 @@ class NostrlyTools
                     <div class="center">
                         <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>
                     </div>
+                </div>
+                <div id="unlock" class="hidden center">
+                    <button type="button" id="unlock-token" class="button">Unlock Token</button>
                 </div>
                 <div id="history" class="center">
                     <h2>Witness History</h2>

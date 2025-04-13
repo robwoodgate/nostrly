@@ -1,7 +1,5 @@
 // Imports
 import {
-  CashuMint,
-  CashuWallet,
   getDecodedToken,
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
@@ -15,6 +13,7 @@ import {
   debounce,
   formatAmount,
   getTokenAmount,
+  getWalletWithUnit,
 } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { bytesToHex, hexToBytes } from "@noble/curves/abstract/utils";
@@ -127,6 +126,7 @@ jQuery(function ($) {
   let tokenAmount = 0;
   let privkey = "";
   let p2pkParams = { pubkeys: [], n_sigs: 0 };
+  let signedPubkeys = [];
 
   // DOM elements
   const $divForm = $("#cashu-witness-form");
@@ -135,7 +135,10 @@ jQuery(function ($) {
   const $privkey = $("#privkey");
   const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
+  const $unlockDiv = $("#unlock");
+  const $unlockToken = $("#unlock-token");
   const $witnessInfo = $("#witness-info");
+  const $witnessedHeading = $("#witnessed-heading");
   const $witnessedToken = $("#witnessed-token");
   const $copyToken = $("#witnessed-token-copy");
   const $copyEmoji = $("#witnessed-emoji-copy");
@@ -176,6 +179,7 @@ jQuery(function ($) {
     clearWitnessHistory();
     loadWitnessHistory();
   });
+  $unlockToken.on("click", unlockToken);
 
   // Process the input token
   async function processToken() {
@@ -187,7 +191,7 @@ jQuery(function ($) {
         tokenAmount = 0;
         mintUrl = "";
         p2pkParams = { pubkeys: [], n_sigs: 0 };
-        $witnessInfo.addClass("hidden").empty();
+        $witnessInfo.hide().empty();
         checkNip07ButtonState();
         return;
       }
@@ -203,12 +207,10 @@ jQuery(function ($) {
         throw "Invalid token format";
       }
       mintUrl = token.mint;
-      const mint = new CashuMint(mintUrl);
-      wallet = new CashuWallet(mint);
-      await wallet.loadMint();
       proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
       if (!proofs.length) {
-        throw "No P2PK proofs found in token";
+        toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
+        return;
       }
       tokenAmount = getTokenAmount(proofs);
       p2pkParams = getP2PExpectedKWitnessPubkeys(parseSecret(proofs[0].secret));
@@ -225,7 +227,7 @@ jQuery(function ($) {
       tokenAmount = 0;
       mintUrl = "";
       p2pkParams = { pubkeys: [], n_sigs: 0 };
-      $witnessInfo.addClass("hidden").empty();
+      $witnessInfo.hide().empty();
     }
     checkNip07ButtonState();
     displayWitnessInfo();
@@ -247,12 +249,11 @@ jQuery(function ($) {
         html += `<li>No valid pubkeys found.</li>`;
       }
       html += `</ul>`;
-      $witnessInfo.removeClass("hidden").html(html);
+      $witnessInfo.show().html(html);
       return;
     }
     const { pubkeys, n_sigs } = p2pkParams;
     let signatures = getSignatures(proofs[0].witness);
-    let signedPubkeys = [];
     signatures.forEach((sig) => {
       pubkeys.forEach((pub) => {
         try {
@@ -305,10 +306,12 @@ jQuery(function ($) {
       }.</p>`;
     } else {
       html += `<p class="summary">All required signatures (${n_sigs}) collected!</p>`;
-      $signersDiv.addClass("hidden");
+      $signersDiv.hide();
+      console.log("All signed!");
+      $unlockDiv.show();
     }
     html += `</ul>`;
-    $witnessInfo.removeClass("hidden").html(html);
+    $witnessInfo.show().html(html);
   }
 
   // Validate private key
@@ -344,14 +347,14 @@ jQuery(function ($) {
     console.log("proofs length", proofs.length);
     const isLocked = p2pkParams.pubkeys.length > 0;
     if (isLocked && tokenAmount > 0 && proofs.length) {
-      $signersDiv.removeClass("hidden");
+      $signersDiv.show();
       if (hasNip07) {
         $useNip07.prop("disabled", false);
       } else {
         $useNip07.prop("disabled", true);
       }
     } else {
-      $signersDiv.addClass("hidden");
+      $signersDiv.hide();
       $useNip07.prop("disabled", true);
     }
   }
@@ -401,7 +404,13 @@ jQuery(function ($) {
         proofs: signedProofs,
       });
       $witnessedToken.val(witnessedToken);
-      storeWitnessHistory(witnessedToken, tokenAmount);
+      const totalSigs = signedPubkeys.length + 1; // To account for this signing
+      const remainingSigs = p2pkParams.n_sigs - totalSigs;
+      let status =
+        remainingSigs > 0
+          ? `Partially signed: ${totalSigs}/${p2pkParams.n_sigs}`
+          : `Fully Signed`;
+      storeWitnessHistory(witnessedToken, tokenAmount, status);
       showSuccess();
       toastr.success(
         `Added signatures to ${signedCount} proof${signedCount > 1 ? "s" : ""}!`,
@@ -470,13 +479,36 @@ jQuery(function ($) {
     return signedProofs;
   }
 
+  // Receives the token for an unlocked one
+  async function unlockToken() {
+    try {
+      wallet = await getWalletWithUnit(mintUrl); // Load wallet
+      const unlockedProofs = await wallet.receive($token.val());
+      const unlockedToken = getEncodedTokenV4({
+        mint: mintUrl,
+        proofs: unlockedProofs,
+      });
+      storeWitnessHistory(unlockedToken, tokenAmount, "Unlocked");
+      $witnessedToken.val(unlockedToken);
+      $witnessedHeading.text("Your Unlocked Token");
+      showSuccess();
+      toastr.success(
+        `Successfully unlocked token! You can receive it using any Cashu wallet`,
+      );
+    } catch (e) {
+      console.error("Error unlocking token:", e);
+      toastr.error(e.message || "Failed to unlock token");
+    }
+  }
+
   // Store witness history
-  function storeWitnessHistory(token, amount) {
+  function storeWitnessHistory(token, amount, status) {
     const history = getWitnessHistory();
     history.push({
       token,
       amount,
       date: new Date().toISOString(),
+      status,
     });
     localStorage.setItem("cashu-witness-history", JSON.stringify(history));
   }
@@ -506,13 +538,10 @@ jQuery(function ($) {
       .forEach((entry) => {
         const date = new Date(entry.date).toLocaleString();
         const amount = formatAmount(entry.amount);
-        const token =
-          entry.token.length > 20
-            ? entry.token.slice(0, 20) + "..."
-            : entry.token;
+        const status = entry.status || "unknown";
         const $item = $(`
           <li class="history-item">
-            <span class="copytkn">Copy Token</span> <span class="copyemj">Copy 🥜</span> ${date} - ${amount}
+            <span class="copytkn">Copy Token</span> <span class="copyemj">Copy 🥜</span> ${date} - ${amount} - ${status}
           </li>
         `);
         $item.children(".copytkn").on("click", () => {
