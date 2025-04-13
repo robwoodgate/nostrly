@@ -192,10 +192,14 @@ jQuery(function ($) {
         const p2pkSecret = parseSecret(lockedProofs[0].secret);
         ({ pubkeys, n_sigs } = getP2PExpectedKWitnessPubkeys(p2pkSecret));
         console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
-        if (n_sigs > 1) {
-          throw "This is a MultiSig token. Please use Cashu Witness to unlock";
-        }
         locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
+        if (n_sigs > 1) {
+          if (locktime > Math.floor(new Date().getTime() / 1000)) {
+            throw `This is a MultiSig token until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait until the lock expires`;
+          } else {
+            throw "This is a MultiSig token. Please use Cashu Witness to unlock";
+          }
+        }
         console.log("locktime:>>", locktime);
       }
       if (pubkeys.length > 0) {
