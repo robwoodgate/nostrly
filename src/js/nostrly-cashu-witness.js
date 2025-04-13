@@ -241,7 +241,7 @@ jQuery(function ($) {
     if (locktime > now) {
       html += `<li>Locked until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
     } else {
-      html += `<li>Permanently Locked.</li>`;
+      html += `<li>Permanently Locked</li>`;
     }
     if (n_sigs > 1) {
       html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
