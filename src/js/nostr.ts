@@ -11,6 +11,7 @@ import {
 } from "nostr-tools";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 
+// Export constants
 export const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
@@ -19,11 +20,17 @@ export const NOSTRLY_PUBKEY =
   "cec0f44d0d64d6d9d7a1c84c330f5467e752cc8b065f720e874a0bed1c5416d2";
 export const pool = new SimplePool();
 
+/**
+ * Sends a message anonymously via Nostr
+ * @param string   toPub   Hex pubkey to send to
+ * @param string   message to send
+ * @param string[] relays  array of relays to use
+ */
 export const sendViaNostr = async (
-  toPub: string,
   message: string,
+  toPub: string,
   relays: string[],
-) => {
+): void => {
   if (!toPub) {
     toPub = NOSTRLY_PUBKEY; // Fallback
   }
@@ -45,6 +52,11 @@ export const sendViaNostr = async (
   pool.publish(relays, signedEvent);
 };
 
+/**
+ * Gets the name and image for an Nostr npub
+ * @param string   npub   npub to fetch details for
+ * @param string[] relays relays to query
+ */
 export const getContactDetails = async (npub: string, relays: string[]) => {
   try {
     if (!relays) {
@@ -61,6 +73,10 @@ export const getContactDetails = async (npub: string, relays: string[]) => {
   }
 };
 
+/**
+ * Converts an npub into P2PK hex format (02...)
+ * @type string converted npub or original string
+ */
 export const maybeConvertNpub = (key: string) => {
   // Check and convert npub to P2PK
   if (key && key.startsWith("npub1")) {
@@ -76,6 +92,10 @@ export const maybeConvertNpub = (key: string) => {
   return key;
 };
 
+/**
+ * Converts a P2PK hex format (02...) to npub
+ * @type string converted npub or original string
+ */
 export const p2pkeyToNpub = (key: string): string | null => {
   // Check and convert P2PK to npub
   try {

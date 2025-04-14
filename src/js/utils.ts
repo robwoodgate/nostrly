@@ -8,8 +8,6 @@ import {
   type MintActiveKeys,
   type MintAllKeysets,
 } from "@cashu/cashu-ts";
-import { type Event, type Filter } from "nostr-tools";
-import { DEFAULT_RELAYS, pool } from "./nostr";
 import toastr from "toastr";
 import confetti from "canvas-confetti";
 
@@ -121,8 +119,6 @@ export function getMintProofs(mintUrl: string): Array<Proof> {
   const stored: string | null = localStorage.getItem(`cashu.proofs.${mintUrl}`);
   return stored ? JSON.parse(stored) : [];
 }
-
-
 
 // Define the NutLock history entry
 interface NutLockEntry {

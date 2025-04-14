@@ -23,7 +23,6 @@ import {
 } from "./emoji-encoder.ts";
 import {
   getContactDetails,
-  sendViaNostr,
   maybeConvertNpub,
   isPublicKeyValid,
   p2pkeyToNpub,
