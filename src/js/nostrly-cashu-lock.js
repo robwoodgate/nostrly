@@ -28,11 +28,11 @@ import {
   isPublicKeyValid,
   p2pkeyToNpub,
 } from "./nostr.ts";
+import { getNut11Mints } from "./nut11.ts";
 import {
   copyTextToClipboard,
   delay,
   debounce,
-  getNut11Mints,
   formatAmount,
   getTokenAmount,
   getWalletWithUnit,

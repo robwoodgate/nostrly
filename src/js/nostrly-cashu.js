@@ -5,13 +5,12 @@ import {
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
 import {
-  getP2PKLocktime,
-  doConfettiBomb,
   getP2PExpectedKWitnessPubkeys,
+  getP2PKLocktime,
   getP2PKNSigs,
   parseSecret,
-  getWalletWithUnit,
-} from "./utils.ts";
+} from "./nut11.ts";
+import { doConfettiBomb, getWalletWithUnit } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
@@ -102,8 +101,8 @@ jQuery(function ($) {
         const json = await response.json();
         return json.pr ?? new Error("Unable to get invoice");
       } else throw "Host unable to make a lightning invoice for this amount.";
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e instanceof Error ? e.message : e);
       return "";
     }
   };
@@ -128,7 +127,7 @@ jQuery(function ($) {
       let token; // scope
       try {
         token = getDecodedToken(tokenEncoded);
-      } catch (err) {
+      } catch (e) {
         // Try decoding as an emoji, update token input before
         // token decode attempt as it throws an error on fail
         const emoji = emojiDecode(tokenEncoded);
@@ -268,9 +267,9 @@ jQuery(function ($) {
         }
         await makePayment();
       }
-    } catch (err) {
-      console.error(err);
-      let errMsg = `${err}`;
+    } catch (e) {
+      console.error(e);
+      let errMsg = e instanceof Error ? e.message : e;
       if (
         errMsg.startsWith("InvalidCharacterError") ||
         errMsg.startsWith("SyntaxError:")
@@ -391,9 +390,9 @@ jQuery(function ($) {
       } else {
         $lightningStatus.text("Payment failed");
       }
-    } catch (err) {
-      console.error(err);
-      $lightningStatus.text("Payment failed: " + err);
+    } catch (e) {
+      console.error(e);
+      $lightningStatus.text("Payment failed: " + e);
     }
   };
 

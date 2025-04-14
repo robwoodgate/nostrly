@@ -6,16 +6,18 @@ import {
   encode as emojiEncode,
 } from "./emoji-encoder.ts";
 import {
+  getP2PExpectedKWitnessPubkeys,
+  getP2PKNSigs,
+  getP2PKSigFlag,
+  parseSecret,
+} from "./nut11.ts";
+import {
   copyTextToClipboard,
   debounce,
   doConfettiBomb,
   formatAmount,
   getTokenAmount,
   getWalletWithUnit,
-  getP2PExpectedKWitnessPubkeys,
-  getP2PKNSigs,
-  getP2PKSigFlag,
-  parseSecret,
 } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
 import { bytesToHex, hexToBytes } from "@noble/curves/abstract/utils";
