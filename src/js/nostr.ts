@@ -96,3 +96,42 @@ export const isPublicKeyValid = (key: string): boolean => {
   }
   return false;
 };
+
+export const discoverMints = async (nut: string, relays: string[]) => {
+  let discoveredMints: Array<string> = [];
+  try {
+    if (!relays) {
+      relays = DEFAULT_RELAYS; // Fallback
+    }
+    // Look for recommended mints
+    // @see https://github.com/nostr-protocol/nips/pull/1110
+    const filter: Filter = { kinds: [38000], limit: 2000 };
+    await new Promise<void>((resolve) => {
+      pool.subscribeManyEose(relays, [filter], {
+        // autocloses on eose
+        onevent: (event: Event) => {
+          // console.log(event);
+          const uTag = event.tags.find((t) => t[0] === "u");
+          const kTag = event.tags.find((t) => t[0] === "k");
+          if (!kTag || !uTag) {
+            return;
+          }
+          // Cashu mints only
+          if (kTag[1] != "38172") {
+            return;
+          }
+          // Add to array if not already seen
+          const mintUrl = uTag[1];
+          if (discoveredMints.indexOf(mintUrl) === -1) {
+            discoveredMints.push(mintUrl);
+          }
+        },
+        onclose: resolve as any,
+      });
+    });
+  } catch (e) {
+    console.error(e);
+  }
+  console.log("discoveredMints:>>", discoveredMints);
+  return discoveredMints;
+};
