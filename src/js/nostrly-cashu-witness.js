@@ -78,7 +78,7 @@ const getSignedProofs = (proofs, privateKey) => {
     try {
       return getSignedProof(proof, privateKey);
     } catch (e) {
-      console.error("Error processing proof:", e);
+      console.error("Error signing proof:", e);
       return proof;
     }
   });
@@ -172,7 +172,7 @@ jQuery(function ($) {
       }
       const token = getDecodedToken(tokenEncoded);
       if (!token.proofs.length || !token.mint.length) {
-        throw "Invalid token format";
+        throw new Error("Invalid token format");
       }
       mintUrl = token.mint;
       proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
@@ -183,7 +183,7 @@ jQuery(function ($) {
       proofs.forEach((proof) => {
         const secret = parseSecret(proof.secret);
         if ("SIG_ALL" == getP2PKSigFlag(secret)) {
-          throw "Sorry, SIG_ALL tokens are not supported yet";
+          throw new Error("Sorry, SIG_ALL tokens are not supported yet");
         }
       });
       tokenAmount = getTokenAmount(proofs);
@@ -197,8 +197,9 @@ jQuery(function ($) {
         `Valid token: ${formatAmount(tokenAmount)} from ${mintUrl}`,
       );
       $token.attr("data-valid", "");
-    } catch (err) {
-      toastr.error(err);
+    } catch (e) {
+      toastr.error(e.message || "Invalid token");
+      console.error("processToken error:", e);
       $token.attr("data-valid", "no");
       proofs = [];
       tokenAmount = 0;
