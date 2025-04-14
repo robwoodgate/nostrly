@@ -8,11 +8,13 @@ import {
 import {
   copyTextToClipboard,
   debounce,
+  doConfettiBomb,
   formatAmount,
   getTokenAmount,
   getWalletWithUnit,
   getP2PExpectedKWitnessPubkeys,
   getP2PKNSigs,
+  getP2PKSigFlag,
   parseSecret,
 } from "./utils.ts";
 import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
@@ -118,6 +120,7 @@ jQuery(function ($) {
   function showSuccess() {
     $divForm.hide();
     $divSuccess.show();
+    doConfettiBomb();
   }
 
   // Input handlers
@@ -177,6 +180,12 @@ jQuery(function ($) {
         toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
         return;
       }
+      proofs.forEach((proof) => {
+        const secret = parseSecret(proof.secret);
+        if ("SIG_ALL" == getP2PKSigFlag(secret)) {
+          throw "Sorry, SIG_ALL tokens are not supported yet";
+        }
+      });
       tokenAmount = getTokenAmount(proofs);
       p2pkParams.pubkeys = getP2PExpectedKWitnessPubkeys(
         parseSecret(proofs[0].secret),
@@ -189,7 +198,7 @@ jQuery(function ($) {
       );
       $token.attr("data-valid", "");
     } catch (err) {
-      toastr.error(err.message || "Invalid token");
+      toastr.error(err);
       $token.attr("data-valid", "no");
       proofs = [];
       tokenAmount = 0;

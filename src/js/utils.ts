@@ -341,7 +341,8 @@ export function getP2PExpectedKWitnessPubkeys(secret: P2PKSecret): string[] {
     const pubkeys =
       pubkeysTag && pubkeysTag.length > 1 ? pubkeysTag.slice(1) : [];
     const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
-    const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : null;
+    const n_sigs =
+      n_sigsTag && n_sigsTag.length > 1 ? parseInt(n_sigsTag[1], 10) : null;
     if (locktime > now) {
       if (n_sigs && n_sigs >= 1) {
         return [data, ...pubkeys];
@@ -367,7 +368,9 @@ export function getP2PKLocktime(secret: P2PKSecret): number {
   }
   const { tags } = secret[1];
   const locktimeTag = tags.find((tag) => tag[0] === "locktime");
-  return locktimeTag ? parseInt(locktimeTag[1], 10) : Infinity; // Permanent lock if not set
+  return locktimeTag && locktimeTag.length > 1
+    ? parseInt(locktimeTag[1], 10)
+    : Infinity; // Permanent lock if not set
 }
 
 /**
@@ -383,11 +386,27 @@ export function getP2PKNSigs(secret: P2PKSecret): number {
   const witness = getP2PExpectedKWitnessPubkeys(secret);
   const { tags } = secret[1];
   const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
-  const n_sigs = n_sigsTag ? parseInt(n_sigsTag[1], 10) : 1;
+  const n_sigs =
+    n_sigsTag && n_sigsTag.length > 1 ? parseInt(n_sigsTag[1], 10) : 1; // Default: 1
   if (witness.length > 0) {
     return n_sigs; // locked
   }
   return 0; // unlocked
+}
+
+/**
+ * Returns the sigflag from a NUT-11 P2PK secret
+ * @param secret - The NUT-11 P2PK secret.
+ * @returns The sigflag or 'SIG_INPUTS' default
+ */
+export function getP2PKSigFlag(secret: P2PKSecret): string {
+  // Validate secret format
+  if (secret[0] !== "P2PK") {
+    throw new Error('Invalid P2PK secret: must start with "P2PK"');
+  }
+  const { tags } = secret[1];
+  const sigFlagTag = tags.find((tag) => tag[0] === "sigflag");
+  return sigFlagTag && sigFlagTag.length > 1 ? sigFlagTag[1] : "SIG_INPUTS";
 }
 
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
