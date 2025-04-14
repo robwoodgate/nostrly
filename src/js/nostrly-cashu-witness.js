@@ -5,11 +5,17 @@ import {
   decode as emojiDecode,
   encode as emojiEncode,
 } from "./emoji-encoder.ts";
+import { isPrivkeyValid, maybeConvertNsecToP2PK } from "./nostr.ts";
 import {
   getP2PExpectedKWitnessPubkeys,
   getP2PKNSigs,
   getP2PKSigFlag,
   parseSecret,
+  getSignedProofs,
+  getSignedProof,
+  signP2PKsecret,
+  verifyP2PKsecretSignature,
+  getSignatures,
 } from "./nut11.ts";
 import {
   copyTextToClipboard,
@@ -19,72 +25,11 @@ import {
   getTokenAmount,
   getWalletWithUnit,
 } from "./utils.ts";
-import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
-import { bytesToHex, hexToBytes } from "@noble/curves/abstract/utils";
+import { convertP2PKToNpub, getContactDetails } from "./nostr.ts";
+import { bytesToHex } from "@noble/curves/abstract/utils";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
 import toastr from "toastr";
-
-const getSignatures = (witness) => {
-  if (!witness) return [];
-  if (typeof witness === "string") {
-    try {
-      return JSON.parse(witness).signatures || [];
-    } catch (e) {
-      console.error("Failed to parse witness string:", e);
-      return [];
-    }
-  }
-  return witness.signatures || [];
-};
-
-const signP2PKsecret = (secret, privateKey) => {
-  const msghash = sha256(secret); // secret is a string
-  const sig = schnorr.sign(msghash, privateKey);
-  return sig;
-};
-
-const getSignedProof = (proof, privateKey) => {
-  const rawkey = schnorr.getPublicKey(privateKey); // for schnorr
-  const pubkey = "02" + bytesToHex(rawkey); // for Cashu
-  const parsed = parseSecret(proof.secret);
-  if (parsed[0] !== "P2PK") return proof; // not p2pk
-  // Check if this pubkey is required to sign
-  const pubkeys = getP2PExpectedKWitnessPubkeys(parsed);
-  console.log("expected pubkeys:>", pubkeys);
-  if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof; // nothing to sign
-  // Check if this pubkey has already signed
-  const hash = sha256(proof.secret);
-  let signatures = getSignatures(proof.witness);
-  const alreadySigned = signatures.some((sig) => {
-    try {
-      return schnorr.verify(sig, hash, rawkey);
-    } catch {
-      return false; // Invalid signature, treat as not signed
-    }
-  });
-  if (alreadySigned) {
-    console.log("pubkey already signed this proof:", pubkey);
-    return proof; // Skip signing if pubkey has a valid signature
-  }
-
-  console.log("pubkey has not signed yet:", pubkey);
-  // Add new signature
-  const signature = bytesToHex(signP2PKsecret(proof.secret, privateKey));
-  signatures.push(signature);
-  return { ...proof, witness: { signatures } };
-};
-
-const getSignedProofs = (proofs, privateKey) => {
-  return proofs.map((proof) => {
-    try {
-      return getSignedProof(proof, privateKey);
-    } catch (e) {
-      console.error("Error signing proof:", e);
-      return proof;
-    }
-  });
-};
 
 // DOM ready
 jQuery(function ($) {
@@ -237,9 +182,7 @@ jQuery(function ($) {
     signatures.forEach((sig) => {
       pubkeys.forEach((pub) => {
         try {
-          const msghash = bytesToHex(sha256(proofs[0].secret));
-          const pubkeyX = pub.slice(2);
-          if (schnorr.verify(sig, msghash, hexToBytes(pubkeyX))) {
+          if ((verifyP2PKsecretSignature(sig, proofs[0].secret), pub)) {
             signedPubkeys.push(pub);
           }
         } catch (e) {
@@ -272,7 +215,7 @@ jQuery(function ($) {
       });
     };
     for (const pub of pubkeys) {
-      const npub = p2pkeyToNpub(pub);
+      const npub = convertP2PKToNpub(pub);
       const isSigned = signedPubkeys.includes(pub);
       const keyholder = `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
       html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${
@@ -294,29 +237,6 @@ jQuery(function ($) {
     }
     html += `</ul>`;
     $witnessInfo.show().html(html);
-  }
-
-  // Validate private key
-  function isPrivkeyValid(key) {
-    if (!key) return false;
-    if (key.startsWith("nsec1")) {
-      try {
-        const { type, data } = nip19.decode(key);
-        return type === "nsec" && data.length === 32;
-      } catch {
-        return false;
-      }
-    }
-    return /^[0-9a-fA-F]{64}$/.test(key);
-  }
-
-  // Convert private key to hex
-  function convertToHexPrivkey(key) {
-    if (key.startsWith("nsec1")) {
-      let sk = nip19.decode(key).data; // `sk` is a Uint8Array
-      return bytesToHex(sk);
-    }
-    return key;
   }
 
   // Check NIP-07 button state and handle unlocked tokens
@@ -357,7 +277,7 @@ jQuery(function ($) {
         }
         signedProofs = getSignedProofs(
           signedProofs,
-          convertToHexPrivkey(privkey),
+          maybeConvertNsecToP2PK(privkey),
         );
       }
 

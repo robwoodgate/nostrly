@@ -11,7 +11,7 @@ import {
   parseSecret,
 } from "./nut11.ts";
 import { doConfettiBomb, getWalletWithUnit } from "./utils.ts";
-import { p2pkeyToNpub, getContactDetails } from "./nostr.ts";
+import { convertP2PKToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
@@ -215,7 +215,7 @@ jQuery(function ($) {
         // Token is currently locked to these npubs...
         let keyholders = [];
         for (const pub of pubkeys) {
-          const npub = p2pkeyToNpub(pub);
+          const npub = convertP2PKToNpub(pub);
           keyholders.push(
             `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
           );

@@ -9,6 +9,7 @@ import {
   nip04,
   nip19,
 } from "nostr-tools";
+import { bytesToHex } from "@noble/curves/abstract/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 
 // Export constants
@@ -77,7 +78,7 @@ export const getContactDetails = async (npub: string, relays: string[]) => {
  * Converts an npub into P2PK hex format (02...)
  * @type string converted npub or original string
  */
-export const maybeConvertNpub = (key: string) => {
+export const maybeConvertNpubToP2PK = (key: string) => {
   // Check and convert npub to P2PK
   if (key && key.startsWith("npub1")) {
     try {
@@ -96,7 +97,7 @@ export const maybeConvertNpub = (key: string) => {
  * Converts a P2PK hex format (02...) to npub
  * @type string converted npub or original string
  */
-export const p2pkeyToNpub = (key: string): string | null => {
+export const convertP2PKToNpub = (key: string): string | null => {
   // Check and convert P2PK to npub
   try {
     return nip19.npubEncode(key.slice(2));
@@ -107,51 +108,37 @@ export const p2pkeyToNpub = (key: string): string | null => {
   return key;
 };
 
-// Checks public key is valid
-export const isPublicKeyValid = (key: string): boolean => {
-  key = maybeConvertNpub(key); // converts if in npub format
-  const regex = /^(02|03)[0-9a-fA-F]{64}$/; // P2PK ECC Key
-  if (key && regex.test(key)) {
-    return true;
-  }
-  return false;
-};
-
-export const discoverMints = async (nut: string, relays: string[]) => {
-  let discoveredMints: Array<string> = [];
-  try {
-    if (!relays) {
-      relays = DEFAULT_RELAYS; // Fallback
+/**
+ * Validate private key
+ * @param  {string}  key The private key to validate (nsec1 or P2PK)
+ * @return {boolean}     True if valid. false otherwise
+ */
+export function isPrivkeyValid(key: string): boolean {
+  if (!key) return false;
+  if (key.startsWith("nsec1")) {
+    try {
+      const { type, data } = nip19.decode(key);
+      return type === "nsec" && data.length === 32;
+    } catch {
+      return false;
     }
-    // Look for recommended mints
-    // @see https://github.com/nostr-protocol/nips/pull/1110
-    const filter: Filter = { kinds: [38000], limit: 2000 };
-    await new Promise<void>((resolve) => {
-      pool.subscribeManyEose(relays, [filter], {
-        // autocloses on eose
-        onevent: (event: Event) => {
-          // console.log(event);
-          const uTag = event.tags.find((t) => t[0] === "u");
-          const kTag = event.tags.find((t) => t[0] === "k");
-          if (!kTag || !uTag) {
-            return;
-          }
-          // Cashu mints only
-          if (kTag[1] != "38172") {
-            return;
-          }
-          // Add to array if not already seen
-          const mintUrl = uTag[1];
-          if (discoveredMints.indexOf(mintUrl) === -1) {
-            discoveredMints.push(mintUrl);
-          }
-        },
-        onclose: resolve as any,
-      });
-    });
-  } catch (e) {
-    console.error(e);
   }
-  console.log("discoveredMints:>>", discoveredMints);
-  return discoveredMints;
-};
+  return /^[0-9a-fA-F]{64}$/.test(key);
+}
+
+/**
+ * Converts an nsec1-encoded private key to a hex string, or returns the input unchanged if not nsec1.
+ * @param key - The input key, either nsec1-encoded or a hex string.
+ * @returns {string} The hex-encoded private key, or the original key if conversion fails or is not needed.
+ */
+export function maybeConvertNsecToP2PK(key: string): string {
+  if (key && key.startsWith("nsec1")) {
+    try {
+      const sk = nip19.decode(key).data as Uint8Array; // `sk` is a Uint8Array
+      return bytesToHex(sk);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  return key;
+}

@@ -23,11 +23,10 @@ import {
 } from "./emoji-encoder.ts";
 import {
   getContactDetails,
-  maybeConvertNpub,
-  isPublicKeyValid,
-  p2pkeyToNpub,
+  maybeConvertNpubToP2PK,
+  convertP2PKToNpub,
 } from "./nostr.ts";
-import { getNut11Mints } from "./nut11.ts";
+import { isPublicKeyValidP2PK, getNut11Mints } from "./nut11.ts";
 import {
   copyTextToClipboard,
   delay,
@@ -237,16 +236,21 @@ jQuery(function ($) {
           checkIsReadyToOrder();
           return;
         }
-        if (isPublicKeyValid(key)) {
-          const p2pk = maybeConvertNpub(key);
+        const p2pk = maybeConvertNpubToP2PK(key);
+        if (isPublicKeyValidP2PK(p2pk)) {
           setKeyFn(p2pk);
           console.log("p2pk:>>", p2pk);
-          const { name } = await getContactDetails(key, relays);
-          if (name) {
-            toastr.success(`Valid NPUB: <strong>${name}</strong>`);
-          } else {
-            toastr.success("Valid P2PK Public Key");
-          }
+          getContactDetails(key, relays)
+            .then(({ name }) => {
+              if (name) {
+                toastr.success(`Valid NPUB: <strong>${name}</strong>`);
+              } else {
+                toastr.success("Valid P2PK Public Key");
+              }
+            })
+            .catch((error) => {
+              console.error("Error fetching contact details:", error);
+            });
         } else {
           toastr.error(`${errorMsgPrefix} Public Key`);
           $input.attr("data-valid", "no");
@@ -267,8 +271,9 @@ jQuery(function ($) {
       .filter(Boolean);
     const validKeys = [];
     for (const key of lines) {
-      if (isPublicKeyValid(key)) {
-        validKeys.push(maybeConvertNpub(key));
+      const p2pk = maybeConvertNpubToP2PK(key);
+      if (isPublicKeyValidP2PK(p2pk)) {
+        validKeys.push(p2pk);
       } else {
         toastr.error(`Invalid pubkey: ${key}`);
         return null;
@@ -511,7 +516,7 @@ jQuery(function ($) {
         mint: mintUrl,
         proofs: p2pkProofs,
       });
-      const npub = p2pkeyToNpub(lockP2PK);
+      const npub = convertP2PKToNpub(lockP2PK);
       let { name } = await getContactDetails(npub, relays);
       if (!name) name = npub.slice(0, 11);
       storeLockedToken(lockedToken, tokenAmount, name); // for safety / history
