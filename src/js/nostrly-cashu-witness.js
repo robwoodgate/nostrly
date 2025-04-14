@@ -13,9 +13,9 @@ import {
   parseSecret,
   getSignedProofs,
   getSignedProof,
-  signP2PKsecret,
   verifyP2PKsecretSignature,
   getSignatures,
+  sha256Hex,
 } from "./nut11.ts";
 import {
   copyTextToClipboard,
@@ -26,9 +26,6 @@ import {
   getWalletWithUnit,
 } from "./utils.ts";
 import { convertP2PKToNpub, getContactDetails } from "./nostr.ts";
-import { bytesToHex } from "@noble/curves/abstract/utils";
-import { sha256 } from "@noble/hashes/sha256";
-import { schnorr } from "@noble/curves/secp256k1";
 import toastr from "toastr";
 
 // DOM ready
@@ -335,7 +332,7 @@ jQuery(function ($) {
       if (!pubkeys.length) continue;
       let signatures = proof.witness?.signatures || [];
 
-      const hash = bytesToHex(sha256(proof.secret));
+      const hash = sha256Hex(proof.secret);
       let pubkey = "";
       let sig = "";
       let signedSig = "";

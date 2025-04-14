@@ -196,13 +196,22 @@ export const getSignatures = (
 };
 
 /**
+ * Computes the SHA-256 hash of a string and returns it as a hex string.
+ * @param input - The input string to hash.
+ * @returns {string} The hex-encoded SHA-256 hash.
+ */
+export const sha256Hex = (input: string): string => {
+  return bytesToHex(sha256(input));
+};
+
+/**
  * Signs a P2PK secret using a Schnorr signature.
  * @param secret - The secret message to sign.
  * @param privateKey - The private key (hex-encoded) used for signing.
  * @returns {string} The Schnorr signature (hex-encoded).
  */
 export const signP2PKsecret = (secret: string, privateKey: string): string => {
-  const msghash = sha256(secret); // secret is a string
+  const msghash = sha256(secret); // Uint8Array
   const sig = schnorr.sign(msghash, privateKey);
   return bytesToHex(sig);
 };
@@ -220,7 +229,7 @@ export const verifyP2PKsecretSignature = (
   pubkey: string,
 ): boolean => {
   try {
-    const msghash = bytesToHex(sha256(secret));
+    const msghash = sha256(secret); // Uint8Array
     const pubkeyX = pubkey.slice(2);
     if (schnorr.verify(signature, msghash, hexToBytes(pubkeyX))) {
       return true;
@@ -241,11 +250,10 @@ export const getSignedProof = (proof: Proof, privateKey: string) => {
   console.log("expected pubkeys:>", pubkeys);
   if (!pubkeys.length || !pubkeys.includes(pubkey)) return proof; // nothing to sign
   // Check if this pubkey has already signed
-  const hash = sha256(proof.secret);
   let signatures = getSignatures(proof.witness);
   const alreadySigned = signatures.some((sig) => {
     try {
-      return schnorr.verify(sig, hash, rawkey);
+      return verifyP2PKsecretSignature(sig, proof.secret, pubkey);
     } catch {
       return false; // Invalid signature, treat as not signed
     }
