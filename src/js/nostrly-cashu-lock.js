@@ -348,6 +348,12 @@ jQuery(function ($) {
     $orderButton.prop("disabled", isDisabled);
   }, 200);
   const checkIsReadyToOrder = async () => {
+    // Check wallet is loaded first... as we can't check secret length without it
+    if (!wallet) {
+      setOrderButtonState(true);
+      return false;
+    }
+
     // Deduplicate lockKeys and refundKeys while filtering falsy values
     lockKeys = [...new Set([lockP2PK, ...extraLockKeys].filter(Boolean))];
     refundKeys = [...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean))];
@@ -377,8 +383,8 @@ jQuery(function ($) {
         "Your token's secret will be too long. Please remove some Lock or Refund keys.",
       );
     }
+
     if (
-      wallet &&
       tokenAmount > 0 &&
       expireTime &&
       lockP2PK &&
