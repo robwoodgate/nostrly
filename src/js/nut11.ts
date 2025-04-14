@@ -151,9 +151,9 @@ export const getNut11Mints = async (
         discoveredMints.push(mint.url);
       }
     });
-  } catch (err) {
-    console.error("Error fetching mint info:", err);
-    throw err;
+  } catch (e) {
+    console.error("Error fetching mint info:", e);
+    throw e;
   }
   console.log("discoveredMints:>>", discoveredMints);
   return discoveredMints;
