@@ -30,7 +30,7 @@ export const sendViaNostr = async (
   message: string,
   toPub: string,
   relays: string[],
-): void => {
+) => {
   if (!toPub) {
     toPub = NOSTRLY_PUBKEY; // Fallback
   }
