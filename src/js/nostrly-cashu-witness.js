@@ -285,13 +285,13 @@ jQuery(function ($) {
         const nip60Wallet = await getNip60Wallet(nip07Pubkey);
         if (nip60Wallet) {
           console.log("nip60Wallet:>>", nip60Wallet);
-          const wallet = await window.nostr.nip44.decrypt(
+          const nip60 = await window.nostr.nip44.decrypt(
             nip07Pubkey,
             nip60Wallet,
           );
-          // console.log("wallet:>>", wallet); // sensitive!
-          const privkey = wallet.find((tag) => tag[0] === "privkey");
-          const privkeyEntry = wallet.find((tag) => tag[0] === "privkey");
+          // console.log("nip60:>>", nip60); // sensitive!
+          const nip60Array = JSON.parse(nip60);
+          const privkeyEntry = nip60Array.find((tag) => tag[0] === "privkey");
           if (privkeyEntry) {
             signedProofs = getSignedProofs(signedProofs, privkeyEntry[1]);
           }
