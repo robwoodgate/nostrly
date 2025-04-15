@@ -83,7 +83,7 @@ export function getP2PKLocktime(secret: P2PKSecret): number {
     throw new Error('Invalid P2PK secret: must start with "P2PK"');
   }
   const { tags } = secret[1];
-  const locktimeTag = tags.find((tag) => tag[0] === "locktime");
+  const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
   return locktimeTag && locktimeTag.length > 1
     ? parseInt(locktimeTag[1], 10)
     : Infinity; // Permanent lock if not set
@@ -123,7 +123,7 @@ export function getP2PKSigFlag(secret: P2PKSecret): string {
     throw new Error('Invalid P2PK secret: must start with "P2PK"');
   }
   const { tags } = secret[1];
-  const sigFlagTag = tags.find((tag) => tag[0] === "sigflag");
+  const sigFlagTag = tags && tags.find((tag) => tag[0] === "sigflag");
   return sigFlagTag && sigFlagTag.length > 1 ? sigFlagTag[1] : "SIG_INPUTS";
 }
 
