@@ -289,9 +289,11 @@ jQuery(function ($) {
             nip07Pubkey,
             nip60Wallet,
           );
-          console.log("wallet:>>", wallet);
-          if (wallet.find((tag) => tag[0] === "privkey")) {
-            signedProofs = getSignedProofs(signedProofs, privkey);
+          // console.log("wallet:>>", wallet); // sensitive!
+          const privkey = wallet.find((tag) => tag[0] === "privkey");
+          const privkeyEntry = wallet.find((tag) => tag[0] === "privkey");
+          if (privkeyEntry) {
+            signedProofs = getSignedProofs(signedProofs, privkeyEntry[1]);
           }
         }
       }
