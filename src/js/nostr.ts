@@ -95,7 +95,7 @@ export const getNip60Wallet = async (hexOrNpub: string, relays: string[]) => {
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    const filter: Filter = { kinds: [17375, 37375], authors: [hexpub] };
+    const filter: Filter = { kinds: [17375], authors: [hexpub] };
     const event = await pool.get(relays, filter);
     if (!event) return null;
     console.log("getNip60Wallet", event);
