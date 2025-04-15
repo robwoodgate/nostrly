@@ -99,15 +99,17 @@ export function getP2PKNSigs(secret: P2PKSecret): number {
   if (secret[0] !== "P2PK") {
     throw new Error('Invalid P2PK secret: must start with "P2PK"');
   }
+  const now = Math.floor(Date.now() / 1000);
   const witness = getP2PExpectedKWitnessPubkeys(secret);
+  const locktime = getP2PKLocktime(secret);
   const { tags } = secret[1];
   const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
   const n_sigs =
     n_sigsTag && n_sigsTag.length > 1 ? parseInt(n_sigsTag[1], 10) : 1; // Default: 1
-  if (witness.length > 0) {
+  if (locktime > now) {
     return n_sigs; // locked
   }
-  return 0; // unlocked
+  return witness.length > 0 ? 1 : 0; // unlocked
 }
 
 /**

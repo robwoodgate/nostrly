@@ -25,7 +25,11 @@ import {
   getTokenAmount,
   getWalletWithUnit,
 } from "./utils.ts";
-import { convertP2PKToNpub, getContactDetails } from "./nostr.ts";
+import {
+  getContactDetails,
+  convertP2PKToNpub,
+  getNip60Wallet,
+} from "./nostr.ts";
 import toastr from "toastr";
 
 // DOM ready
@@ -35,6 +39,7 @@ jQuery(function ($) {
   let mintUrl = "";
   let proofs = [];
   let tokenAmount = 0;
+  let nip07Pubkey = "";
   let privkey = "";
   let p2pkParams = { pubkeys: [], n_sigs: 0 };
   let signedPubkeys = [];
@@ -57,7 +62,7 @@ jQuery(function ($) {
   const $clearHistory = $("#clear-history");
 
   // Page handlers
-  function showForm() {
+  async function showForm() {
     $divForm.show();
     $divSuccess.hide();
   }
@@ -157,6 +162,9 @@ jQuery(function ($) {
 
   // Display witness requirements
   function displayWitnessInfo() {
+    if (!proofs[0]?.secret) {
+      return;
+    }
     const now = Math.floor(Date.now() / 1000);
     const parsed = parseSecret(proofs[0].secret);
     const { tags } = parsed[1];
@@ -179,7 +187,7 @@ jQuery(function ($) {
     signatures.forEach((sig) => {
       pubkeys.forEach((pub) => {
         try {
-          if ((verifyP2PKsecretSignature(sig, proofs[0].secret), pub)) {
+          if (verifyP2PKsecretSignature(sig, proofs[0].secret, pub)) {
             signedPubkeys.push(pub);
           }
         } catch (e) {
@@ -188,6 +196,7 @@ jQuery(function ($) {
       });
     });
     signedPubkeys = [...new Set(signedPubkeys)];
+    console.log("signedPubkeys:>>", signedPubkeys);
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount)} from ${mintUrl}</li></ul></div>`;
     html += "<strong>Witness Requirements:</strong><ul>";
     if (locktime > now) {
@@ -238,9 +247,7 @@ jQuery(function ($) {
 
   // Check NIP-07 button state and handle unlocked tokens
   function checkNip07ButtonState() {
-    const hasNip07 =
-      typeof window?.nostr?.signSchnorr !== "undefined" ||
-      typeof window?.nostr?.signString !== "undefined";
+    const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
     console.log("hasNip07", hasNip07);
     console.log("tokenAmount", tokenAmount);
     console.log("proofs length", proofs.length);
@@ -261,10 +268,33 @@ jQuery(function ($) {
   // Sign and witness the token
   async function signAndWitnessToken(useNip07 = false) {
     try {
+      const hasNip44 = typeof window?.nostr?.nip44?.decrypt !== "undefined";
+      const hasSignString =
+        typeof window?.nostr?.signSchnorr !== "undefined" ||
+        typeof window?.nostr?.signString !== "undefined";
+
       toastr.info("Signing each of the proofs in this token...");
       let originalProofs = [...proofs]; // Store original state
       let signedProofs = [...proofs];
       console.log("signedProofs before:>>", signedProofs);
+
+      // Handle NIP-60 wallet
+      if (hasNip44) {
+        nip07Pubkey = await window.nostr.getPublicKey();
+        console.log("nip07Pubkey:>>", nip07Pubkey);
+        const nip60Wallet = await getNip60Wallet(nip07Pubkey);
+        if (nip60Wallet) {
+          console.log("nip60Wallet:>>", nip60Wallet);
+          const wallet = await window.nostr.nip44.decrypt(
+            nip07Pubkey,
+            nip60Wallet,
+          );
+          console.log("wallet:>>", wallet);
+          if (wallet.find((tag) => tag[0] === "privkey")) {
+            signedProofs = getSignedProofs(signedProofs, privkey);
+          }
+        }
+      }
 
       if (useNip07) {
         signedProofs = await signWithNip07(signedProofs);

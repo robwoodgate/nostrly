@@ -55,22 +55,90 @@ export const sendViaNostr = async (
 
 /**
  * Gets the name and image for an Nostr npub
- * @param string   npub   npub to fetch details for
+ * @param string   hexOrNpub   npub/hexpub to fetch details for
  * @param string[] relays relays to query
  */
-export const getContactDetails = async (npub: string, relays: string[]) => {
+export const getContactDetails = async (
+  hexOrNpub: string,
+  relays: string[],
+) => {
   try {
     if (!relays) {
       relays = DEFAULT_RELAYS; // Fallback
     }
-    const hexpub = nip19.decode(npub).data as string;
-    const filter: Filter = { kinds: [0], authors: [hexpub] };
+    let hexpub = hexOrNpub;
+    if (hexOrNpub.startsWith("npub1")) {
+      hexpub = nip19.decode(hexOrNpub).data as string;
+    }
+    const filter: Filter = { kinds: [0], authors: [hexpub], limit: 1 };
     const event = await pool.get(relays, filter);
     if (!event) return { name: null, img: null };
     const content = JSON.parse(event.content || "{}");
     return { name: content.name, img: content.picture };
   } catch (e) {
+    console.error(e);
     return { name: null, img: null };
+  }
+};
+
+/**
+ * Gets the NIP-60 Cashu wallet for an Nostr npub
+ * @param {string}   hexOrNpub npub/hexpub to fetch details for
+ * @param {string[]} relays Optional. relays to query
+ */
+export const getNip60Wallet = async (hexOrNpub: string, relays: string[]) => {
+  try {
+    if (!relays) {
+      relays = DEFAULT_RELAYS; // Fallback
+    }
+    let hexpub = hexOrNpub;
+    if (hexOrNpub.startsWith("npub1")) {
+      hexpub = nip19.decode(hexOrNpub).data as string;
+    }
+    const filter: Filter = { kinds: [17375], authors: [hexpub] };
+    const event = await pool.get(relays, filter);
+    if (!event) return null;
+    console.log("getNip60Wallet", event);
+    return event.content;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+
+/**
+ * Gets the mints and P2PK pubkey for an Nostr npub
+ * @param {string}   hexOrNpub npub/hexpub to fetch details for
+ * @param {string[]} relays Optional. relays to query
+ */
+export const getNip61Info = async (hexOrNpub: string, relays: string[]) => {
+  try {
+    if (!relays) {
+      relays = DEFAULT_RELAYS; // Fallback
+    }
+    let hexpub = hexOrNpub;
+    if (hexOrNpub.startsWith("npub1")) {
+      hexpub = nip19.decode(hexOrNpub).data as string;
+    }
+    const filter: Filter = { kinds: [10019], authors: [hexpub] };
+    const event = await pool.get(relays, filter);
+    if (!event) return { pubkey: null, mints: null, relays: null };
+    console.log("getNip61Info", event);
+    let mints: string[] = [];
+    let nrelays: string[] = [];
+    let pubkey: string = "";
+    for (const tag of event.tags) {
+      if (tag[0] === "mint") {
+        mints.push(tag[1]);
+      } else if (tag[0] === "relay") {
+        nrelays.push(tag[1]);
+      } else if (tag[0] === "pubkey") {
+        pubkey = tag[1];
+      }
+    }
+    return { pubkey: pubkey, mints: mints, relays: nrelays };
+  } catch (e) {
+    return { pubkey: null, mints: null, relays: null };
   }
 };
 
@@ -115,14 +183,7 @@ export const convertP2PKToNpub = (key: string): string | null => {
  */
 export function isPrivkeyValid(key: string): boolean {
   if (!key) return false;
-  if (key.startsWith("nsec1")) {
-    try {
-      const { type, data } = nip19.decode(key);
-      return type === "nsec" && data.length === 32;
-    } catch {
-      return false;
-    }
-  }
+  key = maybeConvertNsecToP2PK(key);
   return /^[0-9a-fA-F]{64}$/.test(key);
 }
 

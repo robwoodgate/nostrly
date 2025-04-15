@@ -25,6 +25,7 @@ import {
   getContactDetails,
   maybeConvertNpubToP2PK,
   convertP2PKToNpub,
+  getNip61Info,
 } from "./nostr.ts";
 import { isPublicKeyValidP2PK, getNut11Mints } from "./nut11.ts";
 import {
@@ -223,80 +224,165 @@ jQuery(function ($) {
     $refundKeysOptions.slideToggle();
   });
 
-  // Checks Lock and Refund Public Keys
-  const handlePubkeyInput = ($input, setKeyFn, errorMsgPrefix) => {
-    let timeout;
-    $input.on("input", () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(async () => {
-        const key = $input.val();
-        $input.attr("data-valid", "");
-        setKeyFn(undefined);
-        if (!key) {
-          checkIsReadyToOrder();
-          return;
-        }
-        const p2pk = maybeConvertNpubToP2PK(key);
-        if (isPublicKeyValidP2PK(p2pk)) {
-          setKeyFn(p2pk);
-          console.log("p2pk:>>", p2pk);
-          getContactDetails(key, relays)
-            .then(({ name }) => {
-              if (name) {
-                toastr.success(`Valid NPUB: <strong>${name}</strong>`);
-              } else {
-                toastr.success("Valid P2PK Public Key");
-              }
-            })
-            .catch((error) => {
-              console.error("Error fetching contact details:", error);
-            });
-        } else {
-          toastr.error(`${errorMsgPrefix} Public Key`);
-          $input.attr("data-valid", "no");
-        }
-        checkIsReadyToOrder();
-      }, 200);
-    });
+  /**
+   * Checks if npub has a NIP-61 P2PK pubkey
+   * @param  {string} p2pkey P2PK Pubkey (prefixed 02...)
+   * @param  {array} relays  Optional relays (DEFAULT_RELAYS used if unset)
+   * @return {string}        NIP-61 hex pubkey or original key
+   */
+  const doNip61Check = async function (p2pkey, relays) {
+    const { name } = await getContactDetails(p2pkey.slice(2), relays);
+    console.log("name", name);
+    if (name) {
+      const { pubkey, mints } = await getNip61Info(p2pkey.slice(2));
+      console.log("NIP61:", pubkey, mints);
+      if (pubkey) {
+        toastr.info(
+          `Using ${name}'s NIP-61 P2PK KEY for security: <code>${"02" + pubkey}</code>`,
+        );
+        return "02" + pubkey;
+      }
+      toastr.warning(
+        `${name} does not have a NIP-61 P2PK Key. The token will be locked to their NPUB, and they will have to use a compatible NIP-07 signer or enter their NSEC to unlock`,
+      );
+    }
+    return p2pkey;
   };
-  handlePubkeyInput($lockNpub, (key) => (lockP2PK = key), "Invalid Lock");
-  handlePubkeyInput($refundNpub, (key) => (refundP2PK = key), "Invalid Refund");
 
-  // Parse and validate pubkeys from textarea
-  function parsePubkeys(text) {
-    const lines = text
-      .trim()
-      .split(/[\n,]+/)
-      .map((k) => k.trim())
-      .filter(Boolean);
+  /**
+   * Parses and validates public keys from a given text string.
+   * The text can contain one or multiple public keys separated by newlines or commas.
+   * Each key is validated, converted if necessary, and checked against NIP-61.
+   * Invalid keys are reported via toastr, and duplicates are removed.
+   *
+   * @param {string} text - The input text containing one or more public keys.
+   * @returns {Promise<string[]>} A promise that resolves to an array of unique, valid public keys.
+   */
+  async function parsePubkeys(text) {
+    // Parse, trim, filter and deduplicate
+    const keys = [
+      ...new Set(
+        text
+          .trim()
+          .split(/[\n,]+/)
+          .map((k) => k.trim())
+          .map((k) => maybeConvertNpubToP2PK(k))
+          .filter(Boolean),
+      ),
+    ];
+    console.log("keys:>>", keys);
     const validKeys = [];
-    for (const key of lines) {
-      const p2pk = maybeConvertNpubToP2PK(key);
+    for (const p2pk of keys) {
       if (isPublicKeyValidP2PK(p2pk)) {
-        validKeys.push(p2pk);
+        const nip61 = await doNip61Check(p2pk);
+        if (nip61) {
+          validKeys.push(nip61);
+        }
       } else {
         toastr.error(`Invalid pubkey: ${key}`);
-        return null;
       }
     }
-    return validKeys;
+    // Final dedup (for NIP-61 conversions)
+    return [...new Set(validKeys)];
   }
 
-  // Handle extra lock keys
-  $extraLockKeys.on(
-    "input",
-    debounce(() => {
-      const keys = parsePubkeys($extraLockKeys.val());
-      if (keys) {
-        extraLockKeys = keys;
-        $extraLockKeys.attr("data-valid", "");
+  /**
+   * Sets up event listeners and processes public key input for a given jQuery input element.
+   * Enforces paste-only behavior, validates the input, and updates the UI and state accordingly.
+   * Supports both single-line inputs and textareas for handling one or multiple keys.
+   *
+   * @param {jQuery} $input - The jQuery object representing the input element (input or textarea).
+   * @param {function} setKeyFn - A callback function to update the state with the processed key(s).
+   *                              For single-line inputs, it receives a string or undefined.
+   *                              For textareas, it receives an array of strings or an empty array.
+   * @param {boolean} [isTextarea=false] - Indicates if the input is a textarea (true) or a single-line input (false).
+   * @param {string} [errorMsgPrefix="Invalid"] - The prefix for error messages displayed to the user.
+   */
+  const handlePubkeyInput = (
+    $input,
+    setKeyFn,
+    isTextarea = false,
+    errorMsgPrefix = "Invalid",
+  ) => {
+    let timeout;
+    let isPasting = false;
+    // Detect paste and process after a short delay
+    $input.on("paste", () => {
+      isPasting = true;
+      clearTimeout(timeout);
+      timeout = setTimeout(async () => {
+        await processInput();
+        isPasting = false;
+      }, 200);
+    });
+    // Block non-paste inputs with a warning
+    $input.on("input", (e) => {
+      if (!isPasting) {
+        clearTimeout(timeout);
+        timeout = setTimeout(async () => {
+          toastr.warning("Please paste only!");
+          await processInput();
+          isPasting = false;
+        }, 200);
+      }
+    });
+    // Process the pasted input
+    const processInput = async () => {
+      const text = $input.val();
+      $input.attr("data-valid", "");
+      // Handle empty input
+      if (!text) {
+        setKeyFn(isTextarea ? [] : undefined);
+        checkIsReadyToOrder();
+        return;
+      }
+      // Parse and validate keys
+      const keys = await parsePubkeys(text);
+      if (keys.length > 0) {
+        if (isTextarea) {
+          // Handle textarea (multi-key input)
+          $input.val(keys.join("\n") + "\n");
+          setKeyFn(keys);
+          toastr.success("Valid public keys processed");
+        } else {
+          // Handle single-line input
+          if (keys.length === 1) {
+            $input.val(keys[0]);
+            setKeyFn(keys[0]);
+            toastr.success("Valid P2PK Public Key");
+          } else {
+            toastr.error("Only one key is allowed for this input");
+            $input.attr("data-valid", "no");
+            setKeyFn(undefined);
+          }
+        }
       } else {
-        extraLockKeys = [];
-        $extraLockKeys.attr("data-valid", "no");
+        // No valid keys found
+        $input.attr("data-valid", "no");
+        toastr.error(
+          isTextarea
+            ? "No valid public keys found"
+            : `${errorMsgPrefix} Public Key`,
+        );
+        setKeyFn(isTextarea ? [] : undefined);
       }
       checkIsReadyToOrder();
-    }, 200),
+    };
+  };
+  handlePubkeyInput(
+    $lockNpub,
+    (key) => (lockP2PK = key),
+    false,
+    "Invalid Lock",
   );
+  handlePubkeyInput(
+    $refundNpub,
+    (key) => (refundP2PK = key),
+    false,
+    "Invalid Refund",
+  );
+  handlePubkeyInput($extraLockKeys, (keys) => (extraLockKeys = keys), true);
+  handlePubkeyInput($extraRefundKeys, (keys) => (extraRefundKeys = keys), true);
 
   // Handle n_sigs
   $nSigs.on("input", () => {
@@ -309,22 +395,6 @@ jQuery(function ($) {
     console.log("n_sigs:>>", nSigValue);
     checkIsReadyToOrder();
   });
-
-  // Handle extra refund keys
-  $extraRefundKeys.on(
-    "input",
-    debounce(() => {
-      const keys = parsePubkeys($extraRefundKeys.val());
-      if (keys) {
-        extraRefundKeys = keys;
-        $extraRefundKeys.attr("data-valid", "");
-      } else {
-        extraRefundKeys = [];
-        $extraRefundKeys.attr("data-valid", "no");
-      }
-      checkIsReadyToOrder();
-    }, 200),
-  );
 
   // Use NIP-07 to fetch public key
   $nip07Button.on("click", useNip07);
