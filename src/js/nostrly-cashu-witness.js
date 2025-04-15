@@ -289,11 +289,14 @@ jQuery(function ($) {
             nip07Pubkey,
             nip60Wallet,
           );
-          // console.log("nip60:>>", nip60); // sensitive!
-          const nip60Array = JSON.parse(nip60);
-          const privkeyEntry = nip60Array.find((tag) => tag[0] === "privkey");
-          if (privkeyEntry) {
-            signedProofs = getSignedProofs(signedProofs, privkeyEntry[1]);
+          if (nip60 && typeof nip60 === "string") {
+            // console.log("nip60:>>", nip60); // sensitive!
+            const nip60Array = JSON.parse(nip60);
+            const privkeyEntry = nip60Array.find((tag) => tag[0] === "privkey");
+            if (privkeyEntry) {
+              console.log("signing using nip60...");
+              signedProofs = getSignedProofs(signedProofs, privkeyEntry[1]);
+            }
           }
         }
       }
