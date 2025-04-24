@@ -173,7 +173,7 @@ jQuery(function ($) {
     checkIsReadyToOrder();
   });
   $addDonation.on("input", () => {
-    donationAmount = parseInt($addDonation.val(), 10); // Base10 int
+    donationAmount = Math.abs(parseInt($addDonation.val(), 10)); // Base10 int
     console.log("donationAmount:>>", donationAmount);
   });
   const checkMinDate = debounce((expireTime) => {

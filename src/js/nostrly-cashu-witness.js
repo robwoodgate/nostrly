@@ -101,15 +101,22 @@ jQuery(function ($) {
   // Process the input token
   async function processToken() {
     try {
+      // Reset vars
+      $token.attr("data-valid", "");
+      wallet = undefined;
+      mintUrl = "";
+      proofs = [];
+      tokenAmount = 0;
+      nip07Pubkey = "";
+      privkey = "";
+      p2pkParams = { pubkeys: [], n_sigs: 0 };
+      signedPubkeys = [];
+      $witnessInfo.hide().empty();
+      checkNip07ButtonState();
+
+      // check token
       let tokenEncoded = $token.val();
       if (!tokenEncoded) {
-        $token.attr("data-valid", "");
-        proofs = [];
-        tokenAmount = 0;
-        mintUrl = "";
-        p2pkParams = { pubkeys: [], n_sigs: 0 };
-        $witnessInfo.hide().empty();
-        checkNip07ButtonState();
         return;
       }
       if (!tokenEncoded.startsWith("cashu")) {

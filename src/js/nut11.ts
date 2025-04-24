@@ -92,7 +92,7 @@ export function getP2PKLocktime(secret: P2PKSecret): number {
 /**
  * Returns the number of signatures required from a NUT-11 P2PK secret
  * @param secret - The NUT-11 P2PK secret.
- * @returns The number if signatures (n_sigs) or 0 if secret is unlocked
+ * @returns The number of signatories (n_sigs / n_sigs_refund) or 0 if secret is unlocked
  */
 export function getP2PKNSigs(secret: P2PKSecret): number {
   // Validate secret format
@@ -103,13 +103,21 @@ export function getP2PKNSigs(secret: P2PKSecret): number {
   const witness = getP2PExpectedKWitnessPubkeys(secret);
   const locktime = getP2PKLocktime(secret);
   const { tags } = secret[1];
+  // Check lock multisig
   const n_sigsTag = tags && tags.find((tag) => tag[0] === "n_sigs");
   const n_sigs =
     n_sigsTag && n_sigsTag.length > 1 ? parseInt(n_sigsTag[1], 10) : 1; // Default: 1
   if (locktime > now) {
     return n_sigs; // locked
   }
-  return witness.length > 0 ? 1 : 0; // unlocked
+  // Check refund multisig
+  const n_sigs_refundTag =
+    tags && tags.find((tag) => tag[0] === "n_sigs_refund");
+  const n_sigs_refund =
+    n_sigs_refundTag && n_sigs_refundTag.length > 1
+      ? parseInt(n_sigs_refundTag[1], 10)
+      : 1; // Default: 1
+  return witness.length > 0 ? n_sigs_refund : 0; // unlocked
 }
 
 /**

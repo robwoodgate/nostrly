@@ -604,7 +604,7 @@ class NostrlyTools
                     </div>
                     <div class="center">
                         <label for="add_donation" class="center">Do you want to add a donation for the NutLock developers?</label>
-                        <input id="add_donation" type="number" placeholder="100"/>
+                        <input id="add_donation" type="number" placeholder="100" min="0"/>
                         <button type="submit" id="lock-next">Create Locked Token</button>
                     </div>
                     <div id="history" class="center">
