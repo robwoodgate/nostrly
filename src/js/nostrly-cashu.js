@@ -233,7 +233,8 @@ jQuery(function ($) {
         // Hey fiatjaf... free the nsec, it's 2025 !!!!
         if (
           typeof window?.nostr?.signSchnorr === "undefined" &&
-          typeof window?.nostr?.signString === "undefined"
+          typeof window?.nostr?.signString === "undefined" &&
+          typeof window?.nostr?.nip60?.signSecret === "undefined"
         ) {
           $pkeyWrapper.show();
           if (!$pkey.val()) {
@@ -288,16 +289,22 @@ jQuery(function ($) {
       if (tokenAmount < 4) {
         throw "Minimum token amount is 4 sats";
       }
-      // The Alby extension can sign schnorr signatures directly - woohoo!
-      if (typeof window?.nostr?.signSchnorr !== "undefined") {
-        console.log("we can signSchnorr!");
-        await signSchnorrProofs(proofs); // sign main proofs array
+      // Sign P2PK proofs using proposed NIP-60 secret signer
+      // @see: https://github.com/nostr-protocol/nips/pull/1890
+      if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
+        console.log("we can signSecret!");
+        await signSecretProofs(proofs); // sign main proofs array
       }
       // Support for proposed NIP-07 schnorr signer
       // @see: https://github.com/nostr-protocol/nips/pull/1842
       else if (typeof window?.nostr?.signString !== "undefined") {
         console.log("we can signString!");
         await signStringProofs(proofs); // sign main proofs array
+      }
+      // The Alby extension can sign schnorr signatures directly - woohoo!
+      else if (typeof window?.nostr?.signSchnorr !== "undefined") {
+        console.log("we can signSchnorr!");
+        await signSchnorrProofs(proofs); // sign main proofs array
       }
       console.log("signed proofs :>>", proofs);
       let invoice = "";
@@ -476,7 +483,7 @@ jQuery(function ($) {
     }
   }
 
-  // Sign P2PK proofs using propsed NIP-07 method
+  // Sign P2PK proofs using proposed NIP-07 method
   // @see: https://github.com/nostr-protocol/nips/pull/1842
   async function signStringProofs(proofs) {
     if (typeof window?.nostr?.signString === "undefined") return;
@@ -485,6 +492,23 @@ jQuery(function ($) {
       if (!lockNpub) continue;
       const expHash = bytesToHex(sha256(proof.secret));
       const { hash, sig, pubkey } = await window.nostr.signString(proof.secret);
+      // Check we got a signature from expected pubkey on expected hash
+      if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
+        console.log("schnorr :>>", sig);
+        proofs[index].witness = JSON.stringify({ signatures: [sig] });
+      }
+    }
+  }
+
+  // Sign P2PK proofs using proposed NIP-60 secret signer
+  // @see: https://github.com/nostr-protocol/nips/pull/1890
+  async function signSecretProofs(proofs) {
+    if (typeof window?.nostr?.nip60?.signSecret === "undefined") return;
+    for (const [index, proof] of proofs.entries()) {
+      if (!proof.secret.includes("P2PK")) continue;
+      if (!lockNpub) continue;
+      const expHash = bytesToHex(sha256(proof.secret));
+      const { hash, sig, pubkey } = await window.nostr.nip60.signSecret(proof.secret);
       // Check we got a signature from expected pubkey on expected hash
       if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
         console.log("schnorr :>>", sig);

@@ -278,7 +278,8 @@ jQuery(function ($) {
       const hasNip44 = typeof window?.nostr?.nip44?.decrypt !== "undefined";
       const hasSignString =
         typeof window?.nostr?.signSchnorr !== "undefined" ||
-        typeof window?.nostr?.signString !== "undefined";
+        typeof window?.nostr?.signString !== "undefined" ||
+        typeof window?.nostr?.nip60?.signSecret !== "undefined";
 
       toastr.info("Signing each of the proofs in this token...");
       let originalProofs = [...proofs]; // Store original state
@@ -380,12 +381,17 @@ jQuery(function ($) {
       let signedSig = "";
       let signedHash = "";
       try {
-        if (typeof window?.nostr?.signSchnorr !== "undefined") {
-          pubkey = await window.nostr.getPublicKey();
-          signedSig = await window.nostr.signSchnorr(hash);
-          signedHash = hash;
-          console.log("signSchnorr pubkey:", pubkey);
-          console.log("signSchnorr sig:", signedSig);
+        if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
+          ({
+            hash: signedHash,
+            sig: signedSig,
+            pubkey,
+          } = await window.nostr.nip60,signSecret(proof.secret));
+          console.log("signSecret result:", {
+            hash: signedHash,
+            sig: signedSig,
+            pubkey,
+          });
         } else if (typeof window?.nostr?.signString !== "undefined") {
           ({
             hash: signedHash,
@@ -397,6 +403,12 @@ jQuery(function ($) {
             sig: signedSig,
             pubkey,
           });
+        } else if (typeof window?.nostr?.signSchnorr !== "undefined") {
+          pubkey = await window.nostr.getPublicKey();
+          signedSig = await window.nostr.signSchnorr(hash);
+          signedHash = hash;
+          console.log("signSchnorr pubkey:", pubkey);
+          console.log("signSchnorr sig:", signedSig);
         }
         const normalizedPubkey = "02" + pubkey;
         console.log("normalizedPubkey:", normalizedPubkey);
