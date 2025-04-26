@@ -386,7 +386,7 @@ jQuery(function ($) {
             hash: signedHash,
             sig: signedSig,
             pubkey,
-          } = await window.nostr.nip60,signSecret(proof.secret));
+          } = await window.nostr.nip60.signSecret(proof.secret));
           console.log("signSecret result:", {
             hash: signedHash,
             sig: signedSig,

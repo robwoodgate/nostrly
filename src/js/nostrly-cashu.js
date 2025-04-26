@@ -508,7 +508,9 @@ jQuery(function ($) {
       if (!proof.secret.includes("P2PK")) continue;
       if (!lockNpub) continue;
       const expHash = bytesToHex(sha256(proof.secret));
-      const { hash, sig, pubkey } = await window.nostr.nip60.signSecret(proof.secret);
+      const { hash, sig, pubkey } = await window.nostr.nip60.signSecret(
+        proof.secret,
+      );
       // Check we got a signature from expected pubkey on expected hash
       if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
         console.log("schnorr :>>", sig);
