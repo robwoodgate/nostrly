@@ -61,7 +61,7 @@ export const sendViaNostr = async (
 export const getContactDetails = async (
   hexOrNpub: string,
   relays: string[],
-) => {
+): Promise<{ name: string | null; img: string | null }> => {
   try {
     if (!relays) {
       relays = DEFAULT_RELAYS; // Fallback
@@ -70,13 +70,34 @@ export const getContactDetails = async (
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    const filter: Filter = { kinds: [0], authors: [hexpub], limit: 1 };
-    const event = await pool.get(relays, filter);
-    if (!event) return { name: null, img: null };
-    const content = JSON.parse(event.content || "{}");
-    return { name: content.name, img: content.picture };
-  } catch (e) {
-    console.error(e);
+
+    // Look up kind:0 for contact details
+    let filter: Filter = { kinds: [0], authors: [hexpub], limit: 1 };
+    let event = await pool.get(relays, filter);
+    if (event) {
+      const content = JSON.parse(event.content || "{}");
+      return { name: content.name, img: content.picture };
+    }
+
+    // kind:0 failed, try a kind:10019 lookup (NIP-61)
+    filter = { kinds: [10019], "#k": [hexpub], limit: 1 };
+    event = await pool.get(relays, filter);
+    if (!event) {
+      throw new Error("Could not find Nostr user or NIP-61 key for: " + hexpub);
+    }
+
+    // Prevent loop: Ensure event.pubkey is different from hexpub
+    if (event.pubkey === hexpub) {
+      throw new Error(
+        "Loop detected: kind:10019 event points to same key: " + hexpub,
+      );
+    }
+
+    // Found a kind:10019 event, try getting contact details for its pubkey
+    return await getContactDetails(event.pubkey, relays);
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    console.log(errorMessage);
     return { name: null, img: null };
   }
 };
