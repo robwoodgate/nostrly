@@ -212,16 +212,6 @@ export const getWalletWithUnit = async (
   return wallet;
 };
 
-// Define the structure of a NUT-11 P2PK secret
-type P2PKSecret = [
-  string, // "P2PK"
-  {
-    nonce: string;
-    data: string;
-    tags: Array<string[]>;
-  },
-];
-
 function fallbackCopyTextToClipboard(text: string) {
   var textArea = document.createElement("textarea");
   textArea.value = text;

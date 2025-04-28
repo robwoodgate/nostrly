@@ -1,22 +1,21 @@
 // Imports
-import { getDecodedToken, getEncodedTokenV4 } from "@cashu/cashu-ts";
+import {
+  getDecodedToken,
+  getEncodedTokenV4,
+  getP2PKExpectedKWitnessPubkeys,
+  getP2PKNSigs,
+  getP2PKSigFlag,
+  getP2PKWitnessSignatures,
+  parseP2PKSecret,
+  signP2PKProofs,
+} from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
 import {
   decode as emojiDecode,
   encode as emojiEncode,
 } from "./emoji-encoder.ts";
 import { isPrivkeyValid, maybeConvertNsecToP2PK } from "./nostr.ts";
-import {
-  getP2PExpectedKWitnessPubkeys,
-  getP2PKNSigs,
-  getP2PKSigFlag,
-  parseSecret,
-  getSignedProofs,
-  getSignedProof,
-  verifyP2PKsecretSignature,
-  getSignatures,
-  sha256Hex,
-} from "./nut11.ts";
+import { verifyP2PKsecretSignature, sha256Hex } from "./nut11.ts";
 import {
   copyTextToClipboard,
   debounce,
@@ -137,16 +136,16 @@ jQuery(function ($) {
         return;
       }
       proofs.forEach((proof) => {
-        const secret = parseSecret(proof.secret);
+        const secret = parseP2PKSecret(proof.secret);
         if ("SIG_ALL" == getP2PKSigFlag(secret)) {
           throw new Error("Sorry, SIG_ALL tokens are not supported yet");
         }
       });
       tokenAmount = getTokenAmount(proofs);
-      p2pkParams.pubkeys = getP2PExpectedKWitnessPubkeys(
-        parseSecret(proofs[0].secret),
+      p2pkParams.pubkeys = getP2PKExpectedKWitnessPubkeys(
+        parseP2PKSecret(proofs[0].secret),
       );
-      p2pkParams.n_sigs = getP2PKNSigs(parseSecret(proofs[0].secret));
+      p2pkParams.n_sigs = getP2PKNSigs(parseP2PKSecret(proofs[0].secret));
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
@@ -173,7 +172,7 @@ jQuery(function ($) {
       return;
     }
     const now = Math.floor(Date.now() / 1000);
-    const parsed = parseSecret(proofs[0].secret);
+    const parsed = parseP2PKSecret(proofs[0].secret);
     const { tags } = parsed[1];
     const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
     const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
@@ -190,7 +189,7 @@ jQuery(function ($) {
       return;
     }
     const { pubkeys, n_sigs } = p2pkParams;
-    let signatures = getSignatures(proofs[0].witness);
+    let signatures = getP2PKWitnessSignatures(proofs[0].witness);
     signatures.forEach((sig) => {
       pubkeys.forEach((pub) => {
         try {
@@ -303,7 +302,7 @@ jQuery(function ($) {
             const privkeyEntry = nip60Array.find((tag) => tag[0] === "privkey");
             if (privkeyEntry) {
               console.log("signing using nip60...");
-              signedProofs = getSignedProofs(signedProofs, privkeyEntry[1]);
+              signedProofs = signP2PKProofs(signedProofs, privkeyEntry[1]);
             }
           }
         }
@@ -315,7 +314,7 @@ jQuery(function ($) {
         if (!privkey || !isPrivkeyValid(privkey)) {
           throw new Error("No valid private key provided");
         }
-        signedProofs = getSignedProofs(
+        signedProofs = signP2PKProofs(
           signedProofs,
           maybeConvertNsecToP2PK(privkey),
         );
@@ -324,8 +323,10 @@ jQuery(function ($) {
       // Count proofs that had signatures added in this operation
       let signedCount = 0;
       for (let i = 0; i < originalProofs.length; i++) {
-        const originalSigs = getSignatures(originalProofs[i].witness);
-        const newSigs = getSignatures(signedProofs[i].witness);
+        const originalSigs = getP2PKWitnessSignatures(
+          originalProofs[i].witness,
+        );
+        const newSigs = getP2PKWitnessSignatures(signedProofs[i].witness);
         console.log("newSigs:>>", newSigs);
         console.log("originalSigs:>>", originalSigs);
         if (newSigs.length > originalSigs.length) {
@@ -368,10 +369,10 @@ jQuery(function ($) {
     const signedProofs = proofs.map((proof) => ({ ...proof }));
     for (const [index, proof] of signedProofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      const parsed = parseSecret(proof.secret);
-      const pubkeys = getP2PExpectedKWitnessPubkeys(parsed);
+      const parsed = parseP2PKSecret(proof.secret);
+      const pubkeys = getP2PKExpectedKWitnessPubkeys(parsed);
       const n_sigs = getP2PKNSigs(parsed);
-      console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys);
+      console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
       if (!pubkeys.length) continue;
       let signatures = proof.witness?.signatures || [];
 

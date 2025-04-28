@@ -3,13 +3,11 @@ import {
   getDecodedToken,
   CheckStateEnum,
   getEncodedTokenV4,
-} from "@cashu/cashu-ts";
-import {
-  getP2PExpectedKWitnessPubkeys,
+  getP2PKExpectedKWitnessPubkeys,
   getP2PKLocktime,
   getP2PKNSigs,
-  parseSecret,
-} from "./nut11.ts";
+  parseP2PKSecret,
+} from "@cashu/cashu-ts";
 import { doConfettiBomb, getWalletWithUnit } from "./utils.ts";
 import { convertP2PKToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
@@ -188,11 +186,11 @@ jQuery(function ($) {
         // they are... so lookup the npubs currently able to unlock
         // This can vary dependingo on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
-        const p2pkSecret = parseSecret(lockedProofs[0].secret);
-        pubkeys = getP2PExpectedKWitnessPubkeys(p2pkSecret);
+        const p2pkSecret = parseP2PKSecret(lockedProofs[0].secret);
+        pubkeys = getP2PKExpectedKWitnessPubkeys(p2pkSecret);
         n_sigs = getP2PKNSigs(p2pkSecret);
         locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
-        console.log("getP2PExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
+        console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
         if (n_sigs > 1) {
           if (locktime > Math.floor(new Date().getTime() / 1000)) {
             throw `This is a MultiSig token until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait until the lock expires`;
