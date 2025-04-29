@@ -1,9 +1,9 @@
-// Imports (assumed to be available from the provided code)
 import {
   SimplePool,
   generateSecretKey,
   getPublicKey,
   nip19,
+  finalizeEvent,
 } from "nostr-tools";
 import { getNut11Mints } from "./nut11.ts";
 import { copyTextToClipboard, debounce } from "./utils.ts";
@@ -112,7 +112,7 @@ jQuery(function ($) {
       toastr.success("Mints validated");
     }
     checkIsReadyToCreate();
-  }, 200);
+  }, 500);
 
   // Validate relays
   const validateRelays = debounce(() => {
@@ -177,9 +177,9 @@ jQuery(function ($) {
       const pk = getPublicKey(sk);
       const nsec = nip19.nsecEncode(sk);
 
-      // Create NIP-60 wallet metadata event (kind 35160)
-      const event = {
-        kind: 35160,
+      // Create NIP-60 wallet metadata event (kind 17375)
+      const walletMetadataEvent = {
+        kind: 17375,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           ...mints.map((mint) => ["mint", mint]),
@@ -189,9 +189,43 @@ jQuery(function ($) {
         pubkey: pk,
       };
 
-      // Sign and broadcast event
-      const signedEvent = finalizeEvent(event, sk);
-      await pool.publish(relays, signedEvent);
+      // Create NIP-60 wallet backup event (kind 375)
+      const walletBackupEvent = {
+        kind: 375,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ["k", "17375"], // Reference to NIP-60 wallet metadata kind
+          ...mints.map((mint) => ["mint", mint]),
+        ],
+        content: "", // Content could include encrypted backup data in future implementations
+        pubkey: pk,
+      };
+
+      // Create NIP-61 P2PK metadata event (kind 10019)
+      const p2pkMetadataEvent = {
+        kind: 10019,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ["k", "17375"], // Reference to NIP-60 wallet kind
+          ...mints.map((mint) => ["mint", mint]),
+        ],
+        content: JSON.stringify({
+          pubkey: pk,
+          mints: mints,
+        }),
+        pubkey: pk,
+      };
+
+      // Sign and broadcast events
+      const signedWalletMetadata = finalizeEvent(walletMetadataEvent, sk);
+      const signedWalletBackup = finalizeEvent(walletBackupEvent, sk);
+      const signedP2PKMetadata = finalizeEvent(p2pkMetadataEvent, sk);
+
+      await Promise.all([
+        pool.publish(relays, signedWalletMetadata),
+        pool.publish(relays, signedWalletBackup),
+        pool.publish(relays, signedP2PKMetadata),
+      ]);
 
       // Display success
       $walletKey.val(nsec);
@@ -201,7 +235,9 @@ jQuery(function ($) {
         toastr.success("Wallet key copied");
       });
 
-      toastr.success("NIP-60 wallet created and broadcast");
+      toastr.success(
+        "NIP-60 wallet created and broadcast with backup and P2PK metadata",
+      );
     } catch (e) {
       toastr.error("Failed to create wallet");
       console.error(e);
