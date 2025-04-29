@@ -19,6 +19,7 @@ class NostrlyTools
         add_shortcode('nostrly_cashu_redeem', [$this, 'cashu_redeem_shortcode']);
         add_shortcode('nostrly_cashu_lock', [$this, 'cashu_lock_shortcode']);
         add_shortcode('nostrly_cashu_witness', [$this, 'cashu_witness_shortcode']);
+        add_shortcode('nostrly_cashu_nip60', [$this, 'cashu_nip60_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
         add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
@@ -829,6 +830,151 @@ class NostrlyTools
         EOL;
     }
 
+    /**
+     * NIP-60 wallet shortcode.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_nip60_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-nip60');
+
+        $get_relays = esc_html('Get My Relays', 'nostrly');
+        $create_wallet = esc_html('Create Wallet', 'nostrly');
+        $copy_key = esc_html('Copy Key', 'nostrly');
+
+        return <<<EOL
+                <style>
+                    /* Base form styling */
+                    #nip60-wallet-form {
+                        margin-bottom: 40px;
+                    }
+                    #nip60-wallet-form label {
+                        display: block;
+                        font-weight: bold;
+                        margin-bottom: 0;
+                        text-align: left;
+                    }
+                    #nip60-wallet-form div {
+                        margin-bottom: 1rem;
+                    }
+                    /* Common input styles */
+                    #nip60-wallet-form input,
+                    #nip60-wallet-form textarea,
+                    #nip60-wallet-form select {
+                        border-radius: 6px;
+                        margin-bottom: 0.25em;
+                        padding: 6px 15px;
+                        width: 100%;
+                    }
+                    /* Validation feedback */
+                    #nip60-wallet-form [data-valid="no"] {
+                        border: 2px solid rgb(204, 55, 55);
+                        background-color: rgba(204, 55, 55, 0.3);
+                        color: white;
+                    }
+                    /* Utility classes */
+                    .center {
+                        text-align: center;
+                    }
+                    .hidden {
+                        display: none;
+                    }
+                    .description {
+                        font-size: 0.85rem;
+                        margin-top: 0.5rem;
+                        color: #ccc;
+                    }
+                    /* Relays container */
+                    #relays-container {
+                        display: flex;
+                        align-items: flex-start;
+                    }
+                    #relays {
+                        flex: 1;
+                        margin-right: 5px;
+                        text-align: left;
+                    }
+                    #get-relays {
+                        flex: 0 0 auto;
+                        width: 13rem;
+                    }
+                    /* Buttons */
+                    #create-wallet {
+                        margin: 1em auto;
+                        max-width: 20em;
+                    }
+                    #create-wallet:disabled {
+                        opacity: 0.6;
+                    }
+                    #copy-key {
+                        margin-left: 1rem;
+                    }
+                    /* Textarea styling */
+                    #nip60-wallet-form textarea {
+                        resize: vertical;
+                        min-height: 100px;
+                        font-family: monospace;
+                    }
+                    /* Success section */
+                    #nip60-wallet-success {
+                        margin-top: 2rem;
+                    }
+                    #nip60-wallet-success textarea {
+                        resize: vertical;
+                        min-height: 60px;
+                        font-family: monospace;
+                    }
+                    /* Media queries */
+                    @media (max-width: 600px) {
+                        #relays-container {
+                            flex-direction: column;
+                        }
+                        #relays {
+                            margin-right: 0;
+                            margin-bottom: 5px;
+                        }
+                        #get-relays {
+                            width: 100%;
+                        }
+                    }
+                </style>
+                <div id="nip60-wallet-form">
+                    <div>
+                        <label for="mint-select">Select Mints:</label>
+                        <select id="mint-select" name="mint-select">
+                            <option value="" disabled selected>Loading mints...</option>
+                        </select>
+                        <div class="description">Select mints to populate the mints textarea below.</div>
+                    </div>
+                    <div>
+                        <label for="mints">Mints (one per line):</label>
+                        <textarea id="mints" name="mints" rows="4" placeholder="https://mint.minibits.cash/Bitcoin\nhttps://stablenut.cashu.network"></textarea>
+                        <div class="description">List of mint URLs for the NIP-60 wallet. Each mint must support NIP-60.</div>
+                    </div>
+                    <div>
+                        <label for="relays">Relays (one per line):</label>
+                        <div id="relays-container">
+                            <textarea id="relays" name="relays" rows="4" placeholder="wss://relay.damus.io\nwss://nostr.mom"></textarea>
+                            <button type="button" id="get-relays" class="button">{$get_relays}</button>
+                        </div>
+                        <div class="description">List of Nostr relays to broadcast wallet events. Use the button to fetch your relays if using a NIP-07 extension.</div>
+                    </div>
+                    <div class="center">
+                        <button type="submit" id="create-wallet" disabled>{$create_wallet}</button>
+                    </div>
+                </div>
+                <div id="nip60-wallet-success" class="center hidden">
+                    <h2>Your NIP-60 Wallet Key</h2>
+                    <textarea id="wallet-key" rows="4" cols="50" readonly></textarea>
+                    <p><button id="copy-key" class="button">{$copy_key}</button></p>
+                    <div class="description">This is your private key (NSEC). Store it securely and do not share it. Use it to manage your NIP-60 wallet.</div>
+                </div>
+            EOL;
+    }
+
 
 
     /**
@@ -840,6 +986,7 @@ class NostrlyTools
         wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-lock', NOSTRLY_URL.'assets/js/nostrly-cashu-lock.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-nip60', NOSTRLY_URL.'assets/js/nostrly-cashu-nip60.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
