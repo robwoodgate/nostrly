@@ -1,5 +1,5 @@
 import { type Proof, type P2PKWitness } from "@cashu/cashu-ts";
-import { bytesToHex, hexToBytes } from "@noble/curves/abstract/utils";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import { sha256 } from "@noble/hashes/sha256";
 import { schnorr } from "@noble/curves/secp256k1";
 
@@ -50,7 +50,7 @@ export const getNut11Mints = async (
         return;
       }
       const info = JSON.parse(mint.info || "{}");
-      console.log("MintInfo", info);
+      // console.log("MintInfo", info);
       if (!info?.nuts[11]?.supported === true) {
         console.log("Nut11 not supported:>", mint.url, info);
         return;

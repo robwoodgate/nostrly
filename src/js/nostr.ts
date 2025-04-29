@@ -9,7 +9,7 @@ import {
   nip04,
   nip19,
 } from "nostr-tools";
-import { bytesToHex } from "@noble/curves/abstract/utils";
+import { bytesToHex } from "@noble/hashes/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 
 // Export constants
@@ -61,7 +61,11 @@ export const sendViaNostr = async (
 export const getContactDetails = async (
   hexOrNpub: string,
   relays: string[],
-): Promise<{ name: string | null; img: string | null }> => {
+): Promise<{
+  name: string | null;
+  img: string | null;
+  hexpub: string | null;
+}> => {
   try {
     if (!relays) {
       relays = DEFAULT_RELAYS; // Fallback
@@ -76,10 +80,11 @@ export const getContactDetails = async (
     let event = await pool.get(relays, filter);
     if (event) {
       const content = JSON.parse(event.content || "{}");
-      return { name: content.name, img: content.picture };
+      return { name: content.name, img: content.picture, hexpub };
     }
 
     // kind:0 failed, try a kind:10019 lookup (NIP-61)
+    // using the 'k' filter to reverse lookup by P2PK locking key
     filter = { kinds: [10019], "#k": [hexpub], limit: 1 };
     event = await pool.get(relays, filter);
     if (!event) {
@@ -94,11 +99,45 @@ export const getContactDetails = async (
     }
 
     // Found a kind:10019 event, try getting contact details for its pubkey
-    return await getContactDetails(event.pubkey, relays);
+    const nip61Contact = await getContactDetails(event.pubkey, relays);
+    return { ...nip61Contact, hexpub: event.pubkey };
   } catch (e: unknown) {
     const errorMessage = e instanceof Error ? e.message : String(e);
     console.log(errorMessage);
-    return { name: null, img: null };
+    return { name: null, img: null, hexpub: null };
+  }
+};
+
+/**
+ * Gets the kind: 10002 relays for an Nostr npub
+ * @param {string}   hexOrNpub npub/hexpub to fetch details for
+ * @param {string[]} relays Optional. relays to query
+ */
+export const getUserRelays = async (
+  hexOrNpub: string,
+  relays: string[],
+): Promise<string[]> => {
+  try {
+    if (!relays) {
+      relays = DEFAULT_RELAYS; // Fallback
+    }
+    let hexpub = hexOrNpub;
+    if (hexOrNpub.startsWith("npub1")) {
+      hexpub = nip19.decode(hexOrNpub).data as string;
+    }
+    const filter: Filter = { kinds: [10002], authors: [hexpub] };
+    const event = await pool.get(relays, filter);
+    if (!event || !event.tags) return []; // none found
+    console.log("getUserRelays", event);
+    return event.tags
+      .filter(
+        (tag) =>
+          tag[0] === "r" && typeof tag[1] === "string" && tag[1].trim() !== "",
+      )
+      .map((tag) => tag[1].trim());
+  } catch (e) {
+    console.error(e);
+    return [];
   }
 };
 

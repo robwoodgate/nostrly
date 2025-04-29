@@ -231,9 +231,11 @@ jQuery(function ($) {
    * @return {string}        NIP-61 hex pubkey or original key
    */
   const doNip61Check = async function (p2pkey, relays) {
-    const { name } = await getContactDetails(p2pkey.slice(2), relays);
+    const { name, hexpub } = await getContactDetails(p2pkey.slice(2), relays);
     console.log("name", name);
-    if (name) {
+    console.log("hexpub", hexpub);
+    if (name && hexpub == p2pkey.slice(2)) {
+      // key is main key
       const { pubkey, mints } = await getNip61Info(p2pkey.slice(2));
       console.log("NIP61:", pubkey, mints);
       if (pubkey) {
@@ -245,6 +247,8 @@ jQuery(function ($) {
       toastr.warning(
         `${name} does not have a NIP-61 P2PK Key. The token will be locked to their NPUB, and they will have to use a compatible NIP-07 signer or enter their NSEC to unlock`,
       );
+    } else if (name) {
+      toastr.info(`Using ${name}'s NIP-61 P2PK KEY`);
     }
     return p2pkey;
   };
