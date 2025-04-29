@@ -407,7 +407,7 @@ jQuery(function ($) {
       const pubkey = await window.nostr.getPublicKey();
       if (pubkey) {
         $refundNpub.val(nip19.npubEncode(pubkey));
-        $refundNpub.trigger("input"); // validation
+        $refundNpub.trigger("paste"); // validation
       } else {
         throw new Error("Could not fetch public key from NIP-07 signer.");
       }
