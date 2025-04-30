@@ -217,11 +217,12 @@ jQuery(function ($) {
     }
     html += `<li>Expected Public Keys:</li><ul>`;
     // Define a function to handle the async update
-    const updateContactName = (npub, relays) => {
-      getContactDetails(npub, relays).then(({ name }) => {
+    const updateContactName = (npub, p2pkey, relays) => {
+      getContactDetails(npub, relays).then(({ name, hexpub }) => {
         if (name) {
+          const nip61 = hexpub != p2pkey.slice(2) ? " (NIP-61)" : "";
           $(`#${npub}`).replaceWith(
-            `<a href="https://njump.me/${npub}" target="_blank">${name}</a>`,
+            `<a href="https://njump.me/${npub}" target="_blank">${name}${nip61}</a>`,
           );
         }
       });
@@ -233,7 +234,7 @@ jQuery(function ($) {
       html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${
         isSigned ? "Signed" : "Pending"
       }</li>`;
-      updateContactName(npub, nostrly_ajax.relays);
+      updateContactName(npub, pub, nostrly_ajax.relays);
     }
     html += `</ul>`;
     const remainingSigs = n_sigs - signedPubkeys.length;

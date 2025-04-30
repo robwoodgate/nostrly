@@ -70,7 +70,6 @@ jQuery(function ($) {
       if (!currentMints.includes(selectedMint)) {
         currentMints.push(selectedMint);
         $mints.val(currentMints.join("\n"));
-        toastr.success(`Added mint: ${selectedMint}`);
       } else {
         toastr.info("Mint already added");
       }

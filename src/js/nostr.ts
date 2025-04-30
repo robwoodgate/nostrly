@@ -80,18 +80,18 @@ export const getContactDetails = async (
     let event = await pool.get(relays, filter);
     if (event) {
       const content = JSON.parse(event.content || "{}");
-      return { name: content.name, img: content.picture, hexpub };
+      return { name: content.name, img: content.picture, hexpub: event.pubkey };
     }
 
-    // kind:0 failed, try a kind:10019 lookup (NIP-61)
-    // using the 'k' filter to reverse lookup by P2PK locking key
+    // kind:0 failed, so the hexpub may be a NIP-61 pubkey. Let's try a
+    // kind:10019 lookup (NIP-61) using the 'k' filter to find the user
     filter = { kinds: [10019], "#k": [hexpub], limit: 1 };
     event = await pool.get(relays, filter);
     if (!event) {
       throw new Error("Could not find Nostr user or NIP-61 key for: " + hexpub);
     }
 
-    // Prevent loop: Ensure event.pubkey is different from hexpub
+    // Prevent loop: Ensure kind:10019 pubkey is different to hexpub
     if (event.pubkey === hexpub) {
       throw new Error(
         "Loop detected: kind:10019 event points to same key: " + hexpub,
@@ -99,8 +99,7 @@ export const getContactDetails = async (
     }
 
     // Found a kind:10019 event, try getting contact details for its pubkey
-    const nip61Contact = await getContactDetails(event.pubkey, relays);
-    return { ...nip61Contact, hexpub: event.pubkey };
+    return await getContactDetails(event.pubkey, relays);
   } catch (e: unknown) {
     const errorMessage = e instanceof Error ? e.message : String(e);
     console.log(errorMessage);
