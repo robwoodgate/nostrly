@@ -1,6 +1,6 @@
 // Imports
 import { nip19, getPublicKey } from "nostr-tools";
-import { doConfettiBomb } from "./utils.ts";
+import { copyTextToClipboard, doConfettiBomb } from "./utils.ts";
 
 jQuery(function ($) {
   const domain = nostrly_ajax.domain;
@@ -352,12 +352,7 @@ jQuery(function ($) {
 
     function setupCopyButton(selector, text) {
       $(selector).on("click", function () {
-        let orig = $(this).text();
-        navigator.clipboard
-          .writeText(text)
-          .catch((e) => console.error("Failed to copy:", e));
-        $(this).text("Copied!");
-        setTimeout(() => $(this).text(orig), 1000);
+        copyTextToClipboard(text);
       });
     }
 
@@ -365,25 +360,7 @@ jQuery(function ($) {
       $(selector).on("click", function () {
         let $this = $(this);
         $this.select();
-        navigator.clipboard
-          .writeText($this.val())
-          .then(() => {
-            let $alert = $this.closest("div").find(".copy_alert");
-            $alert
-              .css({
-                position: "absolute",
-                "text-align": "center",
-                "z-index": "1000",
-                // Positioning the alert at the top inside the textarea
-                top: $this.position().top + "px",
-                left: $this.position().left + "px",
-                width: $this.outerWidth() + "px",
-              })
-              .slideDown()
-              .delay(1500)
-              .slideUp();
-          })
-          .catch((e) => console.error("Failed to copy:", e));
+        copyTextToClipboard($this.val());
       });
     }
 

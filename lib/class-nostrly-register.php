@@ -89,7 +89,6 @@ class NostrlyRegister
         $cancelrg = esc_html('Cancel Registration', 'nostrly');
         $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
         $copypass = esc_html('Copy Password', 'nostrly');
-        $copiedta = esc_html('✔ Copied to clipboard', 'nostrly');
         $cashupay = esc_html('Pay with Cashu ecash?', 'nostrly');
         $sitedom = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
         $profile = admin_url('profile.php');
@@ -126,7 +125,6 @@ class NostrlyRegister
                     <p>Eek! Looks like registration failed for some reason.</p>
                     <p>Please contact us to WITH the NPUB you used to register, and the payment hash below (if you completed payment).</p>
                     <p>We will get the registration completed or refund your payment if the name is not registerable.</p>
-                    <div style="display:none;" class="copy_alert">{$copiedta}</div>
                     <p><input type="text" id="payment-hash" maxlength="64"></p>
                 </div>
                 <div id="payment-suceeded" style="display:none;">

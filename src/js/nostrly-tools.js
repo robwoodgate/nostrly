@@ -7,7 +7,7 @@ import {
   generateSecretKey,
 } from "nostr-tools";
 import { verifyEvent, SimplePool } from "nostr-tools";
-import { doConfettiBomb } from "./utils.ts";
+import { copyTextToClipboard, doConfettiBomb } from "./utils.ts";
 
 jQuery(function ($) {
   console.log("Starting Nostrly tools");
@@ -217,8 +217,9 @@ jQuery(function ($) {
     $("#zap-cashu-link").attr("href", `/cashu-redeem/?autopay=1&ln=${pr}`);
     $("#zap-amount").text(sats + " sats");
     $("#zap-invoice-img").attr("src", img);
-
-    setupCopyButton("#zap-invoice-copy", pr);
+    $("#zap-invoice-copy").on("click", () => {
+      copyTextToClipboard(pr);
+    });
     $("#zap-cancel").on("click", () => {
       location.reload();
     });
@@ -278,17 +279,6 @@ jQuery(function ($) {
       console.error("Error fetching or parsing profile:", error);
       return null;
     }
-  }
-
-  function setupCopyButton(selector, text) {
-    $(selector).on("click", function () {
-      let orig = $(this).text();
-      navigator.clipboard
-        .writeText(text)
-        .catch((e) => console.error("Failed to copy:", e));
-      $(this).text("Copied!");
-      setTimeout(() => $(this).text(orig), 1000);
-    });
   }
 
   // Build zap event, allowing it to be anonymous
