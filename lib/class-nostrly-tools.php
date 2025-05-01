@@ -966,7 +966,7 @@ class NostrlyTools
                 </div>
                 <div id="nip60-wallet-success" class="center hidden">
                     <h2>Your Wallet Private Key</h2>
-                    <div class="description">This is your NIP-60 wallet's private key (NSEC). Store it securely as an extra backup and do not share it. It is used to unlock cashu tokens that are NutLocked to your NIP-61 public key. You can optionally also import it as a P2PK key in a wallet Cashu.me</div>
+                    <div class="description">This is your NIP-60 wallet's private key (NSEC). Store it securely as an extra backup and do not share it. It is used to unlock cashu tokens that are NutLocked to your NIP-61 public key. You can optionally also import it as a P2PK key in a wallet like Cashu.me</div>
                     <input type="text" value="" id="wallet-key" readonly>
                     <p><button id="copy-key" class="button">{$copy_key}</button></p>
                 </div>
