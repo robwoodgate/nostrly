@@ -8,6 +8,7 @@ import {
   getP2PKWitnessSignatures,
   parseP2PKSecret,
   signP2PKProofs,
+  hasP2PKSignedProof,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
 import {
@@ -220,9 +221,9 @@ jQuery(function ($) {
     const updateContactName = (npub, p2pkey, relays) => {
       getContactDetails(npub, relays).then(({ name, hexpub }) => {
         if (name) {
-          const nip61 = hexpub != p2pkey.slice(2) ? " (NIP-61)" : "";
+          const nip61 = hexpub != p2pkey.slice(2) ? "(NIP-61)" : "(NPUB)";
           $(`#${npub}`).replaceWith(
-            `<a href="https://njump.me/${npub}" target="_blank">${name}${nip61}</a>`,
+            `<a href="https://njump.me/${npub}" target="_blank">${name}</a> ${nip61}`,
           );
         }
       });
@@ -308,9 +309,11 @@ jQuery(function ($) {
           }
         }
       }
+      console.log("signedProofs after NIP-60:>>", signedProofs);
 
       if (useNip07) {
         signedProofs = await signWithNip07(signedProofs);
+        console.log("signedProofs after NIP-07:>>", signedProofs);
       } else {
         if (!privkey || !isPrivkeyValid(privkey)) {
           throw new Error("No valid private key provided");
@@ -319,6 +322,7 @@ jQuery(function ($) {
           signedProofs,
           maybeConvertNsecToP2PK(privkey),
         );
+        console.log("signedProofs after privkey:>>", signedProofs);
       }
 
       // Count proofs that had signatures added in this operation
@@ -375,7 +379,7 @@ jQuery(function ($) {
       const n_sigs = getP2PKNSigs(parsed);
       console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
       if (!pubkeys.length) continue;
-      let signatures = proof.witness?.signatures || [];
+      let signatures = getP2PKWitnessSignatures(proof.witness);
 
       const hash = sha256Hex(proof.secret);
       let pubkey = "";
@@ -425,7 +429,7 @@ jQuery(function ($) {
         console.error("NIP-07 signing error:", e);
         continue;
       }
-      if (sig && !signatures.includes(sig)) {
+      if (sig && !hasP2PKSignedProof(pubkey, proof)) {
         signedProofs[index].witness = {
           signatures: [...signatures, sig],
         };

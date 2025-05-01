@@ -52,7 +52,7 @@ jQuery(function ($) {
   const relays = nostrly_ajax.relays;
   const pool = new SimplePool();
   const params = new URL(document.location.href).searchParams;
-  const MIN_FEE = 3; // sats
+  const MIN_FEE = 1; // sats
   const PCT_FEE = 1; // 1%
   const MAX_SECRET = 512; // Characters (mint limit)
 
@@ -248,7 +248,7 @@ jQuery(function ($) {
         `${name} does not have a NIP-61 P2PK Key. The token will be locked to their NPUB, and they will have to use a compatible NIP-07 signer or enter their NSEC to unlock`,
       );
     } else if (name) {
-      toastr.info(`Using ${name}'s NIP-61 P2PK KEY`);
+      toastr.info(`${name}'s NIP-61 P2PK KEY`);
     }
     return p2pkey;
   };
@@ -321,7 +321,7 @@ jQuery(function ($) {
     });
     // Block non-paste inputs with a warning
     $input.on("input", (e) => {
-      if (!isPasting) {
+      if (!isPasting && $input.val()) {
         clearTimeout(timeout);
         timeout = setTimeout(async () => {
           toastr.warning("Please paste only!");
