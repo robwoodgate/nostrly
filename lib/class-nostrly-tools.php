@@ -801,7 +801,7 @@ class NostrlyTools
                 <div id="signers" class="hidden">
                     <div>
                         <label for="privkey">Private Key (NSEC or Hex):</label>
-                        <input type="text" id="privkey" name="privkey" placeholder="nsec1... | 02...">
+                        <input type="text" id="privkey" name="privkey" placeholder="nsec1... | hex">
                         <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank" rel="noopener"><em>signString()</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a NIP-60 Cashu Wallet, like <a href="https://nutsack.me" target="_blank">NutSack</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name will not appear above in this case.</div>
                     </div>
                     <div class="center">
@@ -841,7 +841,7 @@ class NostrlyTools
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-cashu-nip60');
 
-        $get_relays = esc_html('Get My Relays', 'nostrly');
+        $get_relays = esc_html('Add My Relays', 'nostrly');
         $create_wallet = esc_html('Create Wallet', 'nostrly');
         $copy_key = esc_html('Copy Key', 'nostrly');
 
@@ -863,7 +863,8 @@ class NostrlyTools
                     /* Common input styles */
                     #nip60-wallet-form input,
                     #nip60-wallet-form textarea,
-                    #nip60-wallet-form select {
+                    #nip60-wallet-form select,
+                    #wallet-key {
                         border-radius: 6px;
                         margin-bottom: 0.25em;
                         padding: 6px 15px;
@@ -884,20 +885,22 @@ class NostrlyTools
                     }
                     .description {
                         font-size: 0.85rem;
-                        margin-top: 0.5rem;
+                        margin-top: 0.25rem;
+                        margin-bottom: 0.25rem;
                         color: #ccc;
                     }
                     /* Relays container */
                     #relays-container {
                         display: flex;
-                        align-items: flex-start;
+                        align-items: stretch;
                     }
                     #relays {
                         flex: 1;
-                        margin-right: 5px;
                         text-align: left;
+                        margin-right: 5px;
                     }
                     #get-relays {
+                        border-radius: 6px;
                         flex: 0 0 auto;
                         width: 13rem;
                     }
@@ -922,10 +925,9 @@ class NostrlyTools
                     #nip60-wallet-success {
                         margin-top: 2rem;
                     }
-                    #nip60-wallet-success textarea {
-                        resize: vertical;
-                        min-height: 60px;
+                    #wallet-key {
                         font-family: monospace;
+                        text-align:center;
                     }
                     /* Media queries */
                     @media (max-width: 600px) {
@@ -943,16 +945,12 @@ class NostrlyTools
                 </style>
                 <div id="nip60-wallet-form">
                     <div>
-                        <label for="mint-select">Select Mints:</label>
+                        <label for="mint-select">Mints (one per line):</label>
                         <select id="mint-select" name="mint-select">
                             <option value="" disabled selected>Loading mints...</option>
                         </select>
-                        <div class="description">Select mints to populate the mints textarea below.</div>
-                    </div>
-                    <div>
-                        <label for="mints">Mints (one per line):</label>
                         <textarea id="mints" name="mints" rows="4" placeholder="https://mint.minibits.cash/Bitcoin\nhttps://stablenut.cashu.network"></textarea>
-                        <div class="description">List of mint URLs for the NIP-60 wallet. Each mint must support NIP-60.</div>
+                        <div class="description">Choose the NUT-11 compliant mints you are comfortable using.</div>
                     </div>
                     <div>
                         <label for="relays">Relays (one per line):</label>
@@ -960,17 +958,17 @@ class NostrlyTools
                             <textarea id="relays" name="relays" rows="4" placeholder="wss://relay.damus.io\nwss://nostr.mom"></textarea>
                             <button type="button" id="get-relays" class="button">{$get_relays}</button>
                         </div>
-                        <div class="description">List of Nostr relays to broadcast wallet events. Use the button to fetch your relays if using a NIP-07 extension.</div>
+                        <div class="description">These are the Nostr relays where your ecash will be stored (max recommended 2-4). Use the button to fetch your relays if using a NIP-07 extension.</div>
                     </div>
                     <div class="center">
                         <button type="submit" id="create-wallet" disabled>{$create_wallet}</button>
                     </div>
                 </div>
                 <div id="nip60-wallet-success" class="center hidden">
-                    <h2>Your NIP-60 Wallet Key</h2>
-                    <textarea id="wallet-key" rows="4" cols="50" readonly></textarea>
+                    <h2>Your Wallet Private Key</h2>
+                    <div class="description">This is your NIP-60 wallet's private key (NSEC). Store it securely as an extra backup and do not share it. It is used to unlock cashu tokens that are NutLocked to your NIP-61 public key. You can optionally also import it as a P2PK key in a wallet Cashu.me</div>
+                    <input type="text" value="" id="wallet-key" readonly>
                     <p><button id="copy-key" class="button">{$copy_key}</button></p>
-                    <div class="description">This is your private key (NSEC). Store it securely and do not share it. Use it to manage your NIP-60 wallet.</div>
                 </div>
             EOL;
     }

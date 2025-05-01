@@ -43,16 +43,16 @@ export const getNut11Mints = async (
       throw new Error(`API error: ${response.status}`);
     }
     const mintList = (await response.json()) as Array<MintRead>;
-    console.log("MintList:>>", mintList);
+    // console.log("MintList:>>", mintList);
     mintList.forEach((mint: MintRead) => {
       if ("OK" != mint.state) {
-        console.log("Mint not OK:>>", mint);
+        // console.log("Mint not OK:>>", mint);
         return;
       }
       const info = JSON.parse(mint.info || "{}");
       // console.log("MintInfo", info);
       if (!info?.nuts[11]?.supported === true) {
-        console.log("Nut11 not supported:>", mint.url, info);
+        // console.log("Nut11 not supported:>", mint.url, info);
         return;
       }
       if (discoveredMints.indexOf(mint.url) === -1) {
@@ -63,7 +63,7 @@ export const getNut11Mints = async (
     console.error("Error fetching mint info:", e);
     throw e;
   }
-  console.log("discoveredMints:>>", discoveredMints);
+  // console.log("discoveredMints:>>", discoveredMints);
   return discoveredMints;
 };
 
