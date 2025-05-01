@@ -240,7 +240,6 @@ jQuery(function ($) {
       showSuccess();
       $copyKey.on("click", () => {
         copyTextToClipboard(nsec);
-        toastr.success("Wallet key copied");
       });
 
       toastr.success(

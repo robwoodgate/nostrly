@@ -45,10 +45,10 @@ export const getNut11Mints = async (
     const mintList = (await response.json()) as Array<MintRead>;
     // console.log("MintList:>>", mintList);
     mintList.forEach((mint: MintRead) => {
-      if ("OK" != mint.state) {
-        // console.log("Mint not OK:>>", mint);
-        return;
-      }
+      // if ("OK" != mint.state) {
+      // console.log("Mint not OK:>>", mint);
+      // return;
+      // }
       const info = JSON.parse(mint.info || "{}");
       // console.log("MintInfo", info);
       if (!info?.nuts[11]?.supported === true) {
