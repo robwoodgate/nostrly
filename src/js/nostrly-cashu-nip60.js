@@ -87,7 +87,7 @@ jQuery(function ($) {
       .filter(Boolean)
       .map((url) => url.trim());
     mints = [...new Set(mintList)]; // Deduplicate
-    $mints.val(mintList.join("\n") + "\n");
+    $mints.val(mints.join("\n") + "\n");
     // Check if all entered mints are in mintUrls
     const invalidMints = mints.filter((mint) => !mintUrls.includes(mint));
     if (invalidMints.length > 0) {
@@ -114,7 +114,7 @@ jQuery(function ($) {
       .filter(Boolean)
       .map((url) => url.trim());
     relays = [...new Set(relayList)]; // Deduplicate
-    $relays.val(relayList.join("\n") + "\n");
+    $relays.val(relays.join("\n") + "\n");
     if (relays.length === 0) {
       $relays.attr("data-valid", "no");
       toastr.error("At least one relay is required");
