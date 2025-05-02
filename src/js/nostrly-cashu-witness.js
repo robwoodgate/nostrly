@@ -190,17 +190,14 @@ jQuery(function ($) {
       return;
     }
     const { pubkeys, n_sigs } = p2pkParams;
-    let signatures = getP2PKWitnessSignatures(proofs[0].witness);
-    signatures.forEach((sig) => {
-      pubkeys.forEach((pub) => {
-        try {
-          if (verifyP2PKsecretSignature(sig, proofs[0].secret, pub)) {
-            signedPubkeys.push(pub);
-          }
-        } catch (e) {
-          console.error("Verification error:", e);
+    pubkeys.forEach((pub) => {
+      try {
+        if (hasP2PKSignedProof(pub, proofs[0])) {
+          signedPubkeys.push(pub);
         }
-      });
+      } catch (e) {
+        console.error("Verification error:", e);
+      }
     });
     signedPubkeys = [...new Set(signedPubkeys)];
     console.log("signedPubkeys:>>", signedPubkeys);
@@ -301,10 +298,14 @@ jQuery(function ($) {
           if (nip60 && typeof nip60 === "string") {
             // console.log("nip60:>>", nip60); // sensitive!
             const nip60Array = JSON.parse(nip60);
-            const privkeyEntry = nip60Array.find((tag) => tag[0] === "privkey");
-            if (privkeyEntry) {
+            const privkeyEntries = nip60Array.filter(
+              (tag) => tag[0] === "privkey",
+            );
+            if (privkeyEntries.length > 0) {
               console.log("signing using nip60...");
-              signedProofs = signP2PKProofs(signedProofs, privkeyEntry[1]);
+              privkeyEntries.forEach((privkeyEntry) => {
+                signedProofs = signP2PKProofs(signedProofs, privkeyEntry[1]);
+              });
             }
           }
         }

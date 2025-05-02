@@ -87,39 +87,3 @@ export const isPublicKeyValidP2PK = (key: string): boolean => {
 export const sha256Hex = (input: string): string => {
   return bytesToHex(sha256(input));
 };
-
-/**
- * Signs a P2PK secret using a Schnorr signature.
- * @param secret - The secret message to sign.
- * @param privateKey - The private key (hex-encoded) used for signing.
- * @returns {string} The Schnorr signature (hex-encoded).
- */
-export const signP2PKsecret = (secret: string, privateKey: string): string => {
-  const msghash = sha256(secret); // Uint8Array
-  const sig = schnorr.sign(msghash, privateKey);
-  return bytesToHex(sig);
-};
-
-/**
- * Verifies a Schnorr signature on a P2PK secret.
- * @param signature - The Schnorr signature (hex-encoded).
- * @param secret - The secret message to verify.
- * @param pubkey - The compressed public key (hex-encoded, starting with 02 or 03).
- * @returns {boolean} True if the signature is valid, false otherwise.
- */
-export const verifyP2PKsecretSignature = (
-  signature: string,
-  secret: string,
-  pubkey: string,
-): boolean => {
-  try {
-    const msghash = sha256(secret); // Uint8Array
-    const pubkeyX = pubkey.slice(2);
-    if (schnorr.verify(signature, msghash, hexToBytes(pubkeyX))) {
-      return true;
-    }
-  } catch (e) {
-    console.error("verifyP2PKsecret error:", e);
-  }
-  return false; // no bueno
-};
