@@ -259,12 +259,12 @@ class NostrlyTools
         $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
         $pkey_label = esc_html('Compatible Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
-        $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$ssignString()%4$s compatible Nostr extension like %1$sAlby%4$s, or %2$sAKA Profiles%4$s'/* or %3$snos2X%4$s.'*/, 'nostrly'),
+        $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$snip60%4$s compatible Nostr extension like %1$sAlby%4$s, %2$sAKA Profiles%4$s or %3$snos2X%4$s.', 'nostrly'),
             '<a href="https://getalby.com/products/browser-extension" target="_blank">',
             '<a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank">',
             '<a href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp" target="_blank">',
             '</a>',
-            '<a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank">',
+            '<a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank">',
         );
         $pkey = esc_html('Token Private Key (P2PK / nsec)', 'nostrly');
         $lnurl_label = esc_html('Lightning address/invoice/LNURL', 'nostrly');
@@ -802,7 +802,7 @@ class NostrlyTools
                     <div>
                         <label for="privkey">Private Key (NSEC or Hex):</label>
                         <input type="text" id="privkey" name="privkey" placeholder="nsec1... | hex">
-                        <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1842" target="_blank" rel="noopener"><em>signString()</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a NIP-60 Cashu Wallet, like <a href="https://nutsack.me" target="_blank">NutSack</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name will not appear above in this case.</div>
+                        <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank" rel="noopener"><em>nip60</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener">NOS2X</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name may not appear above in this case.</div>
                     </div>
                     <div class="center">
                         <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>
@@ -842,7 +842,8 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu-nip60');
 
         $get_relays = esc_html('Add My Relays', 'nostrly');
-        $create_wallet = esc_html('Create Wallet', 'nostrly');
+        $open_wallet = esc_html('Fetch Existing Wallet', 'nostrly');
+        $create_wallet = esc_html('Create/Update Wallet', 'nostrly');
         $copy_key = esc_html('Copy Key', 'nostrly');
 
         return <<<EOL
@@ -944,6 +945,9 @@ class NostrlyTools
                     }
                 </style>
                 <div id="nip60-wallet-form">
+                    <div class="center">
+                        <button type="submit" id="open-wallet">{$open_wallet}</button>
+                    </div>
                     <div>
                         <label for="mint-select">Mints (one per line):</label>
                         <select id="mint-select" name="mint-select">

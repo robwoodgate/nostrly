@@ -12,6 +12,18 @@ import {
 import { bytesToHex } from "@noble/hashes/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 
+// Define window.nostr interface
+interface Nostr {
+  nip44?: {
+    decrypt: (pubkey: string, content: string) => Promise<string>;
+  };
+}
+declare global {
+  interface Window {
+    nostr?: Nostr;
+  }
+}
+
 // Export constants
 export const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
@@ -145,7 +157,15 @@ export const getUserRelays = async (
  * @param {string}   hexOrNpub npub/hexpub to fetch details for
  * @param {string[]} relays Optional. relays to query
  */
-export const getNip60Wallet = async (hexOrNpub: string, relays: string[]) => {
+type Nip60Tag = [string, string];
+export const getNip60Wallet = async (
+  hexOrNpub: string,
+  relays: string[],
+): Promise<{
+  privkeys: string[];
+  mints: string[];
+  encrypted: string | null;
+}> => {
   try {
     if (!relays) {
       relays = DEFAULT_RELAYS; // Fallback
@@ -154,14 +174,36 @@ export const getNip60Wallet = async (hexOrNpub: string, relays: string[]) => {
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
+    let privkeys: string[] = [];
+    let mints: string[] = [];
+    let encrypted: string | null = null;
     const filter: Filter = { kinds: [17375], authors: [hexpub] };
     const event = await pool.get(relays, filter);
-    if (!event) return null;
+    if (!event) return { privkeys: [], mints: [], encrypted: null };
+    encrypted = event.content;
     console.log("getNip60Wallet", event);
-    return event.content;
+    if (window.nostr?.nip44) {
+      const nip60 = await window.nostr.nip44.decrypt(hexpub, event.content);
+      if (nip60 && typeof nip60 === "string") {
+        try {
+          const nip60Array: Nip60Tag[] = JSON.parse(nip60);
+          privkeys = nip60Array
+            .filter((tag) => tag[0] === "privkey")
+            .map((tag) => tag[1]);
+          mints = nip60Array
+            .filter((tag) => tag[0] === "mint")
+            .map((tag) => tag[1]);
+        } catch (e) {
+          console.error("Failed to parse NIP-60 content:", e);
+        }
+      }
+    } else {
+      console.warn("Nostr extension not available");
+    }
+    return { privkeys, mints, encrypted };
   } catch (e) {
     console.error(e);
-    return null;
+    return { privkeys: [], mints: [], encrypted: null };
   }
 };
 
@@ -170,7 +212,10 @@ export const getNip60Wallet = async (hexOrNpub: string, relays: string[]) => {
  * @param {string}   hexOrNpub npub/hexpub to fetch details for
  * @param {string[]} relays Optional. relays to query
  */
-export const getNip61Info = async (hexOrNpub: string, relays: string[]) => {
+export const getNip61Info = async (
+  hexOrNpub: string,
+  relays: string[],
+): Promise<{ pubkey: string | null; mints: string[]; relays: string[] }> => {
   try {
     if (!relays) {
       relays = DEFAULT_RELAYS; // Fallback
@@ -181,11 +226,11 @@ export const getNip61Info = async (hexOrNpub: string, relays: string[]) => {
     }
     const filter: Filter = { kinds: [10019], authors: [hexpub] };
     const event = await pool.get(relays, filter);
-    if (!event) return { pubkey: null, mints: null, relays: null };
+    if (!event) return { pubkey: null, mints: [], relays: [] };
     console.log("getNip61Info", event);
     let mints: string[] = [];
     let nrelays: string[] = [];
-    let pubkey: string = "";
+    let pubkey: string | null = null;
     for (const tag of event.tags) {
       if (tag[0] === "mint") {
         mints.push(tag[1]);
@@ -195,9 +240,53 @@ export const getNip61Info = async (hexOrNpub: string, relays: string[]) => {
         pubkey = tag[1];
       }
     }
-    return { pubkey: pubkey, mints: mints, relays: nrelays };
+    return { pubkey, mints, relays: nrelays };
   } catch (e) {
-    return { pubkey: null, mints: null, relays: null };
+    console.error(e);
+    return { pubkey: null, mints: [], relays: [] };
+  }
+};
+
+/**
+ * Fetches NIP-60 wallet and NIP-61 info simultaneously for an Nostr npub
+ * @param {string}   hexOrNpub npub/hexpub to fetch details for
+ * @param {string[]} relays Optional. relays to query
+ * @returns {Promise<{ privkeys: string[], mints: string[], relays: string[], pubkey: string | null }>}
+ */
+export const getWalletAndInfo = async (
+  hexOrNpub: string,
+  relays: string[],
+): Promise<{
+  privkeys: string[];
+  mints: string[];
+  relays: string[];
+  pubkey: string | null;
+  encrypted: string | null;
+}> => {
+  try {
+    if (!relays) {
+      relays = DEFAULT_RELAYS; // Fallback
+    }
+    let hexpub = hexOrNpub;
+    if (hexOrNpub.startsWith("npub1")) {
+      hexpub = nip19.decode(hexOrNpub).data as string;
+    }
+    const [{ privkeys, mints, encrypted }, { relays: nip61Relays, pubkey }] =
+      await Promise.all([
+        getNip60Wallet(hexpub, relays),
+        getNip61Info(hexpub, relays),
+      ]);
+
+    return { privkeys, mints, relays: nip61Relays, pubkey, encrypted };
+  } catch (error) {
+    console.error("Error getting NIP-60 wallet and NIP-61 info:", error);
+    return {
+      privkeys: [],
+      mints: [],
+      relays: [],
+      pubkey: null,
+      encrypted: null,
+    };
   }
 };
 

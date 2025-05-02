@@ -226,9 +226,7 @@ jQuery(function ($) {
         }
         $lightningStatus.html(msg);
 
-        // If no signString() compatible extension detected, we'll have
-        // to ask for an nsec/private key :(
-        // Hey fiatjaf... free the nsec, it's 2025 !!!!
+        // If no compatible extension detected, we'll have to ask for an nsec/private key :(
         if (
           typeof window?.nostr?.signSchnorr === "undefined" &&
           typeof window?.nostr?.signString === "undefined" &&
@@ -237,7 +235,7 @@ jQuery(function ($) {
           $pkeyWrapper.show();
           if (!$pkey.val()) {
             $tokenStatus.html(
-              "Enter your private key or enable a <em>signString()</em> compatible Nostr Extension</a>.",
+              "Enter your private key or enable a <em>nip60</em> compatible Nostr Extension</a>.",
             );
             return;
           }

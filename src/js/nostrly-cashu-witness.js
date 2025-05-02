@@ -288,26 +288,12 @@ jQuery(function ($) {
       if (hasNip44) {
         nip07Pubkey = await window.nostr.getPublicKey();
         console.log("nip07Pubkey:>>", nip07Pubkey);
-        const nip60Wallet = await getNip60Wallet(nip07Pubkey);
-        if (nip60Wallet) {
-          console.log("nip60Wallet:>>", nip60Wallet);
-          const nip60 = await window.nostr.nip44.decrypt(
-            nip07Pubkey,
-            nip60Wallet,
-          );
-          if (nip60 && typeof nip60 === "string") {
-            // console.log("nip60:>>", nip60); // sensitive!
-            const nip60Array = JSON.parse(nip60);
-            const privkeyEntries = nip60Array.filter(
-              (tag) => tag[0] === "privkey",
-            );
-            if (privkeyEntries.length > 0) {
-              console.log("signing using nip60...");
-              privkeyEntries.forEach((privkeyEntry) => {
-                signedProofs = signP2PKProofs(signedProofs, privkeyEntry[1]);
-              });
-            }
-          }
+        const { privkeys } = await getNip60Wallet(nip07Pubkey);
+        if (privkeys.length > 0) {
+          console.log("signing using nip60...");
+          privkeys.forEach((privkey) => {
+            signedProofs = signP2PKProofs(signedProofs, privkey[1]);
+          });
         }
       }
       console.log("signedProofs after NIP-60:>>", signedProofs);

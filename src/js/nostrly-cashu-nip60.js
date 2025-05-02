@@ -7,13 +7,22 @@ import {
 } from "nostr-tools";
 import { getNut11Mints } from "./nut11.ts";
 import { copyTextToClipboard, debounce, delay } from "./utils.ts";
-import { DEFAULT_RELAYS, pool, getUserRelays } from "./nostr.ts";
+import {
+  DEFAULT_RELAYS,
+  pool,
+  getUserRelays,
+  getWalletAndInfo,
+} from "./nostr.ts";
 import { bytesToHex } from "@noble/hashes/utils";
 import toastr from "toastr";
 
 // DOM ready
 jQuery(function ($) {
   // Init vars
+  let userPubkey = "";
+  let userRelays = "";
+  let pubkey = "";
+  let encrypted = "";
   let mintUrls = [];
   let mints = [];
   let relays = [];
@@ -21,6 +30,7 @@ jQuery(function ($) {
   // DOM elements
   const $form = $("#nip60-wallet-form");
   const $success = $("#nip60-wallet-success");
+  const $getWallet = $("#open-wallet");
   const $mintSelect = $("#mint-select");
   const $mints = $("#mints");
   const $relays = $("#relays");
@@ -39,6 +49,41 @@ jQuery(function ($) {
     $form.hide();
     $success.show();
   }
+
+  // Fetch existing wallet
+  $getWallet.on("click", async () => {
+    try {
+      toastr.info("Looking for your NIP-60 Wallet");
+      if (!userPubkey) {
+        userPubkey = await window.nostr.getPublicKey();
+      }
+      if (!userRelays) {
+        userRelays = await getUserRelays(userPubkey);
+      }
+      ({ mints, relays, pubkey, encrypted } = await getWalletAndInfo(
+        userPubkey,
+        userRelays,
+      ));
+      if (encrypted.length > 0) {
+        toastr.success("Wallet loaded");
+      } else {
+        toastr.error("No wallet found");
+      }
+      if (mints.length > 0) {
+        $mints.val(mints.join("\n") + "\n");
+        validateMints();
+      }
+      if (relays.length > 0) {
+        $relays.val(relays.join("\n") + "\n");
+        validateRelays();
+      }
+    } catch (e) {
+      toastr.error(
+        "Failed to fetch wallet. Ensure you have a NIP-07 signer extension active.",
+      );
+      console.error(e);
+    }
+  });
 
   // Initialize mint selector
   async function initMintSelector() {
@@ -133,8 +178,10 @@ jQuery(function ($) {
   // Fetch relays via NIP-07
   $getRelays.on("click", async () => {
     try {
-      const pubkey = await window.nostr.getPublicKey();
-      const relayUrls = await getUserRelays(pubkey);
+      if (!userPubkey) {
+        userPubkey = await window.nostr.getPublicKey();
+      }
+      const relayUrls = await getUserRelays(userPubkey);
       if (relayUrls.length > 0) {
         $relays.val(relayUrls.join("\n"));
         validateRelays();
@@ -165,16 +212,38 @@ jQuery(function ($) {
       const pk = getPublicKey(sk); // hex string
       const nsec = nip19.nsecEncode(sk); // nsec string
 
+      // Get user Pubkey if needed
+      if (!userPubkey) {
+        userPubkey = await window.nostr.getPublicKey();
+      }
+
+      // Backup existing wallet if needed
+      if (encrypted) {
+        toastr.info("Backing up your existing NIP-60 encrypted wallet");
+        await delay(2000); // give them time to read the notice
+        // Create NIP-60 wallet backup event (kind 375)
+        // @see https://github.com/nostr-protocol/nips/pull/1834
+        // Includes our suggested 'k' tag for REQ filtering
+        const oldWalletBackupEvent = {
+          kind: 375,
+          tags: [],
+          content: encrypted,
+          created_at: Math.floor(Date.now() / 1000),
+        };
+        const oldWalletBackup =
+          await window.nostr.signEvent(oldWalletBackupEvent);
+        await pool.publish(relays, oldWalletBackup);
+      }
+
       // Create NIP-60 encrypted wallet
       toastr.info("Creating your NIP-60 encrypted wallet");
       await delay(2000); // give them time to read the notice
-      const pubkey = await window.nostr.getPublicKey();
       const data = JSON.stringify([
         ["privkey", bytesToHex(sk)],
         ...mints.map((mint) => ["mint", mint]),
       ]);
       console.log(data);
-      const enc_data = await window.nostr.nip44.encrypt(pubkey, data);
+      const enc_data = await window.nostr.nip44.encrypt(userPubkey, data);
 
       // Create NIP-60 wallet metadata event (kind 17375)
       // @see https://github.com/nostr-protocol/nips/blob/master/60.md#wallet-event
@@ -212,22 +281,16 @@ jQuery(function ($) {
       // Sign and broadcast events
       toastr.info("Signing your NIP-60 encrypted wallet");
       await delay(2000); // give them time to read the notice
-      const signedWalletMetadata = await window.nostr.signEvent(
-        walletMetadataEvent,
-        sk,
-      );
+      const signedWalletMetadata =
+        await window.nostr.signEvent(walletMetadataEvent);
       toastr.info("Signing a backup of your NIP-60 encrypted wallet");
       await delay(2000); // give them time to read the notice
-      const signedWalletBackup = await window.nostr.signEvent(
-        walletBackupEvent,
-        sk,
-      );
+      const signedWalletBackup =
+        await window.nostr.signEvent(walletBackupEvent);
       toastr.info("Signing your NIP-61 Nutzap informational event");
       await delay(2000); // give them time to read the notice
-      const signedP2PKMetadata = await window.nostr.signEvent(
-        p2pkMetadataEvent,
-        sk,
-      );
+      const signedP2PKMetadata =
+        await window.nostr.signEvent(p2pkMetadataEvent);
 
       await Promise.all([
         pool.publish(relays, signedWalletMetadata),
@@ -243,7 +306,7 @@ jQuery(function ($) {
       });
 
       toastr.success(
-        "NIP-60 wallet created and broadcast with backup and P2PK metadata",
+        "Successfully published your NIP-60 wallet, backup wallet and NIP-61 Nutzap information",
       );
     } catch (e) {
       toastr.error("Failed to create wallet");
