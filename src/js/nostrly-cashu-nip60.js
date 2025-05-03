@@ -285,8 +285,10 @@ jQuery(function ($) {
       ]);
 
       // Display success
-      const nsecs = privkeys.map((key) => nip19.nsecEncode(hexToBytes(key)));
-      $walletKey.val(nsecs.join("\n"));
+      const nsecs = privkeys
+        .map((key) => nip19.nsecEncode(hexToBytes(key)))
+        .join("\n");
+      $walletKey.val(nsecs);
       showSuccess();
       $copyKey.on("click", () => {
         copyTextToClipboard(nsecs);
