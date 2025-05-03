@@ -67,7 +67,7 @@ jQuery(function ($) {
       if (privkeys.length > 0) {
         toastr.success("Wallet loaded");
       } else {
-        toastr.error("No wallet found");
+        toastr.error("Wallet could not be loaded");
       }
       if (mints.length > 0) {
         $mints.val(mints.join("\n") + "\n");

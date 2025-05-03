@@ -11,6 +11,7 @@ import {
 } from "nostr-tools";
 import { bytesToHex } from "@noble/hashes/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
+import toastr from "toastr";
 
 // Define window.nostr interface
 interface Nostr {
@@ -195,6 +196,7 @@ export const getNip60Wallet = async (
         }
       }
     } else {
+      toastr.warning("Nostr extension not available or does not support nip44");
       console.warn("Nostr extension not available");
     }
     return { privkeys, mints };

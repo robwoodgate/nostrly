@@ -292,7 +292,7 @@ jQuery(function ($) {
         if (privkeys.length > 0) {
           console.log("signing using nip60...");
           privkeys.forEach((privkey) => {
-            signedProofs = signP2PKProofs(signedProofs, privkey[1]);
+            signedProofs = signP2PKProofs(signedProofs, privkey);
           });
         }
       }
