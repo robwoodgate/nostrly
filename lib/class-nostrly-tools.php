@@ -843,7 +843,7 @@ class NostrlyTools
 
         $get_relays = esc_html('Add My Relays', 'nostrly');
         $open_wallet = esc_html('Fetch Existing Wallet', 'nostrly');
-        $create_wallet = esc_html('Create/Update Wallet', 'nostrly');
+        $create_wallet = esc_html('Create Wallet', 'nostrly');
         $copy_key = esc_html('Copy Key', 'nostrly');
 
         return <<<EOL
@@ -966,12 +966,13 @@ class NostrlyTools
                     </div>
                     <div class="center">
                         <button type="submit" id="create-wallet" disabled>{$create_wallet}</button>
+                        <div class="description" id="create-warning"><strong>WARNING:</strong> This will replace any existing wallet. To preserve keys, fetch your existing wallet first</div>
                     </div>
                 </div>
                 <div id="nip60-wallet-success" class="center hidden">
-                    <h2>Your Wallet Private Key</h2>
-                    <div class="description">This is your NIP-60 wallet's private key (NSEC). Store it securely as an extra backup and do not share it. It is used to unlock cashu tokens that are NutLocked to your NIP-61 public key. You can optionally also import it as a P2PK key in a wallet like Cashu.me</div>
-                    <input type="text" value="" id="wallet-key" readonly>
+                    <h2>Your Wallet Private Key(s)</h2>
+                    <div class="description">These are your NIP-60 wallet's private key(s) in nsec format. It's important to keep them safe and backed up. You can optionally also import them as P2PK keys in a wallet like Cashu.me</div>
+                    <textarea id="wallet-key" rows="4"></textarea>
                     <p><button id="copy-key" class="button">{$copy_key}</button></p>
                 </div>
             EOL;

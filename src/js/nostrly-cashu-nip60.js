@@ -13,7 +13,7 @@ import {
   getUserRelays,
   getWalletAndInfo,
 } from "./nostr.ts";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import toastr from "toastr";
 
 // DOM ready
@@ -21,7 +21,6 @@ jQuery(function ($) {
   // Init vars
   let userPubkey = "";
   let userRelays = "";
-  let pubkey = "";
   let privkeys = [];
   let mintUrls = [];
   let mints = [];
@@ -35,6 +34,7 @@ jQuery(function ($) {
   const $mints = $("#mints");
   const $relays = $("#relays");
   const $getRelays = $("#get-relays");
+  const $createWarning = $("#create-warning");
   const $createWallet = $("#create-wallet");
   const $walletKey = $("#wallet-key");
   const $copyKey = $("#copy-key");
@@ -60,7 +60,7 @@ jQuery(function ($) {
       if (!userRelays) {
         userRelays = await getUserRelays(userPubkey);
       }
-      ({ mints, relays, pubkey, privkeys } = await getWalletAndInfo(
+      ({ mints, relays, privkeys } = await getWalletAndInfo(
         userPubkey,
         userRelays,
       ));
@@ -77,6 +77,9 @@ jQuery(function ($) {
         $relays.val(relays.join("\n") + "\n");
         validateRelays();
       }
+      // Update button, remove warning
+      $createWarning.hide();
+      $createWallet.text("Update Wallet");
     } catch (e) {
       toastr.error(
         "Failed to fetch wallet. Ensure you have a NIP-07 signer extension active.",
@@ -207,10 +210,10 @@ jQuery(function ($) {
   // Create NIP-60 wallet
   $createWallet.on("click", async () => {
     try {
-      // Generate new keypair
+      // Generate new keypair and prepend sk to privkeys array
       const sk = generateSecretKey(); // Uint8Array
       const pk = getPublicKey(sk); // hex string
-      const nsec = nip19.nsecEncode(sk); // nsec string
+      privkeys = [bytesToHex(sk), ...privkeys];
 
       // Get user Pubkey if needed
       if (!userPubkey) {
@@ -221,8 +224,7 @@ jQuery(function ($) {
       toastr.info("Creating your NIP-60 encrypted wallet");
       await delay(2000); // give them time to read the notice
       const data = JSON.stringify([
-        ["privkey", bytesToHex(sk)],
-        ...privkeys.map((key) => ["privkey", key]), // existing keys
+        ...privkeys.map((key) => ["privkey", key]),
         ...mints.map((mint) => ["mint", mint]),
       ]);
       console.log(data);
@@ -275,6 +277,7 @@ jQuery(function ($) {
       const signedP2PKMetadata =
         await window.nostr.signEvent(p2pkMetadataEvent);
 
+      toastr.info("Publishing your wallet");
       await Promise.all([
         pool.publish(relays, signedWalletMetadata),
         pool.publish(relays, signedWalletBackup),
@@ -282,10 +285,11 @@ jQuery(function ($) {
       ]);
 
       // Display success
-      $walletKey.val(nsec);
+      const nsecs = privkeys.map((key) => nip19.nsecEncode(hexToBytes(key)));
+      $walletKey.val(nsecs.join("\n"));
       showSuccess();
       $copyKey.on("click", () => {
-        copyTextToClipboard(nsec);
+        copyTextToClipboard(nsecs);
       });
 
       toastr.success(
