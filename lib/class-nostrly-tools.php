@@ -844,7 +844,7 @@ class NostrlyTools
         $get_relays = esc_html('Add My Relays', 'nostrly');
         $open_wallet = esc_html('Fetch Existing Wallet', 'nostrly');
         $create_wallet = esc_html('Create Wallet', 'nostrly');
-        $copy_key = esc_html('Copy Key', 'nostrly');
+        $copy_key = esc_html('Copy Key(s)', 'nostrly');
 
         return <<<EOL
                 <style>
