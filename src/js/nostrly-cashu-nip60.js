@@ -37,7 +37,8 @@ jQuery(function ($) {
   const $createWarning = $("#create-warning");
   const $createWallet = $("#create-wallet");
   const $walletKey = $("#wallet-key");
-  const $copyKey = $("#copy-key");
+  const $copyNsec = $("#copy-nsec");
+  const $copyHex = $("#copy-hex");
 
   // Page handlers
   function showForm() {
@@ -290,8 +291,11 @@ jQuery(function ($) {
         .join("\n");
       $walletKey.val(nsecs);
       showSuccess();
-      $copyKey.on("click", () => {
+      $copyNsec.on("click", () => {
         copyTextToClipboard(nsecs);
+      });
+      $copyHex.on("click", () => {
+        copyTextToClipboard(privkeys.join("\n"));
       });
 
       toastr.success(

@@ -844,7 +844,8 @@ class NostrlyTools
         $get_relays = esc_html('Add My Relays', 'nostrly');
         $open_wallet = esc_html('Fetch Existing Wallet', 'nostrly');
         $create_wallet = esc_html('Create Wallet', 'nostrly');
-        $copy_key = esc_html('Copy Key(s)', 'nostrly');
+        $copy_nsec = esc_html('Copy NSEC Format', 'nostrly');
+        $copy_hex = esc_html('Copy Hex Format', 'nostrly');
 
         return <<<EOL
                 <style>
@@ -973,7 +974,10 @@ class NostrlyTools
                     <h2>Your Wallet Private Key(s)</h2>
                     <div class="description">These are your NIP-60 wallet's private key(s) in nsec format. It's important to keep them safe and backed up. You can optionally also import them as P2PK keys in a wallet like Cashu.me</div>
                     <textarea id="wallet-key" rows="4"></textarea>
-                    <p><button id="copy-key" class="button">{$copy_key}</button></p>
+                    <p>
+                        <button id="copy-nsec" class="button">{$copy_nsec}</button>
+                        <button id="copy-hex" class="button">{$copy_hex}</button>
+                    </p>
                 </div>
             EOL;
     }
