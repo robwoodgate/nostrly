@@ -22,7 +22,7 @@ jQuery(function ($) {
   let userPubkey = "";
   let userRelays = "";
   let pubkey = "";
-  let encrypted = "";
+  let privkeys = [];
   let mintUrls = [];
   let mints = [];
   let relays = [];
@@ -60,11 +60,11 @@ jQuery(function ($) {
       if (!userRelays) {
         userRelays = await getUserRelays(userPubkey);
       }
-      ({ mints, relays, pubkey, encrypted } = await getWalletAndInfo(
+      ({ mints, relays, pubkey, privkeys } = await getWalletAndInfo(
         userPubkey,
         userRelays,
       ));
-      if (encrypted.length > 0) {
+      if (privkeys.length > 0) {
         toastr.success("Wallet loaded");
       } else {
         toastr.error("No wallet found");
@@ -217,29 +217,12 @@ jQuery(function ($) {
         userPubkey = await window.nostr.getPublicKey();
       }
 
-      // Backup existing wallet if needed
-      if (encrypted) {
-        toastr.info("Backing up your existing NIP-60 encrypted wallet");
-        await delay(2000); // give them time to read the notice
-        // Create NIP-60 wallet backup event (kind 375)
-        // @see https://github.com/nostr-protocol/nips/pull/1834
-        // Includes our suggested 'k' tag for REQ filtering
-        const oldWalletBackupEvent = {
-          kind: 375,
-          tags: [],
-          content: encrypted,
-          created_at: Math.floor(Date.now() / 1000),
-        };
-        const oldWalletBackup =
-          await window.nostr.signEvent(oldWalletBackupEvent);
-        await pool.publish(relays, oldWalletBackup);
-      }
-
       // Create NIP-60 encrypted wallet
       toastr.info("Creating your NIP-60 encrypted wallet");
       await delay(2000); // give them time to read the notice
       const data = JSON.stringify([
         ["privkey", bytesToHex(sk)],
+        ...privkeys.map((key) => ["privkey", key]), // existing keys
         ...mints.map((mint) => ["mint", mint]),
       ]);
       console.log(data);

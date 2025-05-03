@@ -164,7 +164,6 @@ export const getNip60Wallet = async (
 ): Promise<{
   privkeys: string[];
   mints: string[];
-  encrypted: string | null;
 }> => {
   try {
     if (!relays) {
@@ -176,11 +175,9 @@ export const getNip60Wallet = async (
     }
     let privkeys: string[] = [];
     let mints: string[] = [];
-    let encrypted: string | null = null;
     const filter: Filter = { kinds: [17375], authors: [hexpub] };
     const event = await pool.get(relays, filter);
-    if (!event) return { privkeys: [], mints: [], encrypted: null };
-    encrypted = event.content;
+    if (!event) return { privkeys: [], mints: [] };
     console.log("getNip60Wallet", event);
     if (window.nostr?.nip44) {
       const nip60 = await window.nostr.nip44.decrypt(hexpub, event.content);
@@ -200,10 +197,10 @@ export const getNip60Wallet = async (
     } else {
       console.warn("Nostr extension not available");
     }
-    return { privkeys, mints, encrypted };
+    return { privkeys, mints };
   } catch (e) {
     console.error(e);
-    return { privkeys: [], mints: [], encrypted: null };
+    return { privkeys: [], mints: [] };
   }
 };
 
@@ -261,7 +258,6 @@ export const getWalletAndInfo = async (
   mints: string[];
   relays: string[];
   pubkey: string | null;
-  encrypted: string | null;
 }> => {
   try {
     if (!relays) {
@@ -271,13 +267,13 @@ export const getWalletAndInfo = async (
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    const [{ privkeys, mints, encrypted }, { relays: nip61Relays, pubkey }] =
+    const [{ privkeys, mints }, { relays: nip61Relays, pubkey }] =
       await Promise.all([
         getNip60Wallet(hexpub, relays),
         getNip61Info(hexpub, relays),
       ]);
 
-    return { privkeys, mints, relays: nip61Relays, pubkey, encrypted };
+    return { privkeys, mints, relays: nip61Relays, pubkey };
   } catch (error) {
     console.error("Error getting NIP-60 wallet and NIP-61 info:", error);
     return {
@@ -285,7 +281,6 @@ export const getWalletAndInfo = async (
       mints: [],
       relays: [],
       pubkey: null,
-      encrypted: null,
     };
   }
 };
