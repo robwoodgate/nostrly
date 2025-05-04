@@ -28,6 +28,7 @@ jQuery(function ($) {
 
   // DOM elements
   const $form = $("#nip60-wallet-form");
+  const $preamble = $(".preamble");
   const $success = $("#nip60-wallet-success");
   const $getWallet = $("#open-wallet");
   const $mintSelect = $("#mint-select");
@@ -49,6 +50,7 @@ jQuery(function ($) {
   function showSuccess() {
     $form.hide();
     $success.show();
+    $preamble.hide();
   }
 
   // Fetch existing wallet
