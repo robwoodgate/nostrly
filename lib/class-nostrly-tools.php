@@ -253,7 +253,7 @@ class NostrlyTools
     public function cashu_redeem_shortcode($atts, $content = null)
     {
         // Enqueue scripts and styles
-        wp_enqueue_script('nostrly-cashu');
+        wp_enqueue_script('nostrly-cashu-redeem');
         wp_enqueue_script('confetti');
 
         $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
@@ -990,7 +990,7 @@ class NostrlyTools
      */
     public function enqueue_scripts(): void
     {
-        wp_register_script('nostrly-cashu', NOSTRLY_URL.'assets/js/nostrly-cashu.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-redeem', NOSTRLY_URL.'assets/js/nostrly-cashu-redeem.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-lock', NOSTRLY_URL.'assets/js/nostrly-cashu-lock.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-nip60', NOSTRLY_URL.'assets/js/nostrly-cashu-nip60.min.js', [], NOSTRLY_VERSION, false); // NB: head
