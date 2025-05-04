@@ -589,7 +589,7 @@ jQuery(function ($) {
           mint: mintUrl,
           proofs: donationProofs,
         });
-        handleCashuDonation(donationToken);
+        handleCashuDonation(donationToken, "Cashu NutLock Donation");
       }
 
       const lockedToken = getEncodedTokenV4({

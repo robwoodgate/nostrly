@@ -44,11 +44,7 @@ jQuery(function ($) {
   // Donation input
   $donateCashu.on("paste", () => {
     setTimeout(async () => {
-      handleCashuDonation(
-        $donateCashu.val(),
-        nostrly_ajax.relays,
-        nostrly_ajax.pubkey,
-      );
+      handleCashuDonation($donateCashu.val(), "Cashu Redeem Donation");
       $donateCashu.val("");
     }, 200);
     console.log("donation");

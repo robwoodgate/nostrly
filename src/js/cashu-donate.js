@@ -5,7 +5,7 @@ import {
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
-import { sendViaNostr } from "./nostr.ts";
+import { NOSTRLY_PUBKEY, sendNutZap } from "./nostr.ts";
 import {
   encode as emojiEncode,
   decode as emojiDecode,
@@ -13,12 +13,15 @@ import {
 
 /**
  * Cashu Donation
- * @param  string token Cashu token (or emoji)
- * @param  array $relays array of Nostr relays
- * @param  string toPub Nostr pubkey (hex)
+ * @param  {string} token Cashu token (or emoji)
+ * @param  {string} message Cashu token (or emoji)
+ * @param  {array}  relays array of Nostr relays
+ * @param  {string} toPub Nostr pubkey (hex)
  */
-export const handleCashuDonation = async (token, relays, toPub) => {
+export const handleCashuDonation = async (token, message, relays, toPub) => {
   try {
+    // Ensure public key
+    toPub = toPub || NOSTRLY_PUBKEY; // Fallback
     if (!token.startsWith("cashu")) {
       token = emojiDecode(token);
     }
@@ -32,10 +35,8 @@ export const handleCashuDonation = async (token, relays, toPub) => {
     const wallet = new CashuWallet(mint);
     await wallet.loadMint();
     // Receive the token to the wallet (creates new proofs)
-    const proofs = await wallet.receive(token);
-    const newToken = getEncodedTokenV4({ mint: mintUrl, proofs: proofs });
-    const emoji = emojiEncode("\uD83E\uDD5C", newToken); // nut emoji
-    sendViaNostr("Cashu Donation: " + emoji, toPub, relays); // async fire-forget
+    const proofs = await wallet.receive(token, { p2pk: { pubkey: toPub } });
+    await sendNutZap(proofs, mintUrl, message, toPub);
     toastr.success("Donation received! Thanks for your support 🧡");
     return true;
   } catch (error) {

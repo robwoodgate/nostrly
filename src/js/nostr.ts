@@ -1,5 +1,6 @@
 import {
   type Event,
+  type EventTemplate,
   type Filter,
   type UnsignedEvent,
   SimplePool,
@@ -12,6 +13,7 @@ import {
 import { bytesToHex } from "@noble/hashes/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
+import { Proof } from "@cashu/cashu-ts";
 
 // Define window.nostr interface
 interface Nostr {
@@ -29,6 +31,9 @@ declare global {
 export const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
   "wss://relay.primal.net",
+  "wss://relay.snort.social",
+  "wss://nos.lol",
+  "wss://nostr.mom",
 ];
 export const NOSTRLY_PUBKEY =
   "cec0f44d0d64d6d9d7a1c84c330f5467e752cc8b065f720e874a0bed1c5416d2";
@@ -45,12 +50,8 @@ export const sendViaNostr = async (
   toPub: string,
   relays: string[],
 ) => {
-  if (!toPub) {
-    toPub = NOSTRLY_PUBKEY; // Fallback
-  }
-  if (!relays) {
-    relays = DEFAULT_RELAYS; // Fallback
-  }
+  toPub = toPub || NOSTRLY_PUBKEY; // Fallback
+  relays = relays || DEFAULT_RELAYS; // Fallback
   const sk = generateSecretKey();
   const pk = getPublicKey(sk);
   const event: UnsignedEvent = {
@@ -67,6 +68,37 @@ export const sendViaNostr = async (
 };
 
 /**
+ * Sends a NutZap via Nostr
+ * @param Proof[]  proofs  Token proofs to send (should be )
+ * @param string   mintUrl Mint URL for the proofs
+ * @param string   message to send
+ * @param string   toPub   Hex pubkey to send to
+ * @param string[] relays  array of relays to use
+ */
+export const sendNutZap = async (
+  proofs: Proof[],
+  mintUrl: string,
+  message: string,
+  toPub: string,
+  relays: string[],
+) => {
+  toPub = toPub || NOSTRLY_PUBKEY; // Fallback
+  relays = relays || DEFAULT_RELAYS; // Fallback
+  const proofTags = proofs.map((p) => ["proof", JSON.stringify(p)]);
+  const eventTemplate: EventTemplate = {
+    kind: 9321,
+    content: message || "NutZap via Nostrly",
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [...proofTags, ["p", toPub], ["u", mintUrl]],
+  };
+  const sk = generateSecretKey();
+  const event = finalizeEvent(eventTemplate, sk);
+  console.log(event);
+  const pub = pool.publish(relays, event);
+  return Promise.any(pub);
+};
+
+/**
  * Gets the name and image for an Nostr npub
  * @param string   hexOrNpub   npub/hexpub to fetch details for
  * @param string[] relays relays to query
@@ -80,9 +112,7 @@ export const getContactDetails = async (
   hexpub: string | null;
 }> => {
   try {
-    if (!relays) {
-      relays = DEFAULT_RELAYS; // Fallback
-    }
+    relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
@@ -130,9 +160,7 @@ export const getUserRelays = async (
   relays: string[],
 ): Promise<string[]> => {
   try {
-    if (!relays) {
-      relays = DEFAULT_RELAYS; // Fallback
-    }
+    relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
@@ -167,9 +195,7 @@ export const getNip60Wallet = async (
   mints: string[];
 }> => {
   try {
-    if (!relays) {
-      relays = DEFAULT_RELAYS; // Fallback
-    }
+    relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
@@ -216,9 +242,7 @@ export const getNip61Info = async (
   relays: string[],
 ): Promise<{ pubkey: string | null; mints: string[]; relays: string[] }> => {
   try {
-    if (!relays) {
-      relays = DEFAULT_RELAYS; // Fallback
-    }
+    relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
@@ -262,9 +286,7 @@ export const getWalletAndInfo = async (
   pubkey: string | null;
 }> => {
   try {
-    if (!relays) {
-      relays = DEFAULT_RELAYS; // Fallback
-    }
+    relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
