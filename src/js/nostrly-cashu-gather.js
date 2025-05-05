@@ -53,12 +53,20 @@ jQuery(function ($) {
       if (!unspentProofs.length) {
         return null;
       }
+      console.log("unspentProofs:>>", unspentProofs);
       // Witness the proofs
       const { privkeys } = await getNip60Wallet(pubkey, relays);
       privkeys.forEach((privkey) => {
         unspentProofs = signP2PKProofs(unspentProofs, privkey);
       });
-      const newProofs = await wallet.receive(unspentProofs);
+      console.log("signed proofs:>>", unspentProofs);
+      const token = getEncodedTokenV4({
+        mint: mintUrl,
+        proofs: unspentProofs,
+        unit,
+      });
+      displayAndSaveTokens([{ mintUrl, unit, token }]);
+      const newProofs = await wallet.receive(token);
       const newToken = getEncodedTokenV4({
         mint: mintUrl,
         proofs: newProofs,
@@ -98,7 +106,7 @@ jQuery(function ($) {
       const amount = formatAmount(getTokenAmount(decodedToken.proofs), unit);
       const $item = $(`
         <li>
-          <span class="token">Token: ${amount} from ${mintUrl}</span>
+          <span class="token">${amount} from ${mintUrl}</span>
           <button class="copy-token button">Copy Token</button>
           <button class="copy-emoji button">Copy 🥜</button>
         </li>
@@ -125,7 +133,7 @@ jQuery(function ($) {
         mintUrl,
         unit,
         token,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toLocaleString().slice(0, -3),
       })),
     ];
     localStorage.setItem("cashu-gather-tokens", JSON.stringify(updatedTokens));
