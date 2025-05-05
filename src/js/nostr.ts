@@ -63,13 +63,12 @@ export const sendViaNostr = async (
     pubkey: pk,
   };
   const signedEvent = finalizeEvent(event, sk);
-  // localStorage.setItem("nostrly-donation", JSON.stringify(signedEvent));
   pool.publish(relays, signedEvent);
 };
 
 /**
  * Sends a NutZap via Nostr
- * @param Proof[]  proofs  Token proofs to send (should be )
+ * @param Proof[]  proofs  Token proofs to send
  * @param string   mintUrl Mint URL for the proofs
  * @param string   message to send
  * @param string   toPub   Hex pubkey to send to
@@ -369,4 +368,144 @@ export function maybeConvertNsecToP2PK(key: string): string {
     }
   }
   return key;
+}
+
+/**
+ * Extracts all proofs and mint URL from a kind 9321 event
+ * @param event Nostr event (kind 9321)
+ * @returns { proofs: Proof[], mintUrl: string | null }
+ */
+function getProofsAndMint(event: Event): {
+  proofs: Proof[];
+  mintUrl: string | null;
+} {
+  const result: { proofs: Proof[]; mintUrl: string | null } = {
+    proofs: [],
+    mintUrl: null,
+  };
+  if (
+    !event ||
+    event.kind != 9321 ||
+    !event.tags ||
+    !Array.isArray(event.tags)
+  ) {
+    return result;
+  }
+  event.tags.forEach((tag) => {
+    if (tag[0] === "proof" && tag[1]) {
+      try {
+        const proof = JSON.parse(tag[1]) as Proof;
+        result.proofs.push(proof);
+      } catch (e) {
+        console.error("Failed to parse proof tag:", e);
+      }
+    } else if (tag[0] === "u" && tag[1]) {
+      result.mintUrl = tag[1];
+    }
+  });
+  return result;
+}
+
+/**
+ * Fetches unredeemed NutZap proofs for a user, grouped by mint URL
+ * @param hexOrNpub npub or hex pubkey of the user
+ * @param relays Optional. Relays to query
+ * @returns Promise<{ [mintUrl: string]: Proof[] }> Object mapping mint URLs to arrays of proofs
+ */
+export async function getUnclaimedNutZaps(
+  hexOrNpub: string,
+  relays: string[] = DEFAULT_RELAYS,
+): Promise<{ [mintUrl: string]: Proof[] }> {
+  try {
+    // Convert npub to hexpub if needed
+    let hexpub = hexOrNpub;
+    if (hexOrNpub.startsWith("npub1")) {
+      hexpub = nip19.decode(hexOrNpub).data as string;
+    }
+
+    // Get user relays and combine with defaults
+    const userRelays = await getUserRelays(hexpub, relays);
+    const combinedRelays = [...new Set([...userRelays, ...relays])];
+    console.log("Using relays:", combinedRelays);
+
+    // Step 1: Get user's mints from NIP-61
+    const { mints } = await getNip61Info(hexpub, combinedRelays);
+    if (mints.length === 0) {
+      console.log("No mints found for user:", hexpub);
+      return {};
+    }
+    console.log("User mints:", mints);
+
+    // Step 2: Collect redeemed NutZap event IDs from kind 7376 events
+    const redeemedNutZapIds = new Set<string>();
+    const kind7376Filter: Filter = { kinds: [7376], authors: [hexpub] };
+    await new Promise<void>((resolve) => {
+      pool.subscribeManyEose(combinedRelays, [kind7376Filter], {
+        onevent(event: Event) {
+          const redeemedTag = event.tags.find(
+            (tag) => tag[0] === "e" && tag[3] === "redeemed",
+          );
+          if (redeemedTag && redeemedTag[1]) {
+            redeemedNutZapIds.add(redeemedTag[1]); // Add <9321-event-id> to set
+          }
+        },
+        onclose: resolve as any,
+      });
+    });
+    console.log("Redeemed NutZap IDs:", Array.from(redeemedNutZapIds));
+
+    // Step 3: Fetch kind 9321 events (NutZaps) and filter out redeemed ones
+    const proofStore: { [mintUrl: string]: Proof[] } = {};
+    const kind9321Filter: Filter = {
+      kinds: [9321],
+      "#p": [hexpub],
+      "#u": mints,
+    };
+    await new Promise<void>((resolve) => {
+      pool.subscribeManyEose(combinedRelays, [kind9321Filter], {
+        onevent(event: Event) {
+          // Skip if event is redeemed
+          if (redeemedNutZapIds.has(event.id)) {
+            console.log(`Skipping redeemed NutZap event: ${event.id}`);
+            return;
+          }
+          const { proofs, mintUrl } = getProofsAndMint(event);
+          if (proofs.length > 0 && mintUrl) {
+            if (!proofStore[mintUrl]) {
+              proofStore[mintUrl] = [];
+            }
+            // Deduplicate proofs by secret
+            const existingSecrets = new Set(
+              proofStore[mintUrl].map((p) => p.secret),
+            );
+            const newProofs = proofs.filter(
+              (p) => !existingSecrets.has(p.secret),
+            );
+            proofStore[mintUrl].push(...newProofs);
+            console.log(
+              `Added ${newProofs.length} proofs for mint: ${mintUrl}`,
+            );
+          }
+        },
+        onclose: resolve as any,
+      });
+    });
+
+    // Remove empty mint entries
+    Object.keys(proofStore).forEach((mintUrl) => {
+      if (proofStore[mintUrl].length === 0) {
+        delete proofStore[mintUrl];
+      }
+    });
+
+    console.log("NutZap proofs by mint:", proofStore);
+    return proofStore;
+  } catch (error) {
+    console.error("Error fetching NutZaps:", error);
+    toastr.error(
+      "Failed to fetch NutZaps: " +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return {};
+  }
 }
