@@ -34,7 +34,9 @@ export const handleCashuDonation = async (token, message, relays, toPub) => {
     const mintUrl = decoded.mint;
     const wallet = await getWalletWithUnit(mintUrl, decoded.unit); // Load wallet
     // Receive the token to the wallet (creates new proofs)
-    const proofs = await wallet.receive(token, { p2pk: { pubkey: '02'+toPub } }); // 02 prefix!
+    const proofs = await wallet.receive(token, {
+      p2pk: { pubkey: "02" + toPub }, // 02 prefix!
+    });
     await sendNutZap(proofs, mintUrl, message, toPub);
     toastr.success("Donation received! Thanks for your support 🧡");
     return true;
