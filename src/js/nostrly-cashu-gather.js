@@ -5,14 +5,20 @@ import {
   getDecodedToken,
   signP2PKProofs,
 } from "@cashu/cashu-ts";
-import { copyTextToClipboard } from "./utils.ts";
 import {
-  getUserRelays,
+  copyTextToClipboard,
+  delay,
+  getWalletWithUnit,
+  getTokenAmount,
+  formatAmount,
+} from "./utils.ts";
+import {
   pool,
+  getUserRelays,
   getUnclaimedNutZaps,
+  getNip60Wallet,
   getNip61Info,
 } from "./nostr.ts";
-import { getWalletWithUnit, formatAmount, getTokenAmount } from "./utils.ts";
 import { encode as emojiEncode } from "./emoji-encoder.ts";
 import toastr from "toastr";
 
@@ -44,7 +50,7 @@ jQuery(function ($) {
         return null;
       }
       // Witness the proofs
-      const { privkeys } = await getNip60Wallet();
+      const { privkeys } = await getNip60Wallet(pubkey, relays);
       privkeys.forEach((privkey) => {
         unspentProofs = signP2PKProofs(unspentProofs, privkey);
       });
@@ -57,7 +63,10 @@ jQuery(function ($) {
         tags: redeemedEventIds.map((id) => ["e", id, "", "redeemed"]),
         created_at: Math.floor(Date.now() / 1000),
       };
+      toastr.info(`Signing receipt of your NutZaps`);
+      await delay(2000); // give them time to read the notice
       const signedEvent = await window.nostr.signEvent(event);
+      console.log('signedEvent:>>',signedEvent);
       await pool.publish(relays, signedEvent);
 
       return newToken;

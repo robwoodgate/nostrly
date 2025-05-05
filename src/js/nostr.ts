@@ -371,17 +371,18 @@ export function maybeConvertNsecToP2PK(key: string): string {
 }
 
 /**
- * Extracts all proofs and mint URL from a kind 9321 event
+ * Extracts all proofs, mint URL and unit from a kind 9321 event
  * @param event Nostr event (kind 9321)
- * @returns { proofs: Proof[], mintUrl: string | null }
+ * @returns { proofs: Proof[], mintUrl: string | null, unit: string | null }
  */
-function getProofsAndMint(event: Event): {
+function getNutZapInfo(event: Event): {
   proofs: Proof[];
   mintUrl: string | null;
 } {
-  const result: { proofs: Proof[]; mintUrl: string | null } = {
+  const result: { proofs: Proof[]; mintUrl: string | null; unit: string | null } = {
     proofs: [],
     mintUrl: null,
+    unit: null
   };
   if (
     !event ||
@@ -401,6 +402,9 @@ function getProofsAndMint(event: Event): {
       }
     } else if (tag[0] === "u" && tag[1]) {
       result.mintUrl = tag[1];
+    } else if (tag[0] === "unit" && tag[1]) {
+      const unit = tag[1].startsWith('msat') ? 'sat' : tag[1];
+      result.unit = unit;
     }
   });
   return result;
@@ -467,7 +471,7 @@ export async function getUnclaimedNutZaps(
             console.log(`Skipping redeemed NutZap event: ${event.id}`);
             return;
           }
-          const { proofs, mintUrl } = getProofsAndMint(event);
+          const { proofs, mintUrl } = getNutZapInfo(event);
           if (proofs.length > 0 && mintUrl) {
             // Initialize the mint entry if it doesn’t exist
             if (!proofStore[mintUrl]) {
