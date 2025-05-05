@@ -13,7 +13,8 @@ export default {
     "nostrly-cashu-redeem": "./src/js/nostrly-cashu-redeem.js",
     "nostrly-cashu-lock": "./src/js/nostrly-cashu-lock.js",
     "nostrly-cashu-witness": "./src/js/nostrly-cashu-witness.js",
-    "nostrly-cashu-nip60": "./src/js/nostrly-cashu-nip60.js",
+    "nostrly-cashu-cache": "./src/js/nostrly-cashu-cache.js",
+    "nostrly-cashu-gather": "./src/js/nostrly-cashu-gather.js",
   },
   output: {
     filename: "[name].min.js",

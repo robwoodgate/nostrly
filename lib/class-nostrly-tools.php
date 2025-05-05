@@ -19,7 +19,8 @@ class NostrlyTools
         add_shortcode('nostrly_cashu_redeem', [$this, 'cashu_redeem_shortcode']);
         add_shortcode('nostrly_cashu_lock', [$this, 'cashu_lock_shortcode']);
         add_shortcode('nostrly_cashu_witness', [$this, 'cashu_witness_shortcode']);
-        add_shortcode('nostrly_cashu_nip60', [$this, 'cashu_nip60_shortcode']);
+        add_shortcode('nostrly_cashu_cache', [$this, 'cashu_cache_shortcode']);
+        add_shortcode('nostrly_cashu_gather', [$this, 'cashu_gather_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
         add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
@@ -836,10 +837,10 @@ class NostrlyTools
      * @param mixed      $atts
      * @param null|mixed $content
      */
-    public function cashu_nip60_shortcode($atts, $content = null)
+    public function cashu_cache_shortcode($atts, $content = null)
     {
         // Enqueue scripts and styles
-        wp_enqueue_script('nostrly-cashu-nip60');
+        wp_enqueue_script('nostrly-cashu-cache');
 
         $get_relays = esc_html('Add My Relays', 'nostrly');
         $open_wallet = esc_html('Fetch Existing Wallet', 'nostrly');
@@ -982,7 +983,116 @@ class NostrlyTools
             EOL;
     }
 
+    /**
+     * Cashu Gather shortcode.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_gather_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-gather');
 
+        $fetch_nutzaps = esc_html('Fetch Unclaimed NutZaps', 'nostrly');
+        $copy_token = esc_html('Copy Token', 'nostrly');
+        $copy_emoji = esc_html('Copy 🥜', 'nostrly');
+
+        return <<<EOL
+            <style>
+                /* Base styling */
+                #cashu-gather-container {
+                    margin-bottom: 40px;
+                }
+                #cashu-gather-container .center {
+                    text-align: center;
+                }
+                #cashu-gather-container .hidden {
+                    display: none;
+                }
+                /* Button styling */
+                #fetch-nutzaps {
+                    margin: 1em auto;
+                    max-width: 20em;
+                }
+                /* Token list styling */
+                #token-list {
+                    margin-top: 2rem;
+                    padding: 0;
+                    list-style: none;
+                    text-align: left;
+                }
+                #token-list li {
+                    margin-bottom: 1rem;
+                    padding: 0.75rem;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    border: 1px solid #444;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                #token-list .token {
+                    font-family: monospace;
+                    word-break: break-all;
+                    flex-grow: 1;
+                    margin-right: 1rem;
+                }
+                #token-list button {
+                    margin-left: 0.5rem;
+                    flex-shrink: 0;
+                }
+                /* History section */
+                #token-history {
+                    margin-top: 3rem;
+                    padding: 1rem;
+                    border: 1px solid #ccc;
+                    border-radius: 6px;
+                }
+                #token-history ul {
+                    margin-left: 0;
+                    padding-left: 0;
+                }
+                #token-history .history-item {
+                    border-top: 1px solid #ccc;
+                    list-style: none;
+                    padding: 5px;
+                    text-align: left;
+                }
+                #token-history .copytkn,
+                #token-history .copyemj {
+                    border-radius: 6px;
+                    display: inline-block;
+                    background-color: #FF9900;
+                    color: #000;
+                    padding: 0 0.25rem;
+                    cursor: pointer;
+                    margin-right: 0.5rem;
+                }
+                /* Media queries */
+                @media (max-width: 600px) {
+                    #token-list li {
+                        flex-direction: column;
+                        align-items: flex-start;
+                    }
+                    #token-list button {
+                        margin-left: 0;
+                        margin-top: 0.5rem;
+                    }
+                }
+            </style>
+            <div id="cashu-gather-container">
+                <div class="center">
+                    <button type="button" id="fetch-nutzaps" class="button">{$fetch_nutzaps}</button>
+                </div>
+                <ul id="token-list" class="hidden"></ul>
+                <div id="token-history" class="center">
+                    <h2>Collected Tokens History</h2>
+                    <div id="token-history-list"></div>
+                </div>
+            </div>
+        EOL;
+    }
 
     /**
      * Enqueue scripts and styles
@@ -993,7 +1103,8 @@ class NostrlyTools
         wp_register_script('nostrly-cashu-redeem', NOSTRLY_URL.'assets/js/nostrly-cashu-redeem.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-lock', NOSTRLY_URL.'assets/js/nostrly-cashu-lock.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_register_script('nostrly-cashu-nip60', NOSTRLY_URL.'assets/js/nostrly-cashu-nip60.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-cache', NOSTRLY_URL.'assets/js/nostrly-cashu-cache.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-gather', NOSTRLY_URL.'assets/js/nostrly-cashu-gather.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
