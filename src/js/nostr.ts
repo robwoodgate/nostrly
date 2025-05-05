@@ -432,11 +432,12 @@ export async function getUnclaimedNutZaps(
 }> {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
+    // Convert npub to hexpub if needed
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    // Get user relays and combine with effectiveRelays, ensuring no duplicates
+    // Get user relays and combine with relays, ensuring no duplicates
     const { mints, relays: nutZapRelays } = await getNip61Info(hexpub, relays);
     const combinedRelays = [...new Set([...nutZapRelays, ...relays])];
     console.log("Using relays:", combinedRelays);

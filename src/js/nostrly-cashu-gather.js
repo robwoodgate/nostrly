@@ -1,4 +1,3 @@
-// Imports (assumed to be available from your existing setup)
 import { SimplePool } from "nostr-tools";
 import {
   getEncodedTokenV4,
@@ -38,10 +37,15 @@ jQuery(function ($) {
   let relays = [];
 
   // Receive proofs, create new tokens, and mark as redeemed
-  async function receiveAndRedeemProofs(mintUrl, proofs, redeemedEventIds) {
+  async function receiveAndRedeemProofs(
+    mintUrl,
+    unit,
+    proofs,
+    redeemedEventIds,
+  ) {
     try {
       // Check proofs are unspent
-      const wallet = await getWalletWithUnit(mintUrl);
+      const wallet = await getWalletWithUnit(mintUrl, unit);
       const proofStates = await wallet.checkProofsStates(proofs);
       let unspentProofs = proofs.filter(
         (_, index) => proofStates[index].state === CheckStateEnum.UNSPENT,
@@ -55,24 +59,33 @@ jQuery(function ($) {
         unspentProofs = signP2PKProofs(unspentProofs, privkey);
       });
       const newProofs = await wallet.receive(unspentProofs);
-      const newToken = getEncodedTokenV4({ mint: mintUrl, proofs: newProofs });
+      const newToken = getEncodedTokenV4({
+        mint: mintUrl,
+        proofs: newProofs,
+        unit,
+      });
       // Create and publish kind 7376 event
       const event = {
         kind: 7376,
-        content: "", // not receiving to NIP-60 wallet, so nothing to record
+        content: "", // Not receiving to NIP-60 wallet, so nothing to record
         tags: redeemedEventIds.map((id) => ["e", id, "", "redeemed"]),
         created_at: Math.floor(Date.now() / 1000),
       };
       toastr.info(`Signing receipt of your NutZaps`);
-      await delay(2000); // give them time to read the notice
+      await delay(2000); // Give them time to read the notice
       const signedEvent = await window.nostr.signEvent(event);
       console.log("signedEvent:>>", signedEvent);
       await pool.publish(relays, signedEvent);
 
       return newToken;
     } catch (error) {
-      console.error(`Failed to process proofs for mint ${mintUrl}:`, error);
-      toastr.error(`Failed to process proofs for mint ${mintUrl}`);
+      console.error(
+        `Failed to process proofs for mint ${mintUrl}, unit: ${unit}:`,
+        error,
+      );
+      toastr.error(
+        `Failed to process proofs for mint ${mintUrl}, unit: ${unit}`,
+      );
       return null;
     }
   }
@@ -80,10 +93,12 @@ jQuery(function ($) {
   // Display new tokens and save to localStorage
   function displayAndSaveTokens(tokens) {
     $tokenList.empty().removeClass("hidden");
-    tokens.forEach((token) => {
+    tokens.forEach(({ mintUrl, unit, token }) => {
+      const decodedToken = getDecodedToken(token);
+      const amount = formatAmount(getTokenAmount(decodedToken.proofs), unit);
       const $item = $(`
         <li>
-          <span class="token">${token}</span>
+          <span class="token">Token: ${amount} from ${mintUrl}</span>
           <button class="copy-token button">Copy Token</button>
           <button class="copy-emoji button">Copy 🥜</button>
         </li>
@@ -104,7 +119,15 @@ jQuery(function ($) {
     const existingTokens = JSON.parse(
       localStorage.getItem("cashu-gather-tokens") || "[]",
     );
-    const updatedTokens = [...existingTokens, ...tokens];
+    const updatedTokens = [
+      ...existingTokens,
+      ...tokens.map(({ mintUrl, unit, token }) => ({
+        mintUrl,
+        unit,
+        token,
+        timestamp: new Date().toISOString(),
+      })),
+    ];
     localStorage.setItem("cashu-gather-tokens", JSON.stringify(updatedTokens));
 
     // Update history display
@@ -122,13 +145,14 @@ jQuery(function ($) {
       return;
     }
     const $list = $("<ul></ul>");
-    history.forEach((token) => {
-      const tkn = getDecodedToken(token);
+    history.forEach(({ mintUrl, unit, token, timestamp }) => {
+      const decodedToken = getDecodedToken(token);
+      const amount = formatAmount(getTokenAmount(decodedToken.proofs), unit);
       const $item = $(`
         <li class="history-item">
           <span class="copytkn">Copy Token</span>
           <span class="copyemj">Copy 🥜</span>
-          Token: ${formatAmount(getTokenAmount(tkn.proofs), tkn.unit)} from ${tkn.mint}
+          ${timestamp} - Token: ${amount} from ${mintUrl}
         </li>
       `);
       $item.find(".copytkn").on("click", () => {
@@ -153,7 +177,7 @@ jQuery(function ($) {
       relays = await getUserRelays(pubkey);
       let proofStore;
       try {
-        // Format: { [mintUrl: string]: { proofs: Proof[], eventIds: string[] } }
+        // Format: { [mintUrl: string]: { [unit: string]: { proofs: Proof[], eventIds: string[] } } }
         proofStore = await getUnclaimedNutZaps(pubkey, relays);
       } catch (error) {
         console.error("Failed to fetch unclaimed NutZaps:", error);
@@ -161,19 +185,20 @@ jQuery(function ($) {
         return;
       }
       const tokens = [];
-      for (const [mintUrl, { proofs, eventIds }] of Object.entries(
-        proofStore,
-      )) {
-        console.log(`Checking proofs from ${mintUrl}`);
-        console.log("Proofs", proofs);
-        const newToken = await receiveAndRedeemProofs(
-          mintUrl,
-          proofs,
-          eventIds,
-        );
-        if (newToken) {
-          tokens.push(newToken);
-          toastr.success(`Collected token from ${mintUrl}`);
+      for (const [mintUrl, units] of Object.entries(proofStore)) {
+        for (const [unit, { proofs, eventIds }] of Object.entries(units)) {
+          console.log(`Checking proofs from ${mintUrl}, unit ${unit}`);
+          console.log("Proofs", proofs);
+          const newToken = await receiveAndRedeemProofs(
+            mintUrl,
+            unit,
+            proofs,
+            eventIds,
+          );
+          if (newToken) {
+            tokens.push({ mintUrl, unit, token: newToken });
+            toastr.success(`Collected token from ${mintUrl}, unit ${unit}`);
+          }
         }
       }
       if (tokens.length === 0) {
