@@ -371,22 +371,27 @@ export function maybeConvertNsecToP2PK(key: string): string {
 }
 
 /**
- * Extracts all proofs, mint URL and unit from a kind 9321 event
+ * Extracts all proofs, mint URL, and unit from a kind 9321 event
  * @param event Nostr event (kind 9321)
- * @returns { proofs: Proof[], mintUrl: string | null, unit: string | null }
+ * @returns { proofs: Proof[], mintUrl: string | null, unit: string }
  */
 function getNutZapInfo(event: Event): {
   proofs: Proof[];
   mintUrl: string | null;
+  unit: string;
 } {
-  const result: { proofs: Proof[]; mintUrl: string | null; unit: string | null } = {
+  const result: {
+    proofs: Proof[];
+    mintUrl: string | null;
+    unit: string;
+  } = {
     proofs: [],
     mintUrl: null,
-    unit: null
+    unit: "sat",
   };
   if (
     !event ||
-    event.kind != 9321 ||
+    event.kind !== 9321 ||
     !event.tags ||
     !Array.isArray(event.tags)
   ) {
@@ -403,7 +408,7 @@ function getNutZapInfo(event: Event): {
     } else if (tag[0] === "u" && tag[1]) {
       result.mintUrl = tag[1];
     } else if (tag[0] === "unit" && tag[1]) {
-      const unit = tag[1].startsWith('msat') ? 'sat' : tag[1];
+      const unit = tag[1].startsWith("msat") ? "sat" : tag[1];
       result.unit = unit;
     }
   });
@@ -411,36 +416,41 @@ function getNutZapInfo(event: Event): {
 }
 
 /**
- * Fetches unredeemed NutZap proofs for a user, grouped by mint URL, along with
- * the event IDs of the kind 9321 events.
- * @param {string} hexOrNpub npub or hex pubkey of the user
- * @param {array}  relays Relays to query, defaults to DEFAULT_RELAYS
- * Ideally you should pass in the users relays (@see: getUserRelays)
- * @returns Promise<{ [mintUrl: string]: { proofs: Proof[], eventIds: string[] } }> Object mapping mint URLs to arrays of proofs and event IDs
+ * Fetches unredeemed NutZap proofs for a user, grouped by mint URL and unit, along with the event IDs of the kind 9321 events
+ * @param hexOrNpub npub or hex pubkey of the user
+ * @param relays Relays to query, defaults to DEFAULT_RELAYS
+ * @returns Promise<{ [mintUrl: string]: { [unit: string]: { proofs: Proof[], eventIds: string[] } } }>
+ * Object mapping mint URLs and units to arrays of proofs and event IDs
  */
 export async function getUnclaimedNutZaps(
   hexOrNpub: string,
-  relays: string[],
-): Promise<{ [mintUrl: string]: { proofs: Proof[]; eventIds: string[] } }> {
+  relays: string[] = DEFAULT_RELAYS,
+): Promise<{
+  [mintUrl: string]: {
+    [unit: string]: { proofs: Proof[]; eventIds: string[] };
+  };
+}> {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    // Step 1: Get user's mints and NutZap relays from NIP-61
-    const { relays: nutZapRelays, mints } = await getNip61Info(hexpub, relays);
+    // Get user relays and combine with effectiveRelays, ensuring no duplicates
+    const { mints, relays: nutZapRelays } = await getNip61Info(hexpub, relays);
+    const combinedRelays = [...new Set([...nutZapRelays, ...relays])];
+    console.log("Using relays:", combinedRelays);
+    // Step 1: Check for mints
     if (mints.length === 0) {
       console.log("No mints found for user:", hexpub);
       return {};
     }
     console.log("User mints:", mints);
     // Step 2: Collect redeemed NutZap event IDs from kind 7376 events
-    // Note: we are using user's relays for this lookup
     const redeemedNutZapIds = new Set<string>();
     const kind7376Filter: Filter = { kinds: [7376], authors: [hexpub] };
     await new Promise<void>((resolve) => {
-      pool.subscribeManyEose(relays, [kind7376Filter], {
+      pool.subscribeManyEose(combinedRelays, [kind7376Filter], {
         onevent(event: Event) {
           const redeemedTag = event.tags.find(
             (tag) => tag[0] === "e" && tag[3] === "redeemed",
@@ -454,9 +464,10 @@ export async function getUnclaimedNutZaps(
     });
     console.log("Redeemed NutZap IDs:", Array.from(redeemedNutZapIds));
     // Step 3: Fetch kind 9321 events (NutZaps) and filter out redeemed ones
-    // Note: we are using user's NutZap relays for this lookup
     const proofStore: {
-      [mintUrl: string]: { proofs: Proof[]; eventIds: string[] };
+      [mintUrl: string]: {
+        [unit: string]: { proofs: Proof[]; eventIds: string[] };
+      };
     } = {};
     const kind9321Filter: Filter = {
       kinds: [9321],
@@ -464,44 +475,53 @@ export async function getUnclaimedNutZaps(
       "#u": mints,
     };
     await new Promise<void>((resolve) => {
-      pool.subscribeManyEose(nutZapRelays, [kind9321Filter], {
+      pool.subscribeManyEose(combinedRelays, [kind9321Filter], {
         onevent(event: Event) {
           // Skip if event is redeemed
           if (redeemedNutZapIds.has(event.id)) {
             console.log(`Skipping redeemed NutZap event: ${event.id}`);
             return;
           }
-          const { proofs, mintUrl } = getNutZapInfo(event);
+          const { proofs, mintUrl, unit } = getNutZapInfo(event);
           if (proofs.length > 0 && mintUrl) {
             // Initialize the mint entry if it doesn’t exist
             if (!proofStore[mintUrl]) {
-              proofStore[mintUrl] = { proofs: [], eventIds: [] };
+              proofStore[mintUrl] = {};
             }
-            // Deduplicate proofs by secret
+            // Initialize the unit entry if it doesn’t exist
+            if (!proofStore[mintUrl][unit]) {
+              proofStore[mintUrl][unit] = { proofs: [], eventIds: [] };
+            }
+            // Deduplicate proofs by secret within the mintUrl and unit
             const existingSecrets = new Set(
-              proofStore[mintUrl].proofs.map((p) => p.secret),
+              proofStore[mintUrl][unit].proofs.map((p) => p.secret),
             );
             const newProofs = proofs.filter(
               (p) => !existingSecrets.has(p.secret),
             );
-            proofStore[mintUrl].proofs.push(...newProofs);
+            proofStore[mintUrl][unit].proofs.push(...newProofs);
             // Add the event ID
-            proofStore[mintUrl].eventIds.push(event.id);
+            proofStore[mintUrl][unit].eventIds.push(event.id);
             console.log(
-              `Added ${newProofs.length} proofs and event ID ${event.id} for mint: ${mintUrl}`,
+              `Added ${newProofs.length} proofs and event ID ${event.id} for mint: ${mintUrl}, unit: ${unit}`,
             );
           }
         },
         onclose: resolve as any,
       });
     });
-    // Remove empty mint entries
+    // Remove empty mint or unit entries
     Object.keys(proofStore).forEach((mintUrl) => {
-      if (proofStore[mintUrl].proofs.length === 0) {
+      Object.keys(proofStore[mintUrl]).forEach((unit) => {
+        if (proofStore[mintUrl][unit].proofs.length === 0) {
+          delete proofStore[mintUrl][unit];
+        }
+      });
+      if (Object.keys(proofStore[mintUrl]).length === 0) {
         delete proofStore[mintUrl];
       }
     });
-    console.log("NutZap proofs and event IDs by mint:", proofStore);
+    console.log("NutZap proofs and event IDs by mint and unit:", proofStore);
     return proofStore;
   } catch (error) {
     console.error("Error fetching NutZaps:", error);

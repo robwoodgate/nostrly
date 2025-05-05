@@ -66,7 +66,7 @@ jQuery(function ($) {
       toastr.info(`Signing receipt of your NutZaps`);
       await delay(2000); // give them time to read the notice
       const signedEvent = await window.nostr.signEvent(event);
-      console.log('signedEvent:>>',signedEvent);
+      console.log("signedEvent:>>", signedEvent);
       await pool.publish(relays, signedEvent);
 
       return newToken;
