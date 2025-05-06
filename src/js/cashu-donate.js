@@ -5,7 +5,7 @@ import {
   getEncodedTokenV4,
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
-import { NOSTRLY_PUBKEY, sendNutZap } from "./nostr.ts";
+import { NOSTRLY_PUBKEY, sendViaNostr, sendNutZap, getNip61Info } from "./nostr.ts";
 import { getWalletWithUnit, getTokenAmount, formatAmount } from "./utils.ts";
 import {
   encode as emojiEncode,
