@@ -1053,6 +1053,7 @@ class NostrlyTools
                     word-break: break-all;
                     flex-grow: 1;
                     margin-right: 1rem;
+                    text-align: center;
                 }
                 #token-list button, #token-history-list button {
                     margin-left: 0.5rem;
@@ -1078,6 +1079,8 @@ class NostrlyTools
                     padding: 0 0.25rem;
                     cursor: pointer;
                     margin-right: 0.5rem;
+                    margin-top: 0.25rem;
+                    margin-bottom: 0.25rem;
                     text-align: center;
                 }
                 .options {
