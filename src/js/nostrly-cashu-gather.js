@@ -144,7 +144,7 @@ jQuery(function ($) {
       if (!unspentEntries.length) {
         // All proofs spent, we are done... just clean up
         if (eventIdsToRedeem.size > 0) {
-          toastr.info(
+          toastr.warning(
             "Only spent NutZaps were found. Marking them as redeemed...",
           );
           await publishRedeemEvent(Array.from(eventIdsToRedeem));
