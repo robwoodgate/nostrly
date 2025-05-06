@@ -15,6 +15,7 @@ import {
 } from "./nostr.ts";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import toastr from "toastr";
+import { handleCashuDonation } from "./cashu-donate.js";
 
 // DOM ready
 jQuery(function ($) {
@@ -40,6 +41,16 @@ jQuery(function ($) {
   const $walletKey = $("#wallet-key");
   const $copyNsec = $("#copy-nsec");
   const $copyHex = $("#copy-hex");
+  const $donateCashu = $("#donate_cashu");
+
+  // Donation input
+  $donateCashu.on("paste", () => {
+    setTimeout(async () => {
+      handleCashuDonation($donateCashu.val(), "Cashu Redeem Donation");
+      $donateCashu.val("");
+    }, 200);
+    console.log("donation");
+  });
 
   // Page handlers
   function showForm() {

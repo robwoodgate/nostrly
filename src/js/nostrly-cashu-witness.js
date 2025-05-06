@@ -31,6 +31,7 @@ import {
   getNip60Wallet,
 } from "./nostr.ts";
 import toastr from "toastr";
+import { handleCashuDonation } from "./cashu-donate.js";
 
 // DOM ready
 jQuery(function ($) {
@@ -60,6 +61,16 @@ jQuery(function ($) {
   const $copyEmoji = $("#witnessed-emoji-copy");
   const $historyDiv = $("#witness-history");
   const $clearHistory = $("#clear-history");
+  const $donateCashu = $("#donate_cashu");
+
+  // Donation input
+  $donateCashu.on("paste", () => {
+    setTimeout(async () => {
+      handleCashuDonation($donateCashu.val(), "Cashu Redeem Donation");
+      $donateCashu.val("");
+    }, 200);
+    console.log("donation");
+  });
 
   // Page handlers
   async function showForm() {

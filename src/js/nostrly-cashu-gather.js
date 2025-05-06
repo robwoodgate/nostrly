@@ -21,6 +21,7 @@ import {
 } from "./nostr.ts";
 import { encode as emojiEncode } from "./emoji-encoder.ts";
 import toastr from "toastr";
+import { handleCashuDonation } from "./cashu-donate.js";
 
 const CheckStateEnum = {
   UNSPENT: "UNSPENT",
@@ -38,6 +39,18 @@ jQuery(function ($) {
   const $clearInvalid = $("#mark-invalid-redeemed");
   const $gatheredTokens = $("#new-tokens");
   const $clearHistory = $("#clear-history");
+  const $donateCashu = $("#donate_cashu");
+
+  // Donation input
+  $donateCashu.on("paste", () => {
+    setTimeout(async () => {
+      handleCashuDonation($donateCashu.val(), "Cashu Redeem Donation");
+      $donateCashu.val("");
+    }, 200);
+    console.log("donation");
+  });
+
+  // Init vars
   let pubkey = "";
   let relays = [];
   let privkeys = [];
