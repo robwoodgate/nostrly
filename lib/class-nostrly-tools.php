@@ -1125,7 +1125,7 @@ class NostrlyTools
                     <ul id="token-list"></ul>
                 </div>
                 <div id="token-history" class="center">
-                    <h2>Gathered Tokens History</h2>
+                    <h2>Gathering History</h2>
                     <ul id="token-history-list"></ul>
                     <button type="button" id="clear-history" class="button" aria-label="Clear token history">Clear History</button>
                 </div>
