@@ -1059,8 +1059,8 @@ class NostrlyTools
                     padding: 5px;
                     text-align: left;
                 }
-                #token-history .copytkn,
-                #token-history .copyemj {
+                .copy-token,
+                .copy-emoji {
                     border-radius: 6px;
                     display: inline-block;
                     background-color: #FF9900;
