@@ -15,7 +15,7 @@ import {
   pool,
   getUserRelays,
   getUnclaimedNutZaps,
-  getNip60Wallet,
+  getWalletAndInfo,
 } from "./nostr.ts";
 import { encode as emojiEncode } from "./emoji-encoder.ts";
 import toastr from "toastr";
@@ -32,8 +32,13 @@ jQuery(function ($) {
   const $fetchNutZaps = $("#fetch-nutzaps");
   const $tokenList = $("#token-list");
   const $tokenHistoryList = $("#token-history-list");
+  const $fetchAllMints = $("#fetch-all-mints");
+  const $clearInvalid = $("#mark-invalid-redeemed");
   let pubkey = "";
   let relays = [];
+  let privkeys = [];
+  let nutzapRelays = [];
+  let lockKey = "";
 
   /** Filters out spent proofs from the given proof entries. */
   async function filterUnspentProofs(mintUrl, unit, proofEntries) {
@@ -47,7 +52,6 @@ jQuery(function ($) {
 
   /** Signs proofs using private keys from the NIP-60 wallet. */
   async function signProofs(proofEntries) {
-    const { privkeys } = await getNip60Wallet(pubkey, relays);
     let signedProofs = proofEntries.map((entry) => entry.proof);
     privkeys.forEach((privkey) => {
       signedProofs = signP2PKProofs(signedProofs, privkey);
@@ -63,13 +67,18 @@ jQuery(function ($) {
       proofs: validSignedProofs,
       unit,
     });
-    const wallet = await getWalletWithUnit(mintUrl, unit);
-    const newProofs = await wallet.receive(token);
-    return getEncodedTokenV4({
-      mint: mintUrl,
-      proofs: newProofs,
-      unit,
-    });
+    try {
+      const wallet = await getWalletWithUnit(mintUrl, unit);
+      const newProofs = await wallet.receive(token);
+      return getEncodedTokenV4({
+        mint: mintUrl,
+        proofs: newProofs,
+        unit,
+      });
+    } catch (e) {
+      console.error(e);
+      return token;
+    }
   }
 
   /** Publishes a kind 7376 Nostr event to redeem proofs. */
@@ -84,7 +93,7 @@ jQuery(function ($) {
     toastr.info(`Signing receipt of your NutZaps`);
     await delay(2000);
     const signedEvent = await window.nostr.signEvent(event);
-    await pool.publish(relays, signedEvent);
+    await pool.publish(nutzapRelays, signedEvent);
   }
 
   /** Receives and redeems proofs, returning a new token if successful. */
@@ -100,35 +109,53 @@ jQuery(function ($) {
         unit,
         proofEntries,
       );
-      if (!unspentEntries.length) return null;
+      console.log("unspentEntries:>>", unspentEntries);
+      // If no unspent entries, publish redeem event for all event IDs
+      // This shouldn't happen, as NutZaps should be P2PK locked, but may
+      // happen if the redeem happened but wasn't recorded properly before
+      if (!unspentEntries.length) {
+        const allEventIds = [
+          ...new Set(proofEntries.map((entry) => entry.eventId)),
+        ];
+        if (allEventIds.length > 0) {
+          await publishRedeemEvent(allEventIds);
+        }
+        return null;
+      }
+      // Sign all the proofs
       const signedProofs = await signProofs(unspentEntries);
       const validEntries = [];
       const invalidEntries = [];
       signedProofs.forEach((proof, i) => {
         const entry = unspentEntries[i];
-        if (proof.witness) {
-          validEntries.push({ proof, eventId: entry.eventId });
-        } else {
+        if (proof.secret.includes(lockKey) && !proof.witness) {
           invalidEntries.push({ proof: entry.proof, eventId: entry.eventId });
+        } else {
+          validEntries.push({ proof, eventId: entry.eventId });
         }
       });
+
       if (invalidEntries.length > 0 && !clearInvalid) {
         toastr.warning(
           `${invalidEntries.length} proofs couldn’t be redeemed due to missing signatures. Check your NIP-60 wallet setup.`,
         );
       }
+
       let newToken = null;
       if (validEntries.length > 0) {
         newToken = await processValidProofs(mintUrl, unit, validEntries);
       }
+
       const eventIdsToRedeem = new Set();
       validEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       if (clearInvalid) {
         invalidEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       }
+
       if (eventIdsToRedeem.size > 0) {
         await publishRedeemEvent(Array.from(eventIdsToRedeem));
       }
+
       return newToken;
     } catch (error) {
       console.error(
@@ -213,13 +240,13 @@ jQuery(function ($) {
   }
 
   /** Processes a single mint-unit pair. */
-  async function processMintUnit(mintUrl, unit, proofEntries) {
+  async function processMintUnit(mintUrl, unit, proofEntries, clearInvalid) {
     try {
       const newToken = await receiveAndRedeemProofs(
         mintUrl,
         unit,
         proofEntries,
-        false,
+        clearInvalid,
       );
       if (newToken) {
         toastr.success(`Collected token from ${mintUrl}, unit ${unit}`);
@@ -236,21 +263,35 @@ jQuery(function ($) {
   // Main fetch handler
   $fetchNutZaps.on("click", async () => {
     try {
-      toastr.info("Fetching your unclaimed NutZaps...");
+      toastr.info("Fetching your NIP-60 wallet...");
       pubkey = await window.nostr.getPublicKey();
       relays = await getUserRelays(pubkey);
+      ({
+        privkeys,
+        pubkey: lockKey,
+        relays: nutzapRelays,
+      } = await getWalletAndInfo(pubkey, relays));
+
+      // Read checkbox states
+      const fetchAllMints = $fetchAllMints.is(":checked");
+      const clearInvalid = $clearInvalid.is(":checked");
+
       let proofStore;
       try {
-        proofStore = await getUnclaimedNutZaps(pubkey, relays);
+        // Pass !fetchAllMints as strictMints (true = NutZap mints only, false = all mints)
+        toastr.info("Gathering NutZaps...");
+        proofStore = await getUnclaimedNutZaps(pubkey, relays, !fetchAllMints);
       } catch (error) {
-        console.error("Failed to fetch unclaimed NutZaps:", error);
-        toastr.error("Failed to fetch unclaimed NutZaps");
+        console.error("Failed to gather unclaimed NutZaps:", error);
+        toastr.error("Failed to gather unclaimed NutZaps");
         return;
       }
       const tokenPromises = [];
       for (const [mintUrl, units] of Object.entries(proofStore)) {
         for (const [unit, proofEntries] of Object.entries(units)) {
-          tokenPromises.push(processMintUnit(mintUrl, unit, proofEntries));
+          tokenPromises.push(
+            processMintUnit(mintUrl, unit, proofEntries, clearInvalid),
+          );
         }
       }
       const tokens = (await Promise.all(tokenPromises)).filter(Boolean);
@@ -261,7 +302,7 @@ jQuery(function ($) {
       displayAndSaveTokens(tokens);
     } catch (error) {
       console.error("Error in fetch-nutzaps:", error);
-      toastr.error("Failed to fetch and process NutZaps");
+      toastr.error("Failed to gather and process NutZaps");
     }
   });
 

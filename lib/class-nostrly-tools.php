@@ -1021,6 +1021,8 @@ class NostrlyTools
                     padding: 0;
                     list-style: none;
                     text-align: left;
+                    margin-left: 0;
+                    padding-left: 0;
                 }
                 #token-list li {
                     margin-bottom: 1rem;
@@ -1069,6 +1071,13 @@ class NostrlyTools
                     cursor: pointer;
                     margin-right: 0.5rem;
                 }
+                .options {
+                    margin-top: 1rem;
+                }
+                .options label {
+                    display: block;
+                    margin-bottom: 0.5rem;
+                }
                 /* Media queries */
                 @media (max-width: 600px) {
                     #token-list li {
@@ -1083,12 +1092,22 @@ class NostrlyTools
             </style>
             <div id="cashu-gather-container">
                 <div class="center">
+                    <div class="options">
+                        <label>
+                            <input type="checkbox" id="fetch-all-mints" checked>
+                            Fetch from all mints (not just your NIP-61 NutZap mints)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="mark-invalid-redeemed">
+                            Mark invalid NutZaps as redeemed
+                        </label>
+                    </div>
                     <button type="button" id="fetch-nutzaps" class="button">{$fetch_nutzaps}</button>
                 </div>
                 <ul id="token-list" class="hidden"></ul>
                 <div id="token-history" class="center">
                     <h2>Collected Tokens History</h2>
-                    <div id="token-history-list"></div>
+                    <ul id="token-history-list"></ul>
                 </div>
             </div>
         EOL;

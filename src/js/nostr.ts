@@ -439,33 +439,36 @@ export async function getUnclaimedNutZaps(
 }> {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
-    // Convert npub to hexpub if needed
     let hexpub = hexOrNpub;
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    // Get user relays and combine with relays, ensuring no duplicates
+    // Get user NutZap relays and combine with relays, ensuring no duplicates
     const { mints, relays: nutZapRelays } = await getNip61Info(hexpub, relays);
     const combinedRelays = [...new Set([...nutZapRelays, ...relays])];
     console.log("Using relays:", combinedRelays);
     // Step 1: Collect redeemed NutZap event IDs from kind 7376 events
+    // Note: we use all user relays for this request
     const redeemedNutZapIds = new Set<string>();
     const kind7376Filter: Filter = { kinds: [7376], authors: [hexpub] };
     await new Promise<void>((resolve) => {
       pool.subscribeManyEose(combinedRelays, [kind7376Filter], {
         onevent(event: Event) {
-          const redeemedTag = event.tags.find(
+          const redeemedTags = event.tags.filter(
             (tag) => tag[0] === "e" && tag[3] === "redeemed",
           );
-          if (redeemedTag && redeemedTag[1]) {
-            redeemedNutZapIds.add(redeemedTag[1]); // Add <9321-event-id> to set
-          }
+          redeemedTags.forEach((tag) => {
+            if (tag[1]) {
+              redeemedNutZapIds.add(tag[1]); // Add <9321-event-id> to set
+            }
+          });
         },
         onclose: resolve as any,
       });
     });
     console.log("Redeemed NutZap IDs:", Array.from(redeemedNutZapIds));
     // Step 2: Fetch kind 9321 events (NutZaps) and filter out redeemed ones
+    // Note: we use the user's NutZap relays for this request
     const proofStore: {
       [mintUrl: string]: {
         [unit: string]: { proof: Proof; eventId: string }[];
@@ -477,13 +480,14 @@ export async function getUnclaimedNutZaps(
       ...(strictMints && mints.length !== 0 ? { "#u": mints } : {}),
     };
     await new Promise<void>((resolve) => {
-      pool.subscribeManyEose(combinedRelays, [kind9321Filter], {
+      pool.subscribeManyEose(nutZapRelays, [kind9321Filter], {
         onevent(event: Event) {
           // Skip if event is redeemed
           if (redeemedNutZapIds.has(event.id)) {
             console.log(`Skipping redeemed NutZap event: ${event.id}`);
             return;
           }
+          console.log("NutZap:>>", event);
           const { proofs, mintUrl, unit } = getNutZapInfo(event);
           if (!proofs.length || !mintUrl) {
             return; // bogus
