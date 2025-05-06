@@ -1011,12 +1011,16 @@ class NostrlyTools
                     display: none;
                 }
                 /* Button styling */
-                #fetch-nutzaps {
+                #fetch-nutzaps, #clear-history {
                     margin: 1em auto;
                     max-width: 20em;
                 }
+                #fetch-nutzaps:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
                 /* Token list styling */
-                #token-list {
+                #token-list, #token-history-list {
                     margin-top: 2rem;
                     padding: 0;
                     list-style: none;
@@ -1027,20 +1031,30 @@ class NostrlyTools
                 #token-list li {
                     margin-bottom: 1rem;
                     padding: 0.75rem;
-                    background-color: rgba(255, 255, 255, 0.05);
+                    background-color: rgba(0, 255, 0, 0.1); /* Subtle green for new tokens */
+                    border: 1px solid #0f0;
                     border-radius: 6px;
-                    border: 1px solid #444;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                 }
-                #token-list .token {
+                #token-history-list .history-item {
+                    margin-bottom: 1rem;
+                    padding: 0.75rem;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border: 1px solid #444;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                #token-list .token, #token-history-list .token {
                     font-family: monospace;
                     word-break: break-all;
                     flex-grow: 1;
                     margin-right: 1rem;
                 }
-                #token-list button {
+                #token-list button, #token-history-list button {
                     margin-left: 0.5rem;
                     flex-shrink: 0;
                 }
@@ -1055,12 +1069,6 @@ class NostrlyTools
                     margin-left: 0;
                     padding-left: 0;
                 }
-                #token-history .history-item {
-                    border-top: 1px solid #ccc;
-                    list-style: none;
-                    padding: 5px;
-                    text-align: left;
-                }
                 .copy-token,
                 .copy-emoji {
                     border-radius: 6px;
@@ -1070,6 +1078,7 @@ class NostrlyTools
                     padding: 0 0.25rem;
                     cursor: pointer;
                     margin-right: 0.5rem;
+                    text-align: center;
                 }
                 .options {
                     margin-top: 1rem;
@@ -1078,13 +1087,19 @@ class NostrlyTools
                     display: block;
                     margin-bottom: 0.5rem;
                 }
+                .options small {
+                    display: block;
+                    color: #888;
+                    font-size: 0.8em;
+                    margin-top: 0.2em;
+                }
                 /* Media queries */
                 @media (max-width: 600px) {
-                    #token-list li {
+                    #token-list li, #token-history-list li {
                         flex-direction: column;
                         align-items: flex-start;
                     }
-                    #token-list button {
+                    #token-list button, #token-history-list button {
                         margin-left: 0;
                         margin-top: 0.5rem;
                     }
@@ -1099,15 +1114,20 @@ class NostrlyTools
                         </label>
                         <label>
                             <input type="checkbox" id="mark-invalid-redeemed">
-                            Mark invalid NutZaps as redeemed
+                            <span>Clear Invalid NutZaps</span>
+                            <small>(Marks NutZaps that can't be redeemed as processed, so they won't appear again.)</small>
                         </label>
                     </div>
-                    <button type="button" id="fetch-nutzaps" class="button">{$fetch_nutzaps}</button>
+                    <button type="button" id="fetch-nutzaps" class="button" aria-label="Fetch unclaimed NutZaps">{$fetch_nutzaps}</button>
                 </div>
-                <ul id="token-list" class="hidden"></ul>
+                <div id="new-tokens"class="center hidden">
+                    <h2>Newly Gathered Tokens</h2>
+                    <ul id="token-list"></ul>
+                </div>
                 <div id="token-history" class="center">
-                    <h2>Collected Tokens History</h2>
+                    <h2>Gathered Tokens History</h2>
                     <ul id="token-history-list"></ul>
+                    <button type="button" id="clear-history" class="button" aria-label="Clear token history">Clear History</button>
                 </div>
             </div>
         EOL;

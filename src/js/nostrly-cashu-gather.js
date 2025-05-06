@@ -36,6 +36,8 @@ jQuery(function ($) {
   const $tokenHistoryList = $("#token-history-list");
   const $fetchAllMints = $("#fetch-all-mints");
   const $clearInvalid = $("#mark-invalid-redeemed");
+  const $gatheredTokens = $("#new-tokens");
+  const $clearHistory = $("#clear-history");
   let pubkey = "";
   let relays = [];
   let privkeys = [];
@@ -202,7 +204,7 @@ jQuery(function ($) {
     li.innerHTML = `
       <span class="copy-token">Copy Token</span>
       <span class="copy-emoji">Copy 🥜</span>
-      ${timestamp ? `<span>${timestamp} - </span>` : ""}
+      ${timestamp ? `<span>${timestamp}</span>` : ""}
       <span class="token"> ${amount} from ${mintUrl}</span>
     `;
     li.querySelector(".copy-token").addEventListener("click", () => {
@@ -229,26 +231,44 @@ jQuery(function ($) {
     $target.empty().append(fragment);
   }
 
-  /** Displays new tokens and saves them to localStorage. */
-  function displayAndSaveTokens(tokens) {
-    displayTokenList($tokenList, tokens);
-    $tokenList.removeClass("hidden");
+  /** Displays new tokens and saves them to localStorage under a new-tokens key. */
+  function displayAndSaveNewTokens(tokens) {
+    // Save to localStorage under a separate key for new tokens
+    const newTokensWithTimestamp = tokens.map(({ mintUrl, unit, token }) => ({
+      mintUrl,
+      unit,
+      token,
+      timestamp: new Date().toLocaleString().slice(0, -3),
+    }));
+    const existingNewTokens = JSON.parse(
+      localStorage.getItem("cashu-gather-new-tokens") || "[]",
+    );
+    const updatedNewTokens = [...newTokensWithTimestamp, ...existingNewTokens];
+    localStorage.setItem(
+      "cashu-gather-new-tokens",
+      JSON.stringify(updatedNewTokens),
+    );
 
-    const existingTokens = JSON.parse(
+    // Display in the "Newly Collected Tokens" section
+    displayTokenList($tokenList, updatedNewTokens);
+    $gatheredTokens.removeClass("hidden");
+  }
+
+  /** Moves new tokens to history and clears the new tokens storage. */
+  function moveNewTokensToHistory() {
+    const newTokens = JSON.parse(
+      localStorage.getItem("cashu-gather-new-tokens") || "[]",
+    );
+    if (newTokens.length === 0) return;
+
+    const existingHistory = JSON.parse(
       localStorage.getItem("cashu-gather-tokens") || "[]",
     );
-    const updatedTokens = [
-      ...tokens.map(({ mintUrl, unit, token }) => ({
-        mintUrl,
-        unit,
-        token,
-        timestamp: new Date().toLocaleString().slice(0, -3),
-      })),
-      ...existingTokens,
-    ];
-    localStorage.setItem("cashu-gather-tokens", JSON.stringify(updatedTokens));
+    const updatedHistory = [...newTokens, ...existingHistory];
+    localStorage.setItem("cashu-gather-tokens", JSON.stringify(updatedHistory));
 
-    loadTokenHistory();
+    // Clear the new tokens storage
+    localStorage.removeItem("cashu-gather-new-tokens");
   }
 
   /** Loads and displays token history from localStorage. */
@@ -261,6 +281,17 @@ jQuery(function ($) {
       history,
       "<p>No collected tokens found.</p>",
     );
+  }
+
+  /** Loads and displays new tokens from localStorage. */
+  function loadNewTokens() {
+    const newTokens = JSON.parse(
+      localStorage.getItem("cashu-gather-new-tokens") || "[]",
+    );
+    displayTokenList($tokenList, newTokens);
+    if (newTokens.length > 0) {
+      $gatheredTokens.removeClass("hidden");
+    }
   }
 
   /** Processes a single mint-unit pair. */
@@ -286,6 +317,7 @@ jQuery(function ($) {
 
   // Main fetch handler
   $fetchNutZaps.on("click", async () => {
+    $fetchNutZaps.prop("disabled", true).text("Fetching...");
     try {
       toastr.info("Fetching your NIP-60 wallet...");
       pubkey = await window.nostr.getPublicKey();
@@ -308,7 +340,7 @@ jQuery(function ($) {
       } catch (error) {
         console.error("Failed to gather unclaimed NutZaps:", error);
         toastr.error("Failed to gather unclaimed NutZaps");
-        return;
+        throw error;
       }
       const tokenPromises = [];
       for (const [mintUrl, units] of Object.entries(proofStore)) {
@@ -323,13 +355,40 @@ jQuery(function ($) {
         toastr.info("No unclaimed NutZaps found.");
         return;
       }
-      displayAndSaveTokens(tokens);
+      displayAndSaveNewTokens(tokens);
     } catch (error) {
       console.error("Error in fetch-nutzaps:", error);
       toastr.error("Failed to gather and process NutZaps");
+    } finally {
+      $fetchNutZaps.prop("disabled", false).text("Fetch Unclaimed NutZaps");
     }
   });
 
+  // Clear History handler
+  $clearHistory.on("click", () => {
+    localStorage.removeItem("cashu-gather-tokens");
+    loadTokenHistory();
+    toastr.success("Token history cleared.");
+  });
+
+  // Persist checkbox states
+  $fetchAllMints.prop(
+    "checked",
+    JSON.parse(localStorage.getItem("fetch-all-mints") || "true"),
+  );
+  $clearInvalid.prop(
+    "checked",
+    JSON.parse(localStorage.getItem("mark-invalid-redeemed") || "false"),
+  );
+  $fetchAllMints.on("change", () => {
+    localStorage.setItem("fetch-all-mints", $fetchAllMints.is(":checked"));
+  });
+  $clearInvalid.on("change", () => {
+    localStorage.setItem("mark-invalid-redeemed", $clearInvalid.is(":checked"));
+  });
+
   // Initialize
-  loadTokenHistory();
+  moveNewTokensToHistory(); // Move any existing new tokens to history on page load
+  loadTokenHistory(); // Load the history
+  loadNewTokens(); // Load any new tokens that were saved but not yet moved
 });
