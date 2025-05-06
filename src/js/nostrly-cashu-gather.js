@@ -344,6 +344,7 @@ jQuery(function ($) {
       }
       const tokenPromises = [];
       for (const [mintUrl, units] of Object.entries(proofStore)) {
+        toastr.info(`Found NutZap(s) from ${mintUrl}!`);
         for (const [unit, proofEntries] of Object.entries(units)) {
           tokenPromises.push(
             processMintUnit(mintUrl, unit, proofEntries, clearInvalid),
