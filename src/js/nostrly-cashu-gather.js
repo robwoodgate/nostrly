@@ -3,6 +3,8 @@ import {
   getEncodedTokenV4,
   getDecodedToken,
   signP2PKProofs,
+  hasP2PKSignedProof,
+  getP2PKNSigs,
 } from "@cashu/cashu-ts";
 import {
   copyTextToClipboard,
@@ -45,9 +47,16 @@ jQuery(function ($) {
     const wallet = await getWalletWithUnit(mintUrl, unit);
     const proofs = proofEntries.map((entry) => entry.proof);
     const proofStates = await wallet.checkProofsStates(proofs);
-    return proofEntries.filter(
-      (_, i) => proofStates[i].state === CheckStateEnum.UNSPENT,
-    );
+    const spentEntries = [];
+    const unspentEntries = [];
+    proofEntries.forEach((entry, i) => {
+      if (proofStates[i].state === CheckStateEnum.UNSPENT) {
+        unspentEntries.push(entry);
+      } else {
+        spentEntries.push(entry);
+      }
+    });
+    return { spentEntries, unspentEntries };
   }
 
   /** Signs proofs using private keys from the NIP-60 wallet. */
@@ -77,7 +86,7 @@ jQuery(function ($) {
       });
     } catch (e) {
       console.error(e);
-      return token;
+      return null;
     }
   }
 
@@ -96,7 +105,11 @@ jQuery(function ($) {
     await Promise.any(pool.publish(nutzapRelays, signedEvent));
   }
 
-  /** Receives and redeems proofs, returning a new token if successful. */
+  /**
+   * Receives and redeems proofs, returning a new token if successful.
+   * NB: We are being very robust on checking proofs as one bad one
+   * will invalidate a token
+   */
   async function receiveAndRedeemProofs(
     mintUrl,
     unit,
@@ -104,58 +117,69 @@ jQuery(function ($) {
     clearInvalid = false,
   ) {
     try {
-      const validEntries = [];
-      const invalidEntries = [];
-      const unspentEntries = await filterUnspentProofs(
+      // Start by filtering for spent proofs
+      const eventIdsToRedeem = new Set();
+      const { spentEntries, unspentEntries } = await filterUnspentProofs(
         mintUrl,
         unit,
         proofEntries,
       );
-      console.log("unspentEntries:>>", unspentEntries);
-      // If no unspent entries, publish redeem event for all event IDs
-      // This shouldn't happen, as NutZaps should be P2PK locked, but may
-      // happen if the redeem happened but wasn't recorded properly before
+      // Add spent proof event IDs to the redeem list
+      spentEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       if (!unspentEntries.length) {
-        const allEventIds = [
-          ...new Set(proofEntries.map((entry) => entry.eventId)),
-        ];
-        if (allEventIds.length > 0) {
-          await publishRedeemEvent(allEventIds);
+        // All proofs spent, we are done... just clean up
+        if (eventIdsToRedeem.size > 0) {
+          toastr.info(
+            "Only spent NutZaps were found. Marking them as redeemed...",
+          );
+          await publishRedeemEvent(Array.from(eventIdsToRedeem));
         }
         return null;
       }
-      // Sign all the proofs
+      // Sign unspent proofs and categorize them
       const signedProofs = await signProofs(unspentEntries);
-      signedProofs.forEach((proof, i) => {
+      const validEntries = [];
+      const invalidEntries = [];
+      for (const [i, proof] of signedProofs.entries()) {
         const entry = unspentEntries[i];
-        if (proof.secret.includes(lockKey) && !proof.witness) {
-          invalidEntries.push({ proof: entry.proof, eventId: entry.eventId });
-        } else {
+        if (!proof.secret.includes("P2PK")) {
+          // Unspent and unlocked proof... rare!
+          console.log("An unlocked NutZap proof!", proof);
           validEntries.push({ proof, eventId: entry.eventId });
+          continue;
         }
-      });
-
-      if (invalidEntries.length > 0 && !clearInvalid) {
+        // P2PK proofs should be locked to NIP-61 lockKey with one signature
+        const n_sigs = getP2PKNSigs(proof.secret);
+        if (n_sigs < 2 && hasP2PKSignedProof(lockKey, proof)) {
+          console.log("Signed NutZap proof", proof);
+          validEntries.push({ proof, eventId: entry.eventId });
+          continue;
+        }
+        console.log("Not a NutZap compliant proof", proof);
+        invalidEntries.push({ proof: entry.proof, eventId: entry.eventId });
+      }
+      // Handle invalid proofs
+      if (invalidEntries.length > 0) {
         toastr.warning(
           `${invalidEntries.length} proofs couldn’t be redeemed due to missing signatures. Check your NIP-60 wallet setup.`,
         );
+        if (clearInvalid) {
+          // Add invalid event IDs to redeem set if clearing
+          invalidEntries.forEach((entry) =>
+            eventIdsToRedeem.add(entry.eventId),
+          );
+        }
       }
-
+      // Process valid proofs and collect their event IDs
       let newToken = null;
       if (validEntries.length > 0) {
         newToken = await processValidProofs(mintUrl, unit, validEntries);
+        validEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       }
-
-      const eventIdsToRedeem = new Set();
-      validEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
-      if (clearInvalid) {
-        invalidEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
-      }
-
+      // Publish a single redeem event with all event IDs
       if (eventIdsToRedeem.size > 0) {
         await publishRedeemEvent(Array.from(eventIdsToRedeem));
       }
-
       return newToken;
     } catch (error) {
       console.error(
