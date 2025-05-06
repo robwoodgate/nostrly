@@ -466,7 +466,7 @@ export async function getUnclaimedNutZaps(
         onclose: resolve as any,
       });
     });
-    console.log("Redeemed NutZap IDs:", Array.from(redeemedNutZapIds));
+    // console.log("Redeemed NutZap IDs:", Array.from(redeemedNutZapIds));
     // Step 2: Fetch kind 9321 events (NutZaps) and filter out redeemed ones
     // Note: we use the user's NutZap relays for this request
     const proofStore: {
@@ -484,7 +484,7 @@ export async function getUnclaimedNutZaps(
         onevent(event: Event) {
           // Skip if event is redeemed
           if (redeemedNutZapIds.has(event.id)) {
-            console.log(`Skipping redeemed NutZap event: ${event.id}`);
+            // console.log(`Skipping redeemed NutZap event: ${event.id}`);
             return;
           }
           console.log("NutZap:>>", event);
