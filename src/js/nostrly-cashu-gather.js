@@ -93,7 +93,7 @@ jQuery(function ($) {
     toastr.info(`Signing receipt of your NutZaps`);
     await delay(2000);
     const signedEvent = await window.nostr.signEvent(event);
-    await pool.publish(nutzapRelays, signedEvent);
+    await Promise.any(pool.publish(nutzapRelays, signedEvent));
   }
 
   /** Receives and redeems proofs, returning a new token if successful. */

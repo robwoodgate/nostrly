@@ -63,7 +63,7 @@ export const sendViaNostr = async (
     pubkey: pk,
   };
   const signedEvent = finalizeEvent(event, sk);
-  pool.publish(relays, signedEvent);
+  await Promise.any(pool.publish(relays, signedEvent));
 };
 
 /**
@@ -93,8 +93,7 @@ export const sendNutZap = async (
   const sk = generateSecretKey();
   const event = finalizeEvent(eventTemplate, sk);
   console.log(event);
-  const pub = pool.publish(relays, event);
-  return Promise.any(pub);
+  await Promise.any(pool.publish(relays, event));
 };
 
 /**
