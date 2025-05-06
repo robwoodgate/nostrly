@@ -40,59 +40,109 @@ jQuery(function ($) {
   async function receiveAndRedeemProofs(
     mintUrl,
     unit,
-    proofs,
-    redeemedEventIds,
+    proofEntries,
+    clearInvalid = false,
   ) {
     try {
-      // Check proofs are unspent
+      // Step 1: Get proofs and event IDs (indexes will be in sync)
+      const proofs = proofEntries.map((entry) => entry.proof);
+      const eventIds = proofEntries.map((entry) => entry.eventId);
+
+      // Step 2: Filter unspent proofs
       const wallet = await getWalletWithUnit(mintUrl, unit);
       const proofStates = await wallet.checkProofsStates(proofs);
-      let unspentProofs = proofs.filter(
-        (_, index) => proofStates[index].state === CheckStateEnum.UNSPENT,
+      const unspentEntries = proofEntries.filter(
+        (_, i) => proofStates[i].state === CheckStateEnum.UNSPENT,
       );
-      if (!unspentProofs.length) {
+      if (!unspentEntries.length) {
+        console.log(
+          `No unspent proofs found for mint ${mintUrl}, unit ${unit}`,
+        );
         return null;
       }
-      console.log("unspentProofs:>>", unspentProofs);
-      // Witness the proofs
+
+      // Step 3: Sign the unspent proofs
       const { privkeys } = await getNip60Wallet(pubkey, relays);
+      let signedProofs = unspentEntries.map((entry) => entry.proof);
       privkeys.forEach((privkey) => {
-        unspentProofs = signP2PKProofs(unspentProofs, privkey);
+        signedProofs = signP2PKProofs(signedProofs, privkey);
       });
-      console.log("signed proofs:>>", unspentProofs);
-      const token = getEncodedTokenV4({
-        mint: mintUrl,
-        proofs: unspentProofs,
-        unit,
+
+      // Step 4: Split into valid and invalid proofs
+      const validEntries = [];
+      const invalidEntries = [];
+      signedProofs.forEach((proof, i) => {
+        const entry = unspentEntries[i];
+        if (proof.witness) {
+          validEntries.push({ proof, eventId: entry.eventId });
+        } else {
+          invalidEntries.push({ proof: entry.proof, eventId: entry.eventId });
+        }
       });
-      displayAndSaveTokens([{ mintUrl, unit, token }]);
-      const newProofs = await wallet.receive(token);
-      const newToken = getEncodedTokenV4({
-        mint: mintUrl,
-        proofs: newProofs,
-        unit,
-      });
-      // Create and publish kind 7376 event
-      const event = {
-        kind: 7376,
-        content: "", // Not receiving to NIP-60 wallet, so nothing to record
-        tags: redeemedEventIds.map((id) => ["e", id, "", "redeemed"]),
-        created_at: Math.floor(Date.now() / 1000),
-      };
-      toastr.info(`Signing receipt of your NutZaps`);
-      await delay(2000); // Give them time to read the notice
-      const signedEvent = await window.nostr.signEvent(event);
-      console.log("signedEvent:>>", signedEvent);
-      await pool.publish(relays, signedEvent);
+
+      // Step 5: Warn about invalid proofs if any
+      if (invalidEntries.length > 0 && !clearInvalid) {
+        toastr.warning(
+          `${invalidEntries.length} proofs couldn’t be redeemed due to missing signatures. Check your NIP-60 wallet setup.`,
+        );
+      }
+
+      // Step 6: Process valid proofs with wallet.receive
+      let newToken = null;
+      if (validEntries.length > 0) {
+        const validSignedProofs = validEntries.map((entry) => entry.proof);
+        const token = getEncodedTokenV4({
+          mint: mintUrl,
+          proofs: validSignedProofs,
+          unit,
+        });
+        displayAndSaveTokens([{ mintUrl, unit, token }]);
+        const newProofs = await wallet.receive(token);
+        newToken = getEncodedTokenV4({
+          mint: mintUrl,
+          proofs: newProofs,
+          unit,
+        });
+        console.log(
+          `Processed ${validEntries.length} valid proofs for mint ${mintUrl}, unit ${unit}`,
+        );
+      }
+
+      // Step 7: Create event tags for kind 7376
+      const eventIdsToRedeem = new Set();
+      validEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
+      if (clearInvalid) {
+        invalidEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
+      }
+      const eventTags = Array.from(eventIdsToRedeem).map((id) => [
+        "e",
+        id,
+        "",
+        "redeemed",
+      ]);
+
+      // Step 8: Publish kind 7376 event if needed
+      if (eventTags.length > 0) {
+        const event = {
+          kind: 7376,
+          content: "",
+          tags: eventTags,
+          created_at: Math.floor(Date.now() / 1000),
+        };
+        toastr.info(`Signing receipt of your NutZaps`);
+        await delay(2000);
+        const signedEvent = await window.nostr.signEvent(event);
+        await pool.publish(relays, signedEvent);
+      }
 
       return newToken;
     } catch (error) {
       console.error(
-        `Failed to process proofs for mint ${mintUrl}, unit: ${unit}:`,
+        `Failed to process proofs for mint ${mintUrl}, unit ${unit}:`,
         error,
       );
       toastr.error(
-        `Failed to process proofs for mint ${mintUrl}, unit: ${unit}`,
+        `Failed to process proofs for mint ${mintUrl}, unit ${unit}`,
       );
       return null;
     }
@@ -128,13 +178,13 @@ jQuery(function ($) {
       localStorage.getItem("cashu-gather-tokens") || "[]",
     );
     const updatedTokens = [
-      ...existingTokens,
       ...tokens.map(({ mintUrl, unit, token }) => ({
         mintUrl,
         unit,
         token,
         timestamp: new Date().toLocaleString().slice(0, -3),
       })),
+      ...existingTokens,
     ];
     localStorage.setItem("cashu-gather-tokens", JSON.stringify(updatedTokens));
 
@@ -185,7 +235,7 @@ jQuery(function ($) {
       relays = await getUserRelays(pubkey);
       let proofStore;
       try {
-        // Format: { [mintUrl: string]: { [unit: string]: { proofs: Proof[], eventIds: string[] } } }
+        // Format: { [mintUrl: string]: { [unit: string]: { proof: Proof; eventId: string }[] } }
         proofStore = await getUnclaimedNutZaps(pubkey, relays);
       } catch (error) {
         console.error("Failed to fetch unclaimed NutZaps:", error);
@@ -194,14 +244,17 @@ jQuery(function ($) {
       }
       const tokens = [];
       for (const [mintUrl, units] of Object.entries(proofStore)) {
-        for (const [unit, { proofs, eventIds }] of Object.entries(units)) {
+        for (const [unit, proofEntries] of Object.entries(units)) {
           console.log(`Checking proofs from ${mintUrl}, unit ${unit}`);
-          console.log("Proofs", proofs);
+          console.log(
+            "Proofs",
+            proofEntries.map((entry) => entry.proof),
+          );
           const newToken = await receiveAndRedeemProofs(
             mintUrl,
             unit,
-            proofs,
-            eventIds,
+            proofEntries,
+            false, // Do not mark unredeemable proofs as redeemed
           );
           if (newToken) {
             tokens.push({ mintUrl, unit, token: newToken });
