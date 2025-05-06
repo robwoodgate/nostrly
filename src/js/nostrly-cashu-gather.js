@@ -279,7 +279,7 @@ jQuery(function ($) {
     displayTokenList(
       $tokenHistoryList,
       history,
-      "<p>No collected tokens found.</p>",
+      "<p class='center'>No gathered tokens found.</p>",
     );
   }
 
