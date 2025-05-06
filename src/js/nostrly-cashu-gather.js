@@ -104,6 +104,8 @@ jQuery(function ($) {
     clearInvalid = false,
   ) {
     try {
+      const validEntries = [];
+      const invalidEntries = [];
       const unspentEntries = await filterUnspentProofs(
         mintUrl,
         unit,
@@ -124,8 +126,6 @@ jQuery(function ($) {
       }
       // Sign all the proofs
       const signedProofs = await signProofs(unspentEntries);
-      const validEntries = [];
-      const invalidEntries = [];
       signedProofs.forEach((proof, i) => {
         const entry = unspentEntries[i];
         if (proof.secret.includes(lockKey) && !proof.witness) {
