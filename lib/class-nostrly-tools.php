@@ -1053,7 +1053,7 @@ class NostrlyTools
                     word-break: break-all;
                     flex-grow: 1;
                     margin-right: 1rem;
-                    text-align: center;
+                    text-align: left;
                 }
                 #token-list button, #token-history-list button {
                     margin-left: 0.5rem;
@@ -1098,6 +1098,9 @@ class NostrlyTools
                 }
                 /* Media queries */
                 @media (max-width: 600px) {
+                    #token-list .token, #token-history-list .token {
+                        text-align: center;
+                    }
                     #token-list li, #token-history-list li {
                         flex-direction: column;
                         align-items: flex-start;
