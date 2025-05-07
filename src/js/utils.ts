@@ -203,11 +203,15 @@ export const getWalletWithUnit = async (
 ): Promise<CashuWallet> => {
   const mintData = await loadMint(mintUrl);
   const mint = new CashuMint(mintUrl);
+  const keys = mintData.keys.filter((ks) => ks.unit === unit);
+  const keysets = mintData.keysets.filter((ks) => ks.unit === unit);
+  console.log("keys:>>", keys);
+  console.log("keysets:>>", keysets);
   const wallet = new CashuWallet(mint, {
-    keys: mintData.keys.filter((ks) => ks.unit === unit),
-    keysets: mintData.keysets.filter((ks) => ks.unit === unit),
+    keys,
+    keysets,
     mintInfo: mintData.info,
-    unit: unit,
+    unit,
   });
   return wallet;
 };

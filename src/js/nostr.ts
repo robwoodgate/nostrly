@@ -70,6 +70,7 @@ export const sendViaNostr = async (
  * Sends a NutZap via Nostr
  * @param Proof[]  proofs  Token proofs to send
  * @param string   mintUrl Mint URL for the proofs
+ * @param string   unit Unit of the proofs (default: "sat")
  * @param string   message to send
  * @param string   toPub   Hex pubkey to send to
  * @param string[] relays  array of relays to use
@@ -77,6 +78,7 @@ export const sendViaNostr = async (
 export const sendNutZap = async (
   proofs: Proof[],
   mintUrl: string,
+  unit: string = "sat",
   message: string,
   toPub: string,
   relays: string[],
@@ -88,7 +90,7 @@ export const sendNutZap = async (
     kind: 9321,
     content: message || "NutZap via Nostrly",
     created_at: Math.floor(Date.now() / 1000),
-    tags: [...proofTags, ["p", toPub], ["u", mintUrl]],
+    tags: [...proofTags, ["p", toPub], ["u", mintUrl], ["unit", unit]],
   };
   const sk = generateSecretKey();
   const event = finalizeEvent(eventTemplate, sk);

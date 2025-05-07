@@ -47,7 +47,7 @@ export const handleCashuDonation = async (token, message, relays, toPub) => {
       // Receive the token to the wallet (creates new proofs)
       // locked to our p2pk pubkey, and send as NutZap to the NIP-61 relays
       proofs = await wallet.receive(token, { p2pk: { pubkey: "02" + pubkey } });
-      await sendNutZap(proofs, mintUrl, message, toPub, nutzapRelays);
+      await sendNutZap(proofs, mintUrl, unit, message, toPub, nutzapRelays);
     } else {
       // Receive the token to the wallet (creates new proofs) and send as Nostr DM
       proofs = await wallet.receive(token);
