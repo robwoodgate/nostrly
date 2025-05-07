@@ -38,6 +38,7 @@ jQuery(function ($) {
   // Init vars
   let wallet;
   let mintUrl = "";
+  let unit = "sat";
   let proofs = [];
   let tokenAmount = 0;
   let nip07Pubkey = "";
@@ -116,6 +117,7 @@ jQuery(function ($) {
       $token.attr("data-valid", "");
       wallet = undefined;
       mintUrl = "";
+      unit = "sat";
       proofs = [];
       tokenAmount = 0;
       nip07Pubkey = "";
@@ -142,6 +144,7 @@ jQuery(function ($) {
         throw new Error("Invalid token format");
       }
       mintUrl = token.mint;
+      unit = token.unit;
       proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
       if (!proofs.length) {
         toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
@@ -161,7 +164,7 @@ jQuery(function ($) {
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
-        `Valid token: ${formatAmount(tokenAmount)} from ${mintUrl}`,
+        `Valid token: ${formatAmount(tokenAmount, unit)} from ${mintUrl}`,
       );
       $token.attr("data-valid", "");
     } catch (e) {
@@ -171,6 +174,7 @@ jQuery(function ($) {
       proofs = [];
       tokenAmount = 0;
       mintUrl = "";
+      unit = "sat";
       p2pkParams = { pubkeys: [], n_sigs: 0 };
       $witnessInfo.hide().empty();
     }
@@ -189,7 +193,7 @@ jQuery(function ($) {
     const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
     const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
     if (!p2pkParams.pubkeys.length) {
-      let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount)} from ${mintUrl}</li></ul></div>`;
+      let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
       html += "<strong>Witness Requirements:</strong><ul>";
       if (!locktime || locktime <= now) {
         html += `<li>Token is unlocked (no signatures required).</li>`;
@@ -212,7 +216,7 @@ jQuery(function ($) {
     });
     signedPubkeys = [...new Set(signedPubkeys)];
     console.log("signedPubkeys:>>", signedPubkeys);
-    let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount)} from ${mintUrl}</li></ul></div>`;
+    let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
     html += "<strong>Witness Requirements:</strong><ul>";
     if (locktime > now) {
       html += `<li>Locked until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
@@ -348,6 +352,7 @@ jQuery(function ($) {
       const witnessedToken = getEncodedTokenV4({
         mint: mintUrl,
         proofs: signedProofs,
+        unit: unit,
       });
       $witnessedToken.val(witnessedToken);
       const totalSigs = signedPubkeys.length + 1; // To account for this signing
@@ -440,11 +445,13 @@ jQuery(function ($) {
   // Receives the token for an unlocked one
   async function unlockToken() {
     try {
-      wallet = await getWalletWithUnit(mintUrl); // Load wallet
+      console.log("unit:>>", unit);
+      wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
       const unlockedProofs = await wallet.receive($token.val());
       const unlockedToken = getEncodedTokenV4({
         mint: mintUrl,
         proofs: unlockedProofs,
+        unit: unit,
       });
       storeWitnessHistory(unlockedToken, tokenAmount, "Unlocked");
       $witnessedToken.val(unlockedToken);

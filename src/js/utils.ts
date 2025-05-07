@@ -174,7 +174,7 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
   const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   if (cachedData && Date.now() - cachedData.lastUpdated < ONE_DAY_MS) {
     // Use cached data if < 24 hours old
-    console.log("loadMint:>> using cached");
+    console.log("loadMint:>> using cached", cachedData);
     return cachedData;
   }
   // Fetch fresh data from the mint
@@ -204,8 +204,8 @@ export const getWalletWithUnit = async (
   const mintData = await loadMint(mintUrl);
   const mint = new CashuMint(mintUrl);
   const wallet = new CashuWallet(mint, {
-    keys: mintData.keys,
-    keysets: mintData.keysets,
+    keys: mintData.keys.filter((ks) => ks.unit === unit),
+    keysets: mintData.keysets.filter((ks) => ks.unit === unit),
     mintInfo: mintData.info,
     unit: unit,
   });

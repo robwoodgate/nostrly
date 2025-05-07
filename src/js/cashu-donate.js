@@ -51,7 +51,7 @@ export const handleCashuDonation = async (token, message, relays, toPub) => {
     } else {
       // Receive the token to the wallet (creates new proofs) and send as Nostr DM
       proofs = await wallet.receive(token);
-      const newToken = getEncodedTokenV4({ mint: mintUrl, proofs: proofs });
+      const newToken = getEncodedTokenV4({ mint: mintUrl, proofs: proofs, unit: unit });
       const emoji = emojiEncode("\uD83E\uDD5C", newToken); // nut emoji
       sendViaNostr("Cashu Donation: " + emoji, toPub, relays); // async fire-forget
     }
