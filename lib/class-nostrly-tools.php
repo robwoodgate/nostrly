@@ -1103,7 +1103,7 @@ class NostrlyTools
                     }
                     #token-list li, #token-history-list li {
                         flex-direction: column;
-                        align-items: flex-start;
+                        align-items: center;
                     }
                     #token-list button, #token-history-list button {
                         margin-left: 0;
