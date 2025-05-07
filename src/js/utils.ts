@@ -190,7 +190,7 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
       lastUpdated: Date.now(),
     };
     storeMintData(mintUrl, freshData);
-    console.log("loadMint:>> using fresh");
+    console.log("loadMint:>> using fresh", freshData);
     return freshData;
   } catch (error) {
     throw new Error(`Could not load mint: ${mintUrl}`, { cause: error });

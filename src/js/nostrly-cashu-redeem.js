@@ -8,7 +8,7 @@ import {
   getP2PKNSigs,
   parseP2PKSecret,
 } from "@cashu/cashu-ts";
-import { doConfettiBomb, getWalletWithUnit } from "./utils.ts";
+import { doConfettiBomb, getWalletWithUnit, formatAmount } from "./utils.ts";
 import { convertP2PKToNpub, getContactDetails } from "./nostr.ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import { nip19 } from "nostr-tools";
@@ -23,6 +23,7 @@ jQuery(function ($) {
   // Init vars
   let wallet;
   let mintUrl = "";
+  let unit = "sat";
   let proofs = [];
   let tokenAmount = 0;
   let params = new URL(document.location.href).searchParams;
@@ -93,6 +94,7 @@ jQuery(function ($) {
         );
         if (!response.ok) throw "Unable to reach host";
         const json = await response.json();
+        console.log("pr:>>", json.pr);
         return json.pr ?? new Error("Unable to get invoice");
       } else throw "Host unable to make a lightning invoice for this amount.";
     } catch (e) {
@@ -136,7 +138,8 @@ jQuery(function ($) {
         throw "Token format invalid";
       }
       mintUrl = token.mint;
-      wallet = await getWalletWithUnit(mintUrl); // Load wallet
+      unit = token.unit;
+      wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
       proofs = token.proofs ?? [];
       console.log("proofs :>>", proofs);
       const proofStates = await wallet.checkProofsStates(proofs);
@@ -161,7 +164,13 @@ jQuery(function ($) {
       }
       // Token partially spent - so update token
       if (unspentProofs.length != proofs.length) {
-        $token.val(getEncodedTokenV4({ mint: mintUrl, proofs: unspentProofs }));
+        $token.val(
+          getEncodedTokenV4({
+            mint: mintUrl,
+            unit: unit,
+            proofs: unspentProofs,
+          }),
+        );
         proofs = unspentProofs;
         $lightningStatus.text(
           "(Partially spent token detected - new token generated)",
@@ -242,7 +251,7 @@ jQuery(function ($) {
       }
       let mintHost = new URL(mintUrl).hostname;
       $tokenStatus.text(
-        `Token value ${tokenAmount} sats from the mint: ${mintHost}`,
+        `Token value ${formatAmount(tokenAmount, unit)} from the mint: ${mintHost}`,
       );
       // $lightningStatus.text('Redeem to address / pay invoice...');
       // Enable redeem button if lnurl is already set
@@ -278,8 +287,11 @@ jQuery(function ($) {
     if (event) event.preventDefault();
     $lightningStatus.text("Attempting payment...");
     try {
+      if ("sat" != unit) {
+        throw "Only sat denominated tokens can be redeemed";
+      }
       if (tokenAmount < 4) {
-        throw "Minimum token amount is 4 sats";
+        throw `Minimum token amount is ${formatAmount(4, "sat")}`;
       }
       // Sign P2PK proofs using proposed NIP-60 secret signer
       // @see: https://github.com/nostr-protocol/nips/pull/1890
@@ -326,16 +338,10 @@ jQuery(function ($) {
       const decodedInvoice = await decode(invoice);
       const amountToSend = meltQuote.amount + meltQuote.fee_reserve;
       if (amountToSend > tokenAmount) {
-        throw (
-          "Not enough to pay the invoice: needs " +
-          meltQuote.amount +
-          " + " +
-          meltQuote.fee_reserve +
-          " sats"
-        );
+        throw `Not enough to pay the invoice: needs ${formatAmount(meltQuote.amount, unit)} + ${formatAmount(meltQuote.fee_reserve, unit)}`;
       }
       $lightningStatus.text(
-        `Sending ${meltQuote.amount} sats (plus ${meltQuote.fee_reserve} sats network fees) via Lightning`,
+        `Sending ${formatAmount(meltQuote.amount, unit)} (plus ${formatAmount(meltQuote.fee_reserve, unit)} network fees) via Lightning`,
       );
 
       // Convert nsec to hex if needed
@@ -371,7 +377,11 @@ jQuery(function ($) {
         if (proofsToKeep.length > 0 || meltResponse.change.length > 0) {
           $lightningStatus.text("Success! Preparing your change token...");
           const change = proofsToKeep.concat(meltResponse.change);
-          let newToken = getEncodedTokenV4({ mint: mintUrl, proofs: change });
+          let newToken = getEncodedTokenV4({
+            mint: mintUrl,
+            unit: unit,
+            proofs: change,
+          });
           console.log("change token :>> ", newToken);
           localStorage.setItem("nostrly-cashu-token", newToken);
           setTimeout(() => {
