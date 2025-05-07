@@ -371,7 +371,7 @@ jQuery(function ($) {
       console.error("Error in fetch-nutzaps:", error);
       toastr.error("Failed to gather and process NutZaps");
     } finally {
-      $fetchNutZaps.prop("disabled", false).text("Fetch Unclaimed NutZaps");
+      $fetchNutZaps.prop("disabled", false).text("Gather Unclaimed NutZaps");
     }
   });
 

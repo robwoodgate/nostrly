@@ -994,7 +994,7 @@ class NostrlyTools
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-cashu-gather');
 
-        $fetch_nutzaps = esc_html('Fetch Unclaimed NutZaps', 'nostrly');
+        $fetch_nutzaps = esc_html('Gather Unclaimed NutZaps', 'nostrly');
         $copy_token = esc_html('Copy Token', 'nostrly');
         $copy_emoji = esc_html('Copy 🥜', 'nostrly');
 
