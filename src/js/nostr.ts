@@ -431,6 +431,7 @@ export async function getUnclaimedNutZaps(
   hexOrNpub: string,
   relays: string[] = DEFAULT_RELAYS,
   strictMints: boolean = true,
+  toastrInfo: boolean = false,
 ): Promise<{
   [mintUrl: string]: {
     [unit: string]: { proof: Proof; eventId: string }[];
@@ -450,6 +451,9 @@ export async function getUnclaimedNutZaps(
     // Note: we use all user relays for this request
     const redeemedNutZapIds = new Set<string>();
     const kind7376Filter: Filter = { kinds: [7376], authors: [hexpub] };
+    if (toastrInfo) {
+      toastr.info("Checking redemptions...");
+    }
     await new Promise<void>((resolve) => {
       pool.subscribeManyEose(combinedRelays, [kind7376Filter], {
         onevent(event: Event) {
@@ -478,6 +482,9 @@ export async function getUnclaimedNutZaps(
       "#p": [hexpub],
       ...(strictMints && mints.length !== 0 ? { "#u": mints } : {}),
     };
+    if (toastrInfo) {
+      toastr.info(`Processing NutZap(s)...`);
+    }
     await new Promise<void>((resolve) => {
       pool.subscribeManyEose(nutZapRelays, [kind9321Filter], {
         onevent(event: Event) {
@@ -527,7 +534,7 @@ export async function getUnclaimedNutZaps(
         delete proofStore[mintUrl];
       }
     });
-    console.log("NutZap proofs with event IDs by mint and unit:", proofStore);
+    console.log("getUnclaimedNutZaps:>>", proofStore);
     return proofStore;
   } catch (error) {
     console.error("Error fetching NutZaps:", error);

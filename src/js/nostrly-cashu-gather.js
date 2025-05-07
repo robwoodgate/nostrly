@@ -142,7 +142,7 @@ jQuery(function ($) {
       // Add spent proof event IDs to the redeem list
       spentEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       if (!unspentEntries.length) {
-        toastr.warning(`No unspent ${unit} NutZaps found for mint ${mintUrl}`);
+        toastr.warning(`Found a spent ${unit} token from ${mintUrl}`);
         return null;
       }
       // Sign unspent proofs and categorize them
@@ -304,7 +304,7 @@ jQuery(function ($) {
         clearInvalid,
       );
       if (newToken) {
-        toastr.success(`Gethered a ${unit} token from ${mintUrl}`);
+        toastr.success(`Gathered a ${unit} token from ${mintUrl}`);
         return { mintUrl, unit, token: newToken };
       }
       return null;
@@ -319,7 +319,7 @@ jQuery(function ($) {
   $fetchNutZaps.on("click", async () => {
     $fetchNutZaps.prop("disabled", true).text("Fetching...");
     try {
-      toastr.info("Fetching your NIP-60 wallet...");
+      toastr.info("Fetching NIP-60 wallet...");
       pubkey = await window.nostr.getPublicKey();
       relays = await getUserRelays(pubkey);
       ({
@@ -336,7 +336,12 @@ jQuery(function ($) {
       try {
         // Pass !fetchAllMints as strictMints (true = NutZap mints only, false = all mints)
         toastr.info("Gathering NutZaps...");
-        proofStore = await getUnclaimedNutZaps(pubkey, relays, !fetchAllMints);
+        proofStore = await getUnclaimedNutZaps(
+          pubkey,
+          relays,
+          !fetchAllMints,
+          true,
+        ); // inc toastr
       } catch (error) {
         console.error("Failed to gather unclaimed NutZaps:", error);
         toastr.error("Failed to gather unclaimed NutZaps");
@@ -344,7 +349,6 @@ jQuery(function ($) {
       }
       const tokenPromises = [];
       for (const [mintUrl, units] of Object.entries(proofStore)) {
-        toastr.info(`Found NutZap(s) from ${mintUrl}!`);
         for (const [unit, proofEntries] of Object.entries(units)) {
           tokenPromises.push(
             processMintUnit(mintUrl, unit, proofEntries, clearInvalid),
@@ -355,7 +359,7 @@ jQuery(function ($) {
       if (tokens.length > 0) {
         displayAndSaveNewTokens(tokens);
       } else {
-        toastr.info("No unclaimed NutZaps found.");
+        toastr.info("No new NutZaps found.");
       }
 
       // Publish a redeem event with all processed event IDs
