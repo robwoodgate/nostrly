@@ -1047,6 +1047,7 @@ class NostrlyTools
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
+                    gap: 6px;
                 }
                 #token-list .token, #token-history-list .token {
                     font-family: monospace;

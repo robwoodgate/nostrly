@@ -107,14 +107,15 @@ jQuery(function ($) {
 
   /** Publishes a kind 7376 Nostr event to redeem proofs. */
   async function publishRedeemEvent() {
-    const eventTags = eventIdsToRedeem.map((id) => ["e", id, "", "redeemed"]);
+    const eventArr = Array.from(eventIdsToRedeem);
+    const eventTags = eventArr.map((id) => ["e", id, "", "redeemed"]);
     const event = {
       kind: 7376,
       content: "",
       tags: eventTags,
       created_at: Math.floor(Date.now() / 1000),
     };
-    toastr.info(`Signing receipt of your NutZaps`);
+    toastr.info(`Marking NutZaps as redeemed`);
     await delay(2000);
     const signedEvent = await window.nostr.signEvent(event);
     await Promise.any(pool.publish(nutzapRelays, signedEvent));
@@ -351,16 +352,17 @@ jQuery(function ($) {
         }
       }
       const tokens = (await Promise.all(tokenPromises)).filter(Boolean);
-      if (tokens.length === 0) {
+      if (tokens.length > 0) {
+        displayAndSaveNewTokens(tokens);
+      } else {
         toastr.info("No unclaimed NutZaps found.");
-        return;
       }
-      // Publish a single redeem event with all processed event IDs
+
+      // Publish a redeem event with all processed event IDs
       if (eventIdsToRedeem.size > 0) {
-        await publishRedeemEvent(Array.from(eventIdsToRedeem));
+        await publishRedeemEvent();
         eventIdsToRedeem.clear(); // reset
       }
-      displayAndSaveNewTokens(tokens);
     } catch (error) {
       console.error("Error in fetch-nutzaps:", error);
       toastr.error("Failed to gather and process NutZaps");
