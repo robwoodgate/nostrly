@@ -3,7 +3,6 @@ import {
   getEncodedTokenV4,
   getDecodedToken,
   signP2PKProofs,
-  hasP2PKSignedProof,
   getP2PKNSigs,
 } from "@cashu/cashu-ts";
 import {
@@ -153,36 +152,35 @@ jQuery(function ($) {
       }
       // Sign unspent proofs and categorize them
       const signedProofs = await signProofs(unspentEntries);
-      const validEntries = [];
-      const invalidEntries = [];
+      const validEntries = []; // Format: [{proof, eventId}, ...]
+      const invalidEventIds = [];
       for (const [i, proof] of signedProofs.entries()) {
-        const entry = unspentEntries[i];
+        const eventId = unspentEntries[i].eventId;
         if (!proof.secret.includes("P2PK")) {
           // Unspent and unlocked proof... rare!
           console.log("An unlocked NutZap proof!", proof);
-          validEntries.push({ proof, eventId: entry.eventId });
+          validEntries.push({ proof, eventId });
           continue;
         }
-        // P2PK proofs should be locked to NIP-61 lockKey with one signature
+        // P2PK proofs should be signed and require one signature + witness
+        // or require zero signatures (locktime has expired, no refund keys)
         const n_sigs = getP2PKNSigs(proof.secret);
-        if (n_sigs < 2 && hasP2PKSignedProof(lockKey, proof)) {
+        if (!n_sigs || (n_sigs == 1 && proof.witness)) {
           console.log("Signed NutZap proof", proof);
-          validEntries.push({ proof, eventId: entry.eventId });
+          validEntries.push({ proof, eventId });
           continue;
         }
         console.log("Not a NutZap compliant proof", proof);
-        invalidEntries.push({ proof: entry.proof, eventId: entry.eventId });
+        invalidEventIds.push(eventId);
       }
       // Handle invalid proofs
-      if (invalidEntries.length > 0) {
+      if (invalidEventIds.length > 0) {
         toastr.warning(
-          `${invalidEntries.length} proofs couldn’t be redeemed due to missing signatures. Check your NIP-60 wallet setup.`,
+          `${invalidEventIds.length} proofs couldn’t be redeemed due to missing signatures. Check your NIP-60 wallet setup.`,
         );
         if (clearInvalid) {
           // Add invalid event IDs to redeem set if clearing
-          invalidEntries.forEach((entry) =>
-            eventIdsToRedeem.add(entry.eventId),
-          );
+          invalidEventIds.forEach((eventId) => eventIdsToRedeem.add(eventId));
         }
       }
       // Process valid proofs and collect their event IDs
