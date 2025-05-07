@@ -55,6 +55,7 @@ jQuery(function ($) {
   let privkeys = [];
   let nutzapRelays = [];
   let lockKey = "";
+  const eventIdsToRedeem = new Set();
 
   /** Filters out spent proofs from the given proof entries. */
   async function filterUnspentProofs(mintUrl, unit, proofEntries) {
@@ -105,7 +106,7 @@ jQuery(function ($) {
   }
 
   /** Publishes a kind 7376 Nostr event to redeem proofs. */
-  async function publishRedeemEvent(eventIdsToRedeem) {
+  async function publishRedeemEvent() {
     const eventTags = eventIdsToRedeem.map((id) => ["e", id, "", "redeemed"]);
     const event = {
       kind: 7376,
@@ -120,11 +121,11 @@ jQuery(function ($) {
   }
 
   /**
-   * Receives and redeems proofs, returning a new token if successful.
+   * Receives proofs, returning a new token if successful.
    * NB: We are being very robust on checking proofs as one bad one
    * will invalidate a token
    */
-  async function receiveAndRedeemProofs(
+  async function receiveProofs(
     mintUrl,
     unit,
     proofEntries,
@@ -132,7 +133,6 @@ jQuery(function ($) {
   ) {
     try {
       // Start by filtering for spent proofs
-      const eventIdsToRedeem = new Set();
       const { spentEntries, unspentEntries } = await filterUnspentProofs(
         mintUrl,
         unit,
@@ -141,13 +141,7 @@ jQuery(function ($) {
       // Add spent proof event IDs to the redeem list
       spentEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       if (!unspentEntries.length) {
-        // All proofs spent, we are done... just clean up
-        if (eventIdsToRedeem.size > 0) {
-          toastr.warning(
-            "Only spent NutZaps were found. Marking them as redeemed...",
-          );
-          await publishRedeemEvent(Array.from(eventIdsToRedeem));
-        }
+        toastr.warning(`No unspent ${unit} NutZaps found for mint ${mintUrl}`);
         return null;
       }
       // Sign unspent proofs and categorize them
@@ -189,19 +183,13 @@ jQuery(function ($) {
         newToken = await processValidProofs(mintUrl, unit, validEntries);
         validEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       }
-      // Publish a single redeem event with all event IDs
-      if (eventIdsToRedeem.size > 0) {
-        await publishRedeemEvent(Array.from(eventIdsToRedeem));
-      }
       return newToken;
     } catch (error) {
       console.error(
-        `Failed to process proofs for mint ${mintUrl}, unit ${unit}:`,
+        `Failed to process ${unit} proofs for mint ${mintUrl}:`,
         error,
       );
-      toastr.error(
-        `Failed to process proofs for mint ${mintUrl}, unit ${unit}`,
-      );
+      toastr.error(`Failed to process ${unit} proofs for mint ${mintUrl}`);
       return null;
     }
   }
@@ -308,20 +296,20 @@ jQuery(function ($) {
   /** Processes a single mint-unit pair. */
   async function processMintUnit(mintUrl, unit, proofEntries, clearInvalid) {
     try {
-      const newToken = await receiveAndRedeemProofs(
+      const newToken = await receiveProofs(
         mintUrl,
         unit,
         proofEntries,
         clearInvalid,
       );
       if (newToken) {
-        toastr.success(`Collected token from ${mintUrl}, unit ${unit}`);
+        toastr.success(`Gethered a ${unit} token from ${mintUrl}`);
         return { mintUrl, unit, token: newToken };
       }
       return null;
     } catch (error) {
       console.error(`Error processing ${mintUrl}, ${unit}:`, error);
-      toastr.error(`Failed to process ${mintUrl}, unit ${unit}`);
+      toastr.error(`Failed to process ${unit} proofs from ${mintUrl}`);
       return null;
     }
   }
@@ -366,6 +354,11 @@ jQuery(function ($) {
       if (tokens.length === 0) {
         toastr.info("No unclaimed NutZaps found.");
         return;
+      }
+      // Publish a single redeem event with all processed event IDs
+      if (eventIdsToRedeem.size > 0) {
+        await publishRedeemEvent(Array.from(eventIdsToRedeem));
+        eventIdsToRedeem.clear(); // reset
       }
       displayAndSaveNewTokens(tokens);
     } catch (error) {
