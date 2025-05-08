@@ -287,12 +287,6 @@ jQuery(function ($) {
     if (event) event.preventDefault();
     $lightningStatus.text("Attempting payment...");
     try {
-      // if ("sat" != unit) {
-      //   throw "Only sat denominated tokens can be redeemed";
-      // }
-      // if (tokenAmount < 4) {
-      //   throw `Minimum token amount is ${formatAmount(4, "sat")}`;
-      // }
       // Sign P2PK proofs using proposed NIP-60 secret signer
       // @see: https://github.com/nostr-protocol/nips/pull/1890
       if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
