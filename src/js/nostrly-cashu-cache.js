@@ -81,7 +81,9 @@ jQuery(function ($) {
       if (privkeys.length > 0) {
         toastr.success("Wallet loaded");
       } else {
-        toastr.error("Wallet could not be loaded");
+        toastr.error(
+          "Wallet could not be loaded. Maybe you don't have one yet?",
+        );
       }
       if (mints.length > 0) {
         $mints.val(mints.join("\n") + "\n");

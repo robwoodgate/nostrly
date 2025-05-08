@@ -202,8 +202,18 @@ export const getNip60Wallet = async (
     }
     let privkeys: string[] = [];
     let mints: string[] = [];
-    const filter: Filter = { kinds: [17375], authors: [hexpub] };
-    const event = await pool.get(relays, filter);
+    let filter: Filter = { kinds: [17375], authors: [hexpub] };
+    let event = await pool.get(relays, filter);
+    if (!event) {
+      console.warn(
+        "kind:17375 wallet not found... checking for a legacy kind:37375 wallet",
+      );
+      toastr.warning(
+        "NIP-60 compliant wallet not found... checking for a legacy wallet",
+      );
+      filter = { kinds: [37375], authors: [hexpub] };
+      event = await pool.get(relays, filter);
+    }
     if (!event) return { privkeys: [], mints: [] };
     console.log("getNip60Wallet", event);
     if (window.nostr?.nip44) {
@@ -223,7 +233,7 @@ export const getNip60Wallet = async (
       }
     } else {
       toastr.warning("Nostr extension not available or does not support nip44");
-      console.warn("Nostr extension not available");
+      console.warn("Nostr extension not available or does not support nip44");
     }
     return { privkeys, mints };
   } catch (e) {
