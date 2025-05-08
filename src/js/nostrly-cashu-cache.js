@@ -67,7 +67,7 @@ jQuery(function ($) {
   // Fetch existing wallet
   $getWallet.on("click", async () => {
     try {
-      toastr.info("Looking for your NIP-60 Wallet");
+      toastr.info("Fetching your NIP-60 Wallet");
       if (!userPubkey) {
         userPubkey = await window.nostr.getPublicKey();
       }
