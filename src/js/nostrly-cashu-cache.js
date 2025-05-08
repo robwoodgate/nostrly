@@ -82,7 +82,7 @@ jQuery(function ($) {
         toastr.success("Wallet loaded");
       } else {
         toastr.error(
-          "Wallet could not be loaded. Maybe you don't have one yet?",
+          "Wallet could not be loaded, or does not exist.",
         );
       }
       if (mints.length > 0) {
