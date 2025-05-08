@@ -1037,6 +1037,7 @@ class NostrlyTools
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
+                    gap: 6px;
                 }
                 #token-history-list .history-item {
                     margin-bottom: 1rem;
