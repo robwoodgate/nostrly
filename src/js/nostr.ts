@@ -208,9 +208,7 @@ export const getNip60Wallet = async (
       console.warn(
         "kind:17375 wallet not found... checking for a legacy kind:37375 wallet",
       );
-      toastr.warning(
-        "NIP-60 compliant wallet not found... checking for a legacy wallet",
-      );
+      toastr.warning("NIP-60 wallet not found... checking for a legacy wallet");
       filter = { kinds: [37375], authors: [hexpub] };
       event = await pool.get(relays, filter);
     }

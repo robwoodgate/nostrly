@@ -327,6 +327,10 @@ jQuery(function ($) {
         pubkey: lockKey,
         relays: nutzapRelays,
       } = await getWalletAndInfo(pubkey, relays));
+      if (!privkeys.length || !lockKey || !nutzapRelays.length) {
+        toastr.error("Wallet could not be loaded, or does not exist.");
+        return;
+      }
 
       // Read checkbox states
       const fetchAllMints = $fetchAllMints.is(":checked");
