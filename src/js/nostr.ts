@@ -439,7 +439,8 @@ function getNutZapInfo(event: Event): {
 export async function getUnclaimedNutZaps(
   hexOrNpub: string,
   relays: string[] = DEFAULT_RELAYS,
-  strictMints: boolean = true,
+  nutZapRelays: string[] = [],
+  mints: string[] = [],
   toastrInfo: boolean = false,
 ): Promise<{
   [mintUrl: string]: {
@@ -452,9 +453,10 @@ export async function getUnclaimedNutZaps(
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    // Get user NutZap relays and combine with relays, ensuring no duplicates
-    const { mints, relays: nutZapRelays } = await getNip61Info(hexpub, relays);
-    const combinedRelays = [...new Set([...nutZapRelays, ...relays])];
+    // Combine relays with user's NutZap relays, ensuring no duplicates
+    const combinedRelays = [
+      ...new Set([...nutZapRelays, ...relays].filter(Boolean)),
+    ];
     console.log("Using relays:", combinedRelays);
     // Step 1: Collect redeemed NutZap event IDs from kind 7376 events
     // Note: we use all user relays for this request
@@ -489,8 +491,9 @@ export async function getUnclaimedNutZaps(
     const kind9321Filter: Filter = {
       kinds: [9321],
       "#p": [hexpub],
-      ...(strictMints && mints.length !== 0 ? { "#u": mints } : {}),
+      ...(mints.length > 0 ? { "#u": mints } : {}),
     };
+    console.log("kind9321Filter:>>", kind9321Filter);
     if (toastrInfo) {
       toastr.info(`Processing NutZap(s)...`);
     }

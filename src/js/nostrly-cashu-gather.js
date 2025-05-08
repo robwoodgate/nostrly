@@ -54,6 +54,7 @@ jQuery(function ($) {
   let relays = [];
   let privkeys = [];
   let nutzapRelays = [];
+  let mints = "";
   let lockKey = "";
   const eventIdsToRedeem = new Set();
 
@@ -324,6 +325,7 @@ jQuery(function ($) {
       relays = await getUserRelays(pubkey);
       ({
         privkeys,
+        mints,
         pubkey: lockKey,
         relays: nutzapRelays,
       } = await getWalletAndInfo(pubkey, relays));
@@ -343,7 +345,8 @@ jQuery(function ($) {
         proofStore = await getUnclaimedNutZaps(
           pubkey,
           relays,
-          !fetchAllMints,
+          nutzapRelays,
+          !fetchAllMints ? mints : [],
           true,
         ); // inc toastr
       } catch (error) {
