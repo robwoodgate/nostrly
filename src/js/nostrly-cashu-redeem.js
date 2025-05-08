@@ -287,12 +287,12 @@ jQuery(function ($) {
     if (event) event.preventDefault();
     $lightningStatus.text("Attempting payment...");
     try {
-      if ("sat" != unit) {
-        throw "Only sat denominated tokens can be redeemed";
-      }
-      if (tokenAmount < 4) {
-        throw `Minimum token amount is ${formatAmount(4, "sat")}`;
-      }
+      // if ("sat" != unit) {
+      //   throw "Only sat denominated tokens can be redeemed";
+      // }
+      // if (tokenAmount < 4) {
+      //   throw `Minimum token amount is ${formatAmount(4, "sat")}`;
+      // }
       // Sign P2PK proofs using proposed NIP-60 secret signer
       // @see: https://github.com/nostr-protocol/nips/pull/1890
       if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
@@ -324,7 +324,6 @@ jQuery(function ($) {
           invoice = await getInvoiceFromLnurl(address, iterateAmount);
           meltQuote = await wallet.createMeltQuote(invoice);
           iterateFee = meltQuote.fee_reserve;
-          console.log("invoice :>> ", invoice);
           console.log("iterateAmount :>> ", iterateAmount);
           console.log("iterateFee :>> ", iterateFee);
         }
@@ -332,6 +331,8 @@ jQuery(function ($) {
         invoice = address;
         meltQuote = await wallet.createMeltQuote(invoice);
       }
+      console.log("invoice :>> ", invoice);
+      console.log("meltQuote :>> ", meltQuote);
       // wallet and tokenAmount let us know processToken succeeded
       // If so, check invoice can be covered by the tokenAmount
       if (!wallet || !invoice || !tokenAmount) throw "OOPS!";
@@ -353,7 +354,7 @@ jQuery(function ($) {
           privkey = bytesToHex(data);
         }
       }
-      console.log("privkey:>>", privkey);
+      // console.log("privkey:>>", privkey);
 
       // CashuWallet.send performs coin selection and swaps the proofs with the mint
       // if no appropriate amount can be selected offline. We must include potential

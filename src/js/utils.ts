@@ -181,8 +181,8 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
   try {
     const cashuMint = new CashuMint(mintUrl);
     const mintInfo = await cashuMint.getInfo();
-    const mintAllKeysets: MintAllKeysets = await cashuMint.getKeySets();
     const mintActiveKeys: MintActiveKeys = await cashuMint.getKeys();
+    const mintAllKeysets: MintAllKeysets = await cashuMint.getKeySets();
     const freshData: MintData = {
       info: mintInfo,
       keys: mintActiveKeys.keysets,
