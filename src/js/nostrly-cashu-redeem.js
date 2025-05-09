@@ -37,9 +37,9 @@ jQuery(function ($) {
   let unit = "sat";
   let proofs = [];
   let tokenAmount = 0;
+  let pubkeys = [];
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
-  let pubkeys = [];
 
   // DOM elements
   const $lnurl = $("#lnurl");
@@ -61,6 +61,22 @@ jQuery(function ($) {
     }, 200);
     console.log("donation");
   });
+
+  // Reset vars
+  const resetVars = function () {
+    wallet = undefined;
+    mintUrl = "";
+    unit = "sat";
+    proofs = [];
+    tokenAmount = 0;
+    pubkeys = [];
+    $tokenStatus.text("");
+    $lightningStatus.text("");
+    $tokenRemover.addClass("hidden");
+    $pkeyWrapper.hide();
+    $pkey.val("");
+    $redeemButton.prop("disabled", true);
+  };
 
   // Helpers to get invoice from Lightning address | LN URL
   const isLnurl = (address) =>
@@ -117,18 +133,12 @@ jQuery(function ($) {
   // Helper to process the Cashu Token
   const processToken = async (event) => {
     if (event) event.preventDefault();
+    resetVars();
     $tokenRemover.removeClass("hidden");
     $tokenStatus.text("Checking token, one moment please...");
-    $lightningStatus.text("");
-    pubkeys = [];
-    tokenAmount = 0;
     try {
       let tokenEncoded = $token.val();
       if (!tokenEncoded) {
-        $tokenStatus.text("");
-        $tokenRemover.addClass("hidden");
-        $pkeyWrapper.hide();
-        $redeemButton.prop("disabled", true);
         return;
       }
       // Decode emoji if needed
@@ -459,14 +469,7 @@ jQuery(function ($) {
   $tokenRemover.on("click", (e) => {
     e.preventDefault();
     $token.val("");
-    $tokenStatus.text("");
-    $lightningStatus.text("");
-    $tokenRemover.addClass("hidden");
-    $redeemButton.prop("disabled", true);
-    tokenAmount = 0;
-    pubkeys = [];
-    $pkeyWrapper.hide();
-    $pkey.val("");
+    resetVars();
   });
   $lnurlRemover.on("click", (e) => {
     e.preventDefault();

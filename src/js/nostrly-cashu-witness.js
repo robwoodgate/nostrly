@@ -73,6 +73,21 @@ jQuery(function ($) {
     console.log("donation");
   });
 
+  // Reset vars
+  const resetVars = function () {
+    $token.attr("data-valid", "");
+    wallet = undefined;
+    mintUrl = "";
+    unit = "sat";
+    proofs = [];
+    tokenAmount = 0;
+    nip07Pubkey = "";
+    privkey = "";
+    p2pkParams = { pubkeys: [], n_sigs: 0 };
+    signedPubkeys = [];
+    $witnessInfo.hide().empty();
+  };
+
   // Page handlers
   async function showForm() {
     $divForm.show();
@@ -114,18 +129,7 @@ jQuery(function ($) {
   async function processToken() {
     try {
       // Reset vars
-      $token.attr("data-valid", "");
-      wallet = undefined;
-      mintUrl = "";
-      unit = "sat";
-      proofs = [];
-      tokenAmount = 0;
-      nip07Pubkey = "";
-      privkey = "";
-      p2pkParams = { pubkeys: [], n_sigs: 0 };
-      signedPubkeys = [];
-      $witnessInfo.hide().empty();
-      checkNip07ButtonState();
+      resetVars();
 
       // check token
       let tokenEncoded = $token.val();
@@ -167,13 +171,7 @@ jQuery(function ($) {
     } catch (e) {
       toastr.error(e.message || "Invalid token");
       console.error("processToken error:", e);
-      $token.attr("data-valid", "no");
-      proofs = [];
-      tokenAmount = 0;
-      mintUrl = "";
-      unit = "sat";
-      p2pkParams = { pubkeys: [], n_sigs: 0 };
-      $witnessInfo.hide().empty();
+      resetVars();
     }
     checkNip07ButtonState();
     displayWitnessInfo();
