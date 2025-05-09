@@ -395,6 +395,9 @@ jQuery(function ($) {
       // If so, check invoice can be covered by the tokenAmount
       if (!wallet || !invoice || !tokenAmount) throw "OOPS!";
       const amountToSend = meltQuote.amount + meltQuote.fee_reserve;
+      if (!amountToSend) {
+        throw "Invoice amount is too small to send";
+      }
       if (amountToSend > tokenAmount) {
         throw `Not enough to pay the invoice: needs ${formatAmount(meltQuote.amount, unit)} + ${formatAmount(meltQuote.fee_reserve, unit)}`;
       }
