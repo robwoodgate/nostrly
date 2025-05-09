@@ -26,6 +26,7 @@ jQuery(function ($) {
   let mintUrls = [];
   let mints = [];
   let relays = [];
+  let kind = null;
 
   // DOM elements
   const $form = $("#nip60-wallet-form");
@@ -42,6 +43,7 @@ jQuery(function ($) {
   const $copyNsec = $("#copy-nsec");
   const $copyHex = $("#copy-hex");
   const $donateCashu = $("#donate_cashu");
+  const $rotateKeys = $("#rotate-keys");
 
   // Donation input
   $donateCashu.on("paste", () => {
@@ -74,12 +76,18 @@ jQuery(function ($) {
       if (!userRelays) {
         userRelays = await getUserRelays(userPubkey);
       }
-      ({ mints, relays, privkeys } = await getWalletAndInfo(
+      ({ mints, relays, privkeys, kind } = await getWalletAndInfo(
         userPubkey,
         userRelays,
       ));
       if (privkeys.length > 0) {
         toastr.success("Wallet loaded");
+        $rotateKeys.prop("disabled", false);
+        if (37375 == kind) {
+          toastr.warning(
+            "You have a legacy kind:37375 wallet. Saving will upgrade it!",
+          );
+        }
       } else {
         toastr.error("Wallet could not be loaded, or does not exist.");
       }
@@ -224,10 +232,19 @@ jQuery(function ($) {
   // Create NIP-60 wallet
   $createWallet.on("click", async () => {
     try {
-      // Generate new keypair and prepend sk to privkeys array
-      const sk = generateSecretKey(); // Uint8Array
-      const pk = getPublicKey(sk); // hex string
-      privkeys = [bytesToHex(sk), ...privkeys];
+      let sk;
+      let pk;
+      try {
+        if (privkeys.length && !$rotateKeys.is(":checked")) {
+          sk = hexToBytes(privkeys[0]); // Use existing
+          pk = getPublicKey(sk); // hex string
+        } else throw "New needed";
+      } catch (e) {
+        console.log("Generating new private key");
+        sk = generateSecretKey();
+        pk = getPublicKey(sk); // hex string
+        privkeys = [bytesToHex(sk), ...privkeys];
+      }
 
       // Get user Pubkey if needed
       if (!userPubkey) {

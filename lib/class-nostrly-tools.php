@@ -854,7 +854,7 @@ class NostrlyTools
                     #nip60-wallet-form {
                         margin-bottom: 40px;
                     }
-                    #nip60-wallet-form label {
+                    #nip60-wallet-form label, .label {
                         display: block;
                         font-weight: bold;
                         margin-bottom: 0;
@@ -872,6 +872,12 @@ class NostrlyTools
                         margin-bottom: 0.25em;
                         padding: 6px 15px;
                         width: 100%;
+                    }
+                    #update-options input[type=checkbox] {
+                        width: initial;
+                    }
+                    #update-options label {
+                        font-weight: normal;
                     }
                     /* Validation feedback */
                     #nip60-wallet-form [data-valid="no"] {
@@ -966,6 +972,14 @@ class NostrlyTools
                         </div>
                         <div class="description">These are the Nostr relays where your ecash will be stored (max recommended 2-4). Use the button to fetch your relays if using a NIP-07 extension.</div>
                     </div>
+                    <div id="update-options">
+                        <div class="label">Wallet Update Options:</div>
+                        <label for="rotate-keys">
+                            <input type="checkbox" id="rotate-keys" checked disabled>
+                            Rotate your wallet keys
+                        </label>
+                        <div class="description">Adds a new private key and NIP-61 public locking key to your account. Rotating keys improves privacy.</div>
+                    <div>
                     <div class="center">
                         <button type="submit" id="create-wallet" disabled>{$create_wallet}</button>
                         <div class="description" id="create-warning"><strong>WARNING:</strong> This will replace any existing wallet. To preserve keys, fetch your existing wallet first</div>

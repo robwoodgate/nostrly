@@ -192,6 +192,7 @@ export const getNip60Wallet = async (
 ): Promise<{
   privkeys: string[];
   mints: string[];
+  kind: number | null;
 }> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
@@ -211,7 +212,7 @@ export const getNip60Wallet = async (
       filter = { kinds: [37375], authors: [hexpub] };
       event = await pool.get(relays, filter);
     }
-    if (!event) return { privkeys: [], mints: [] };
+    if (!event) return { privkeys: [], mints: [], kind: null };
     console.log("getNip60Wallet", event);
     if (window.nostr?.nip44) {
       const nip60 = await window.nostr.nip44.decrypt(hexpub, event.content);
@@ -232,10 +233,10 @@ export const getNip60Wallet = async (
       toastr.warning("Nostr extension not available or does not support nip44");
       console.warn("Nostr extension not available or does not support nip44");
     }
-    return { privkeys, mints };
+    return { privkeys, mints, kind: event.kind };
   } catch (e) {
     console.error(e);
-    return { privkeys: [], mints: [] };
+    return { privkeys: [], mints: [], kind: null };
   }
 };
 
@@ -281,7 +282,7 @@ export const getNip61Info = async (
  * Fetches NIP-60 wallet and NIP-61 info simultaneously for an Nostr npub
  * @param {string}   hexOrNpub npub/hexpub to fetch details for
  * @param {string[]} relays Optional. relays to query
- * @returns {Promise<{ privkeys: string[], mints: string[], relays: string[], pubkey: string | null }>}
+ * @returns {Promise<{ privkeys: string[], mints: string[], relays: string[], pubkey: string | null, kind: string | null }>}
  */
 export const getWalletAndInfo = async (
   hexOrNpub: string,
@@ -291,6 +292,7 @@ export const getWalletAndInfo = async (
   mints: string[];
   relays: string[];
   pubkey: string | null;
+  kind: number | null;
 }> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
@@ -298,13 +300,13 @@ export const getWalletAndInfo = async (
     if (hexOrNpub.startsWith("npub1")) {
       hexpub = nip19.decode(hexOrNpub).data as string;
     }
-    const [{ privkeys, mints }, { relays: nip61Relays, pubkey }] =
+    const [{ privkeys, mints, kind }, { relays: nip61Relays, pubkey }] =
       await Promise.all([
         getNip60Wallet(hexpub, relays),
         getNip61Info(hexpub, relays),
       ]);
 
-    return { privkeys, mints, relays: nip61Relays, pubkey };
+    return { privkeys, mints, relays: nip61Relays, pubkey, kind };
   } catch (error) {
     console.error("Error getting NIP-60 wallet and NIP-61 info:", error);
     return {
@@ -312,6 +314,7 @@ export const getWalletAndInfo = async (
       mints: [],
       relays: [],
       pubkey: null,
+      kind: null,
     };
   }
 };
