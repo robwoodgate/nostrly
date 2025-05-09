@@ -979,7 +979,7 @@ class NostrlyTools
                             Rotate your wallet keys
                         </label>
                         <div class="description">Adds a new private key and NIP-61 public locking key to your account. Rotating keys improves privacy.</div>
-                    <div>
+                    </div>
                     <div class="center">
                         <button type="submit" id="create-wallet" disabled>{$create_wallet}</button>
                         <div class="description" id="create-warning"><strong>WARNING:</strong> This will replace any existing wallet. To preserve keys, fetch your existing wallet first</div>
