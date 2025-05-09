@@ -978,7 +978,7 @@ class NostrlyTools
                             <input type="checkbox" id="rotate-keys" checked disabled>
                             Rotate your wallet keys
                         </label>
-                        <div class="description">Adds a new private key and NIP-61 public locking key to your account. Rotating keys improves privacy.</div>
+                        <div class="description">Adds a new private key and NIP-61 public locking key to your wallet. Rotating keys improves privacy, and existing private keys are preserved.</div>
                     </div>
                     <div class="center">
                         <button type="submit" id="create-wallet" disabled>{$create_wallet}</button>
