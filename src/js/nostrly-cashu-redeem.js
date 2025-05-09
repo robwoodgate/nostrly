@@ -464,6 +464,7 @@ jQuery(function ($) {
     $tokenRemover.addClass("hidden");
     $redeemButton.prop("disabled", true);
     tokenAmount = 0;
+    pubkeys = [];
     $pkeyWrapper.hide();
     $pkey.val("");
   });
