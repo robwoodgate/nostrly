@@ -120,6 +120,8 @@ jQuery(function ($) {
     $tokenRemover.removeClass("hidden");
     $tokenStatus.text("Checking token, one moment please...");
     $lightningStatus.text("");
+    pubkeys = [];
+    tokenAmount = 0;
     try {
       let tokenEncoded = $token.val();
       if (!tokenEncoded) {
@@ -127,8 +129,6 @@ jQuery(function ($) {
         $tokenRemover.addClass("hidden");
         $pkeyWrapper.hide();
         $redeemButton.prop("disabled", true);
-        tokenAmount = 0;
-        pubkeys = [];
         return;
       }
       // Decode emoji if needed
