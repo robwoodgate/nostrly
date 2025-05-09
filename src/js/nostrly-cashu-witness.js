@@ -151,16 +151,13 @@ jQuery(function ($) {
         return;
       }
       proofs.forEach((proof) => {
-        const secret = parseP2PKSecret(proof.secret);
-        if ("SIG_ALL" == getP2PKSigFlag(secret)) {
+        if ("SIG_ALL" == getP2PKSigFlag(proof.secret)) {
           throw new Error("Sorry, SIG_ALL tokens are not supported yet");
         }
       });
       tokenAmount = getTokenAmount(proofs);
-      p2pkParams.pubkeys = getP2PKExpectedKWitnessPubkeys(
-        parseP2PKSecret(proofs[0].secret),
-      );
-      p2pkParams.n_sigs = getP2PKNSigs(parseP2PKSecret(proofs[0].secret));
+      p2pkParams.pubkeys = getP2PKExpectedKWitnessPubkeys(proofs[0].secret);
+      p2pkParams.n_sigs = getP2PKNSigs(proofs[0].secret);
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
@@ -377,9 +374,8 @@ jQuery(function ($) {
     const signedProofs = proofs.map((proof) => ({ ...proof }));
     for (const [index, proof] of signedProofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      const parsed = parseP2PKSecret(proof.secret);
-      const pubkeys = getP2PKExpectedKWitnessPubkeys(parsed);
-      const n_sigs = getP2PKNSigs(parsed);
+      const pubkeys = getP2PKExpectedKWitnessPubkeys(proof.secret);
+      const n_sigs = getP2PKNSigs(proof.secret);
       console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
       if (!pubkeys.length) continue;
       let signatures = getP2PKWitnessSignatures(proof.witness);

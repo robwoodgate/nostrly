@@ -8,7 +8,6 @@ import {
   MintQuoteState,
   OutputData,
 } from "@cashu/cashu-ts";
-import { decode } from "@gandlaf21/bolt11-decode";
 import {
   SimplePool,
   finalizeEvent,

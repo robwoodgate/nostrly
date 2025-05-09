@@ -6,11 +6,22 @@ import {
   getP2PKExpectedKWitnessPubkeys,
   getP2PKLocktime,
   getP2PKNSigs,
-  parseP2PKSecret,
+  signP2PKProofs,
+  hasP2PKSignedProof,
+  getP2PKWitnessSignatures,
 } from "@cashu/cashu-ts";
-import { doConfettiBomb, getWalletWithUnit, formatAmount } from "./utils.ts";
-import { convertP2PKToNpub, getContactDetails } from "./nostr.ts";
-import { decode } from "@gandlaf21/bolt11-decode";
+import {
+  doConfettiBomb,
+  getWalletWithUnit,
+  formatAmount,
+  getSatsAmount,
+  getTokenAmount,
+} from "./utils.ts";
+import {
+  convertP2PKToNpub,
+  getContactDetails,
+  getNip60Wallet,
+} from "./nostr.ts";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder.ts";
@@ -28,7 +39,7 @@ jQuery(function ($) {
   let tokenAmount = 0;
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
-  let lockNpub;
+  let pubkeys = [];
 
   // DOM elements
   const $lnurl = $("#lnurl");
@@ -110,45 +121,42 @@ jQuery(function ($) {
     $tokenStatus.text("Checking token, one moment please...");
     $lightningStatus.text("");
     try {
-      const tokenEncoded = $token.val();
+      let tokenEncoded = $token.val();
       if (!tokenEncoded) {
         $tokenStatus.text("");
         $tokenRemover.addClass("hidden");
         $pkeyWrapper.hide();
         $redeemButton.prop("disabled", true);
         tokenAmount = 0;
-        lockNpub = null;
+        pubkeys = [];
         return;
       }
-      let token; // scope
-      try {
-        token = getDecodedToken(tokenEncoded);
-      } catch (e) {
-        // Try decoding as an emoji, update token input before
-        // token decode attempt as it throws an error on fail
-        const emoji = emojiDecode(tokenEncoded);
-        if (emoji) {
-          // ignore if no peanut data
-          $token.val(emoji);
+      // Decode emoji if needed
+      if (!tokenEncoded.startsWith("cashu")) {
+        const decoded = emojiDecode(tokenEncoded);
+        if (decoded) {
+          tokenEncoded = decoded;
+          $token.val(decoded);
         }
-        token = getDecodedToken(emoji); // throws on fail
       }
+      // Decode token
+      const token = getDecodedToken(tokenEncoded);
       console.log("token :>> ", token);
       if (!token.proofs.length || !token.mint.length) {
         throw "Token format invalid";
       }
+      // Extract token data, open wallet
       mintUrl = token.mint;
       unit = token.unit;
       wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
       proofs = token.proofs ?? [];
       console.log("proofs :>>", proofs);
+      // Check proofs are not spent
       const proofStates = await wallet.checkProofsStates(proofs);
       console.log("proofStates :>>", proofStates);
-      // Check state of token's proofs``
       let unspentProofs = [];
       proofStates.forEach((state, index) => {
         if (state.state == CheckStateEnum.UNSPENT) {
-          // console.log("UNSPENT :>>", proofs[index]);
           unspentProofs.push(proofs[index]);
         }
       });
@@ -176,26 +184,21 @@ jQuery(function ($) {
           "(Partially spent token detected - new token generated)",
         );
       }
-      tokenAmount = proofs.reduce(
-        (accumulator, currentValue) => accumulator + currentValue.amount,
-        0,
-      );
+      tokenAmount = getTokenAmount(proofs);
       // Check if proofs are P2PK locked
       const lockedProofs = proofs.filter(function (k) {
         return k.secret.includes("P2PK");
       });
-      let pubkeys = [];
       let n_sigs = 0;
       let locktime;
       if (lockedProofs.length) {
         // they are... so lookup the npubs currently able to unlock
         // This can vary dependingo on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
-        const p2pkSecret = parseP2PKSecret(lockedProofs[0].secret);
-        pubkeys = getP2PKExpectedKWitnessPubkeys(p2pkSecret);
-        n_sigs = getP2PKNSigs(p2pkSecret);
-        locktime = getP2PKLocktime(p2pkSecret); // unix timestamp
-        console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys, n_sigs);
+        pubkeys = getP2PKExpectedKWitnessPubkeys(lockedProofs[0].secret);
+        n_sigs = getP2PKNSigs(lockedProofs[0].secret);
+        locktime = getP2PKLocktime(lockedProofs[0].secret); // unix timestamp
+        console.log("P2PK Pubkeys, NSigs:>>", pubkeys, n_sigs);
         if (n_sigs > 1) {
           if (locktime > Math.floor(new Date().getTime() / 1000)) {
             throw `This is a MultiSig token until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait until the lock expires`;
@@ -205,6 +208,7 @@ jQuery(function ($) {
         }
         console.log("locktime:>>", locktime);
       }
+      // Fetch Nostr names for locking pubkeys if possible
       if (pubkeys.length > 0) {
         const updateContactName = (npub, relays) => {
           getContactDetails(npub, relays).then(({ name }) => {
@@ -253,7 +257,6 @@ jQuery(function ($) {
       $tokenStatus.text(
         `Token value ${formatAmount(tokenAmount, unit)} from the mint: ${mintHost}`,
       );
-      // $lightningStatus.text('Redeem to address / pay invoice...');
       // Enable redeem button if lnurl is already set
       if ($lnurl.val()) {
         $redeemButton.prop("disabled", false);
@@ -287,50 +290,100 @@ jQuery(function ($) {
     if (event) event.preventDefault();
     $lightningStatus.text("Attempting payment...");
     try {
+      // Sign P2PK proofs using NIP-60 wallet keys
+      if (typeof window?.nostr?.nip44?.decrypt !== "undefined") {
+        console.log("we can decrypt nip44!");
+        proofs = await signNip60Proofs(proofs); // sign main proofs array
+      }
+
       // Sign P2PK proofs using proposed NIP-60 secret signer
       // @see: https://github.com/nostr-protocol/nips/pull/1890
       if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
         console.log("we can signSecret!");
-        await signSecretProofs(proofs); // sign main proofs array
+        proofs = await signSecretProofs(proofs); // sign main proofs array
       }
       // Support for proposed NIP-07 schnorr signer
       // @see: https://github.com/nostr-protocol/nips/pull/1842
       else if (typeof window?.nostr?.signString !== "undefined") {
         console.log("we can signString!");
-        await signStringProofs(proofs); // sign main proofs array
+        proofs = await signStringProofs(proofs); // sign main proofs array
       }
       // The Alby extension can sign schnorr signatures directly - woohoo!
       else if (typeof window?.nostr?.signSchnorr !== "undefined") {
         console.log("we can signSchnorr!");
-        await signSchnorrProofs(proofs); // sign main proofs array
+        proofs = await signSchnorrProofs(proofs); // sign main proofs array
       }
       console.log("signed proofs :>>", proofs);
+
+      // Prepare to fetch an LN invoice and melt the token
       let invoice = "";
       let address = $lnurl.val() ?? "";
-      let iterateFee = null;
       let meltQuote = null;
       if (isLnurl(address)) {
-        let iterateAmount =
-          tokenAmount - Math.ceil(Math.max(3, tokenAmount * 0.02));
-        let iterateFee = 0;
-        while (iterateAmount + iterateFee != tokenAmount) {
-          iterateAmount = tokenAmount - iterateFee;
-          invoice = await getInvoiceFromLnurl(address, iterateAmount);
+        try {
+          // Set LN invoice/fee estimates to NutShell defaults: 1%, 2 sat min
+          // @see: https://github.com/cashubtc/nutshell/blob/main/.env.example#L114
+          let estFeeSats = Math.ceil(Math.max(2, tokenAmount * 0.01));
+          let estInvSats = tokenAmount - estFeeSats;
+
+          // LN invoices are in sats, so if our token is not, we need to find
+          // out roughly how many sats the token is worth... we can estimate
+          // this by asking the mint to give us a mint quote for tokenAmount
+          if ("sat" != unit) {
+            console.log(
+              `Token is in ${unit}. Estimating melt invoice value...`,
+            );
+            const mintQuote = await wallet.createMintQuote(tokenAmount);
+            console.log("Mint Quote :>>", mintQuote);
+            const sats = getSatsAmount(mintQuote.request);
+            estFeeSats = Math.ceil(Math.max(2, sats * 0.01)); // NutShell default
+            estInvSats = sats - estFeeSats;
+            console.log("Mint estInvSats :>>", estInvSats);
+          }
+
+          // Check fees haven't eaten token
+          if (estInvSats <= 0) {
+            throw new Error("Token amount too low to cover estimated fee");
+          }
+
+          // Get invoice and melt quote
+          invoice = await getInvoiceFromLnurl(address, estInvSats);
           meltQuote = await wallet.createMeltQuote(invoice);
-          iterateFee = meltQuote.fee_reserve;
-          console.log("iterateAmount :>> ", iterateAmount);
-          console.log("iterateFee :>> ", iterateFee);
+          console.log("meltQuote :>> ", meltQuote);
+
+          // If we overestimated invoice value, lets adjust it to fit. MeltQuote is in
+          // token's base unit, so scale estInvSats by same ratio (- 1 sat for safety)
+          const neededAmount = meltQuote.amount + meltQuote.fee_reserve;
+          if (neededAmount > tokenAmount) {
+            console.log(
+              `Melt invoice too high... token: ${tokenAmount}, quote: ${neededAmount}`,
+            );
+            estInvSats = parseInt(
+              estInvSats * (tokenAmount / neededAmount) - 1,
+              10,
+            );
+            if (estInvSats <= 0) {
+              throw new Error("Token amount too low to cover fee reserve");
+            }
+            invoice = await getInvoiceFromLnurl(address, estInvSats);
+            meltQuote = await wallet.createMeltQuote(invoice);
+            console.log("Adjusted meltQuote :>> ", meltQuote);
+          }
+
+          console.log("Final estInvSats :>> ", estInvSats);
+        } catch (error) {
+          console.error("Error generating invoice:", error.message);
+          throw error;
         }
       } else {
         invoice = address;
         meltQuote = await wallet.createMeltQuote(invoice);
+        console.log("invoice :>> ", invoice);
+        console.log("meltQuote :>> ", meltQuote);
       }
-      console.log("invoice :>> ", invoice);
-      console.log("meltQuote :>> ", meltQuote);
       // wallet and tokenAmount let us know processToken succeeded
       // If so, check invoice can be covered by the tokenAmount
       if (!wallet || !invoice || !tokenAmount) throw "OOPS!";
-      const decodedInvoice = await decode(invoice);
       const amountToSend = meltQuote.amount + meltQuote.fee_reserve;
       if (amountToSend > tokenAmount) {
         throw `Not enough to pay the invoice: needs ${formatAmount(meltQuote.amount, unit)} + ${formatAmount(meltQuote.fee_reserve, unit)}`;
@@ -380,9 +433,6 @@ jQuery(function ($) {
           console.log("change token :>> ", newToken);
           localStorage.setItem("nostrly-cashu-token", newToken);
           setTimeout(() => {
-            $redeemButton.prop("disabled", true);
-            $lnurlRemover.addClass("hidden");
-            $lnurl.val("");
             $token.val(newToken);
             $token.trigger("input");
           }, 5000);
@@ -391,6 +441,11 @@ jQuery(function ($) {
         if (autopay) {
           localStorage.setItem("nostrly-cashu-last-autopay", invoice);
         }
+        // Reset form
+        $token.val("");
+        $redeemButton.prop("disabled", true);
+        $lnurlRemover.addClass("hidden");
+        $lnurl.val("");
       } else {
         $lightningStatus.text("Payment failed");
       }
@@ -464,55 +519,93 @@ jQuery(function ($) {
     $lnurl.trigger("input");
   }
 
+  // Sign P2PK proofs using NIP-60 wallet keys
+  async function signNip60Proofs(proofs) {
+    if (typeof window?.nostr?.nip44?.decrypt === "undefined") return proofs;
+    if (!pubkeys.length) return proofs;
+    const pubkey = await window.nostr.getPublicKey();
+    const { privkeys } = await getNip60Wallet(pubkey);
+    if (privkeys.length > 0) {
+      console.log("signing using nip60...");
+      privkeys.forEach((privkey) => {
+        proofs = signP2PKProofs(proofs, privkey);
+      });
+      // Stringify the witness again
+      proofs = proofs.map((proof) => {
+        proof.witness = JSON.stringify(proof.witness);
+        return proof;
+      });
+    }
+    console.log("proofs after NIP-60:>>", proofs);
+    return proofs;
+  }
+
   // Sign P2PK proofs using Alby Nostr Extension
   async function signSchnorrProofs(proofs) {
-    if (typeof window?.nostr?.signSchnorr === "undefined") return;
+    if (typeof window?.nostr?.signSchnorr === "undefined") return proofs;
+    if (!pubkeys.length) return proofs;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      if (!lockNpub) continue;
       const hash = bytesToHex(sha256(proof.secret));
       // console.log('hash:>>', hash);
-      const schnorr = await window.nostr.signSchnorr(hash);
-      if (schnorr.length) {
-        console.log("schnorr :>>", schnorr);
-        proofs[index].witness = JSON.stringify({ signatures: [schnorr] });
+      const sig = await window.nostr.signSchnorr(hash);
+      if (sig.length) {
+        const signatures = getP2PKWitnessSignatures(proof.witness);
+        console.log("existing wit", signatures);
+        proofs[index].witness = JSON.stringify({
+          signatures: [...signatures, sig],
+        });
+        console.log("added sig!", sig);
       }
     }
+    return proofs;
   }
 
   // Sign P2PK proofs using proposed NIP-07 method
   // @see: https://github.com/nostr-protocol/nips/pull/1842
   async function signStringProofs(proofs) {
-    if (typeof window?.nostr?.signString === "undefined") return;
+    if (typeof window?.nostr?.signString === "undefined") return proofs;
+    if (!pubkeys.length) return proofs;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      if (!lockNpub) continue;
       const expHash = bytesToHex(sha256(proof.secret));
       const { hash, sig, pubkey } = await window.nostr.signString(proof.secret);
       // Check we got a signature from expected pubkey on expected hash
       if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
-        console.log("schnorr :>>", sig);
-        proofs[index].witness = JSON.stringify({ signatures: [sig] });
+        if (!hasP2PKSignedProof(pubkey, proof)) {
+          const signatures = getP2PKWitnessSignatures(proof.witness);
+          proofs[index].witness = JSON.stringify({
+            signatures: [...signatures, sig],
+          });
+          console.log("added sig!", sig);
+        }
       }
     }
+    return proofs;
   }
 
   // Sign P2PK proofs using proposed NIP-60 secret signer
   // @see: https://github.com/nostr-protocol/nips/pull/1890
   async function signSecretProofs(proofs) {
-    if (typeof window?.nostr?.nip60?.signSecret === "undefined") return;
+    if (typeof window?.nostr?.nip60?.signSecret === "undefined") return proofs;
+    if (!pubkeys.length) return proofs;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      if (!lockNpub) continue;
       const expHash = bytesToHex(sha256(proof.secret));
       const { hash, sig, pubkey } = await window.nostr.nip60.signSecret(
         proof.secret,
       );
       // Check we got a signature from expected pubkey on expected hash
       if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
-        console.log("schnorr :>>", sig);
-        proofs[index].witness = JSON.stringify({ signatures: [sig] });
+        if (!hasP2PKSignedProof(pubkey, proof)) {
+          const signatures = getP2PKWitnessSignatures(proof.witness);
+          proofs[index].witness = JSON.stringify({
+            signatures: [...signatures, sig],
+          });
+          console.log("added sig!", sig);
+        }
       }
     }
+    return proofs;
   }
 });

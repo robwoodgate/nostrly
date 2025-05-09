@@ -10,6 +10,7 @@ import {
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import confetti from "canvas-confetti";
+import { decode } from "@gandlaf21/bolt11-decode";
 
 export const getTokenAmount = (proofs: Array<Proof>): number => {
   return proofs.reduce((acc, proof) => {
@@ -300,4 +301,27 @@ export const debounce = <T extends (...args: any[]) => void>(
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   };
+};
+
+/**
+ * Gets the invoice amount in sats
+ * @param {string} lnInvoice The LN Invoice
+ */
+export const getSatsAmount = (lnInvoice: string) => {
+  try {
+    const decoded = decode(lnInvoice);
+    const amountSection = decoded.sections.find(
+      (section) => section.name === "amount",
+    );
+    if (!amountSection || !amountSection.value) {
+      throw new Error("Amount not found in Lightning invoice!");
+    }
+    // Extract millisats (value is a string, so parse it)
+    const millisats = parseInt(amountSection.value, 10);
+    return Math.floor(millisats / 1000); // sats
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Error extracting amount:", msg);
+    throw e;
+  }
 };

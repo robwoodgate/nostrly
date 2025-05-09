@@ -134,6 +134,7 @@ jQuery(function ($) {
     clearInvalid = false,
   ) {
     try {
+      const mintHost = new URL(mintUrl).hostname;
       // Start by filtering for spent proofs
       const { spentEntries, unspentEntries } = await filterUnspentProofs(
         mintUrl,
@@ -143,7 +144,7 @@ jQuery(function ($) {
       // Add spent proof event IDs to the redeem list
       spentEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
       if (!unspentEntries.length) {
-        toastr.warning(`Found a spent ${unit} token from ${mintUrl}`);
+        toastr.warning(`Found a spent ${unit} token from ${mintHost}`);
         return null;
       }
       // Sign unspent proofs and categorize them
@@ -188,10 +189,10 @@ jQuery(function ($) {
       return newToken;
     } catch (error) {
       console.error(
-        `Failed to process ${unit} proofs for mint ${mintUrl}:`,
+        `Failed to process ${unit} proofs for mint ${mintHost}:`,
         error,
       );
-      toastr.error(`Failed to process ${unit} proofs for mint ${mintUrl}`);
+      toastr.error(`Failed to process ${unit} proofs for mint ${mintHost}`);
       return null;
     }
   }
@@ -298,6 +299,7 @@ jQuery(function ($) {
   /** Processes a single mint-unit pair. */
   async function processMintUnit(mintUrl, unit, proofEntries, clearInvalid) {
     try {
+      const mintHost = new URL(mintUrl).hostname;
       const newToken = await receiveProofs(
         mintUrl,
         unit,
@@ -305,13 +307,13 @@ jQuery(function ($) {
         clearInvalid,
       );
       if (newToken) {
-        toastr.success(`Gathered a ${unit} token from ${mintUrl}`);
+        toastr.success(`Gathered a ${unit} token from ${mintHost}`);
         return { mintUrl, unit, token: newToken };
       }
       return null;
     } catch (error) {
       console.error(`Error processing ${mintUrl}, ${unit}:`, error);
-      toastr.error(`Failed to process ${unit} proofs from ${mintUrl}`);
+      toastr.error(`Failed to process ${unit} proofs from ${mintHost}`);
       return null;
     }
   }
