@@ -567,6 +567,7 @@ class NostrlyTools
                             <option value="https://mint.lnvoltz.com">https://mint.lnvoltz.com</option>
                             <option value="discover">Discover more mints...</option>
                         </select>
+                        <div class="description">Choose the NUT-11 compliant mint you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://audit.8333.space" target="_blank">Cashu Auditor</a> (in which case, <a href="https://audit.8333.space" target="_blank">donating a token from that mint</a> will add it to the list)</div>
                     </div>
                     <div>
                         <label for="lock-value">Token Value (sats):</label>
@@ -962,7 +963,7 @@ class NostrlyTools
                             <option value="" disabled selected>Loading mints...</option>
                         </select>
                         <textarea id="mints" name="mints" rows="4" placeholder="https://mint.minibits.cash/Bitcoin\nhttps://stablenut.cashu.network"></textarea>
-                        <div class="description">Choose the NUT-11 compliant mints you are comfortable using.</div>
+                        <div class="description">Choose the NUT-11 compliant mints you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://audit.8333.space" target="_blank">Cashu Auditor</a> (in which case, <a href="https://audit.8333.space" target="_blank">donating a token from that mint</a> will add it to the list)</div>
                     </div>
                     <div>
                         <label for="relays">Relays (one per line):</label>
