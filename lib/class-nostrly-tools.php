@@ -858,7 +858,6 @@ class NostrlyTools
                     #nip60-wallet-form label, .label {
                         display: block;
                         font-weight: bold;
-                        margin-bottom: 0;
                         text-align: left;
                     }
                     #nip60-wallet-form div {
@@ -868,23 +867,24 @@ class NostrlyTools
                     #nip60-wallet-form input,
                     #nip60-wallet-form textarea,
                     #nip60-wallet-form select,
-                    #wallet-key {
+                    #live-key,
+                    #old-keys {
                         border-radius: 6px;
-                        margin-bottom: 0.25em;
                         padding: 6px 15px;
                         width: 100%;
+                        box-sizing: border-box;
                     }
                     #update-options input[type=checkbox] {
-                        width: initial;
+                        width: auto;
                     }
                     #update-options label {
                         font-weight: normal;
                     }
                     /* Validation feedback */
                     #nip60-wallet-form [data-valid="no"] {
-                        border: 2px solid rgb(204, 55, 55);
+                        border: 2px solid #cc3737;
                         background-color: rgba(204, 55, 55, 0.3);
-                        color: white;
+                        color: #fff;
                     }
                     /* Utility classes */
                     .center {
@@ -895,27 +895,26 @@ class NostrlyTools
                     }
                     .description {
                         font-size: 0.85rem;
-                        margin-top: 0.25rem;
-                        margin-bottom: 0.25rem;
+                        margin: 0.25rem 0;
                         color: #ccc;
                     }
                     /* Relays container */
                     #relays-container {
                         display: flex;
                         align-items: stretch;
+                        gap: 5px;
                     }
                     #relays {
                         flex: 1;
                         text-align: left;
-                        margin-right: 5px;
                     }
                     #get-relays {
                         border-radius: 6px;
-                        flex: 0 0 auto;
-                        width: 13rem;
+                        flex: 0 0 13rem;
                     }
                     /* Buttons */
                     #create-wallet {
+                        display: block;
                         margin: 1em auto;
                         max-width: 20em;
                     }
@@ -935,17 +934,23 @@ class NostrlyTools
                     #nip60-wallet-success {
                         margin-top: 2rem;
                     }
-                    #wallet-key {
+                    #live-key, #old-keys {
                         font-family: monospace;
-                        text-align:center;
+                        text-align: center;
+                    }
+                    #live-key {
+                        font-weight: bold;
+                        margin-bottom: 0.5rem;
+                        background-color: #f3c2c2;
+                        border: 1px solid #ccc;
                     }
                     /* Media queries */
                     @media (max-width: 600px) {
                         #relays-container {
                             flex-direction: column;
+                            gap: 5px;
                         }
                         #relays {
-                            margin-right: 0;
                             margin-bottom: 5px;
                         }
                         #get-relays {
@@ -977,19 +982,21 @@ class NostrlyTools
                         <div class="label">Wallet Update Options:</div>
                         <label for="rotate-keys">
                             <input type="checkbox" id="rotate-keys" checked disabled>
-                            Rotate your wallet keys
+                            Rotate your wallet key
                         </label>
-                        <div class="description">Adds a new private key and NIP-61 public locking key to your wallet. Rotating keys improves privacy, and existing private keys are preserved.</div>
+                        <div class="description">Adds a new private key and NIP-61 public locking key to your wallet. Rotating keys improves privacy. You will be able to copy your key(s) in the last step.</div>
                     </div>
                     <div class="center">
                         <button type="submit" id="create-wallet" disabled>{$create_wallet}</button>
-                        <div class="description" id="create-warning"><strong>WARNING:</strong> This will replace any existing wallet. To preserve keys, fetch your existing wallet first</div>
+                        <div class="description" id="create-warning"><strong>WARNING:</strong> This will replace any existing wallet. To preserve keys, fetch your existing wallet first.</div>
+                        <div class="description">Note: You should <a href="https://www.nostrly.com/cashu-gather/">gather any unclaimed NutZaps</a> before updating your wallet.</div>
                     </div>
                 </div>
                 <div id="nip60-wallet-success" class="center hidden">
                     <h2>Your Wallet Private Key(s)</h2>
-                    <div class="description">These are your NIP-60 wallet's private key(s) in nsec format. It's important to keep them safe and backed up. You can optionally also import them as P2PK keys in a wallet like Cashu.me</div>
-                    <textarea id="wallet-key" rows="4"></textarea>
+                    <div class="description">These are your NIP-60 wallet's private key(s) in nsec format. The first is your live key, the rest are old keys. It's important to keep them safe and backed up. You can optionally also import them as P2PK keys in a wallet like Cashu.me</div>
+                    <input type="text" id="live-key" readonly class="live-key" placeholder="Live key will appear here">
+                    <textarea id="old-keys" rows="4" placeholder="Previous private keys (if any)"></textarea>
                     <p>
                         <button id="copy-nsec" class="button">{$copy_nsec}</button>
                         <button id="copy-hex" class="button">{$copy_hex}</button>

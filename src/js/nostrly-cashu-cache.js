@@ -39,7 +39,8 @@ jQuery(function ($) {
   const $getRelays = $("#get-relays");
   const $createWarning = $("#create-warning");
   const $createWallet = $("#create-wallet");
-  const $walletKey = $("#wallet-key");
+  const $liveKey = $("#live-key");
+  const $oldKeys = $("#old-keys");
   const $copyNsec = $("#copy-nsec");
   const $copyHex = $("#copy-hex");
   const $donateCashu = $("#donate_cashu");
@@ -238,6 +239,7 @@ jQuery(function ($) {
         if (privkeys.length && !$rotateKeys.is(":checked")) {
           sk = hexToBytes(privkeys[0]); // Use existing
           pk = getPublicKey(sk); // hex string
+          console.log("Using existing private key");
         } else throw "New needed";
       } catch (e) {
         console.log("Generating new private key");
@@ -255,6 +257,8 @@ jQuery(function ($) {
       toastr.info("Creating your NIP-60 encrypted wallet");
       await delay(2000); // give them time to read the notice
       const data = JSON.stringify([
+        // ["privkey", bytesToHex(sk)],
+        // keep multiple keys for now...
         ...privkeys.map((key) => ["privkey", key]),
         ...mints.map((mint) => ["mint", mint]),
       ]);
@@ -318,18 +322,19 @@ jQuery(function ($) {
       // Display success
       const nsecs = privkeys
         .map((key) => nip19.nsecEncode(hexToBytes(key)))
-        .join("\n");
-      $walletKey.val(nsecs);
+        .filter(Boolean);
+      $liveKey.val(nsecs[0]); // First key
+      $oldKeys.val(nsecs.slice(1).join("\n")); // Remaining keys
       showSuccess();
       $copyNsec.on("click", () => {
-        copyTextToClipboard(nsecs);
+        copyTextToClipboard(nsecs.join("\n")); // Copies all keys
       });
       $copyHex.on("click", () => {
-        copyTextToClipboard(privkeys.join("\n"));
+        copyTextToClipboard(privkeys.join("\n")); // Copies all keys in hex
       });
 
       toastr.success(
-        "Successfully published your NIP-60 wallet, backup wallet and NIP-61 Nutzap information",
+        "Successfully published your NIP-60 wallet, backup wallet and NIP-61 Nutzap info",
       );
     } catch (e) {
       toastr.error("Failed to create wallet");
