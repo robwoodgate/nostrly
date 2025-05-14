@@ -168,22 +168,33 @@ export function clearLockedTokens(): void {
   localStorage.removeItem(TOKEN_HISTORY_KEY);
 }
 
-// Load mint data (from cache or network)
 export async function loadMint(mintUrl: string): Promise<MintData> {
   const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
   const cachedData: MintData | null = stored ? JSON.parse(stored) : null;
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-  if (cachedData && Date.now() - cachedData.lastUpdated < ONE_DAY_MS) {
-    // Use cached data if < 24 hours old
-    console.log("loadMint:>> using cached", cachedData);
-    return cachedData;
-  }
-  // Fetch fresh data from the mint
   try {
+    // Always fetch info and keysets
     const cashuMint = new CashuMint(mintUrl);
     const mintInfo = await cashuMint.getInfo();
-    const mintActiveKeys: MintActiveKeys = await cashuMint.getKeys();
     const mintAllKeysets: MintAllKeysets = await cashuMint.getKeySets();
+    // Check we have keys cached for all active keyset IDs
+    const cachedKeysetIds = cachedData?.keys?.map((keyset) => keyset.id) || [];
+    const activeKeysetIds = mintAllKeysets.keysets
+      .filter((keyset) => keyset.active)
+      .map((keyset) => keyset.id);
+    const hasAllActiveKeys = activeKeysetIds.every((id) =>
+      cachedKeysetIds.includes(id),
+    );
+    let mintActiveKeys: MintActiveKeys; // scope
+    if (cachedData && hasAllActiveKeys) {
+      // Use cached keys if they cover all active keyset IDs
+      console.log("loadMint:>> using cached keys", cachedData.keys);
+      mintActiveKeys = { keysets: cachedData.keys };
+    } else {
+      // Fetch fresh keys if any active keyset ID is missing
+      mintActiveKeys = await cashuMint.getKeys();
+      console.log("loadMint:>> fetched fresh keys", mintActiveKeys);
+    }
+    // Cache the data
     const freshData: MintData = {
       info: mintInfo,
       keys: mintActiveKeys.keysets,
@@ -191,9 +202,16 @@ export async function loadMint(mintUrl: string): Promise<MintData> {
       lastUpdated: Date.now(),
     };
     storeMintData(mintUrl, freshData);
-    console.log("loadMint:>> using fresh", freshData);
+    console.log("loadMint:>> using fresh data", freshData);
     return freshData;
   } catch (error) {
+    if (cachedData) {
+      console.log(
+        "loadMint:>> fetch failed, returning cached data",
+        cachedData,
+      );
+      return cachedData;
+    }
     throw new Error(`Could not load mint: ${mintUrl}`, { cause: error });
   }
 }
