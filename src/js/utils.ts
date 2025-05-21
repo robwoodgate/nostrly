@@ -69,13 +69,47 @@ export const getUnitSymbol = (unit: string, isLong = true): string => {
       return unit;
   }
 };
+
 const formatFiat = (amount: number, unit?: string): string => {
+  // Currencies with a non-standard number of decimal places (not 2!)
+  // according to the ISO 4217 currency list minor currency units
+  const specials: { [key: string]: number } = {
+    BHD: 3,
+    BIF: 0,
+    CLF: 4,
+    CLP: 0,
+    DJF: 0,
+    GNF: 0,
+    IQD: 3,
+    ISK: 0,
+    JOD: 3,
+    JPY: 0,
+    KMF: 0,
+    KRW: 0,
+    KWD: 3,
+    LYD: 3,
+    OMR: 3,
+    PYG: 0,
+    RWF: 0,
+    TND: 3,
+    UGX: 0,
+    UYI: 0,
+    UYW: 4,
+    VND: 0,
+    VUV: 0,
+    XAF: 0,
+    XOF: 0,
+    XPF: 0,
+  };
+  const upperUnit = unit?.toUpperCase();
+  const fractionDigits =
+    upperUnit && specials[upperUnit] !== undefined ? specials[upperUnit] : 2;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    currency: unit?.toUpperCase(),
-  }).format(amount / 100);
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+    currency: upperUnit,
+  }).format(amount / 10 ** fractionDigits);
 };
 
 // Define the stored/returned mint data shape

@@ -1,4 +1,3 @@
-import { SimplePool } from "nostr-tools";
 import {
   getEncodedTokenV4,
   getDecodedToken,

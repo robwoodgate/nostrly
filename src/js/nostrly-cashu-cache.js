@@ -1,10 +1,4 @@
-import {
-  SimplePool,
-  generateSecretKey,
-  getPublicKey,
-  nip19,
-  finalizeEvent,
-} from "nostr-tools";
+import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
 import { getNut11Mints } from "./nut11.ts";
 import { copyTextToClipboard, debounce, delay } from "./utils.ts";
 import {
