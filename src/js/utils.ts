@@ -18,98 +18,64 @@ export const getTokenAmount = (proofs: Array<Proof>): number => {
   }, 0);
 };
 
-export const formatAmount = (amount: number, unit?: string): string => {
-  if (!unit) {
-    unit = "sat";
-  }
-  if (unit === "sat") {
-    return formatSats(amount);
-  }
-  if (unit === "msat") {
-    return formatMSats(amount);
-  } else {
-    return formatFiat(amount, unit);
-  }
-};
-
-const formatSats = (amount: number): string => {
-  return "₿ " + new Intl.NumberFormat("en-US").format(amount) + " sat";
-};
-
-const formatMSats = (amount: number): string => {
-  return (
-    "₿ " +
-    new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 3,
-      maximumFractionDigits: 3,
-    }).format(amount / 1000) +
-    " sat"
-  );
-};
-
-export const getUnitSymbol = (unit: string, isLong = true): string => {
-  switch (unit) {
-    case "sat":
-      return "₿" + (isLong ? " (sat)" : "");
-    case "msat":
-      return "₿" + (isLong ? " (msat)" : "");
-    case "btc":
-      return "₿" + (isLong ? " (btc)" : "");
-    case "usd":
-      return "$" + (isLong ? " (usd)" : "");
-    case "eur":
-      return "€" + (isLong ? " (eur)" : "");
-    case "gbp":
-      return "£" + (isLong ? " (gbp)" : "");
-    case "jpy":
-      return "¥" + (isLong ? " (jpy)" : "");
-    case "krw":
-      return "₩" + (isLong ? " (krw)" : "");
-    default:
-      return unit;
-  }
-};
-
-const formatFiat = (amount: number, unit?: string): string => {
-  // Currencies with a non-standard number of decimal places (not 2!)
-  // according to the ISO 4217 currency list minor currency units
-  const specials: { [key: string]: number } = {
-    BHD: 3,
-    BIF: 0,
-    CLF: 4,
-    CLP: 0,
-    DJF: 0,
-    GNF: 0,
-    IQD: 3,
-    ISK: 0,
-    JOD: 3,
-    JPY: 0,
-    KMF: 0,
-    KRW: 0,
-    KWD: 3,
-    LYD: 3,
-    OMR: 3,
-    PYG: 0,
-    RWF: 0,
-    TND: 3,
-    UGX: 0,
-    UYI: 0,
-    UYW: 4,
-    VND: 0,
-    VUV: 0,
-    XAF: 0,
-    XOF: 0,
-    XPF: 0,
+/**
+ * Formats an amount into a locale-specific string based on the specified unit.
+ * NB: Amount is expected to be in the minor unit of the currency
+ * eg sats for Bitcoin, cents for USD etc
+ *
+ * @param amount - The amount to format
+ * @param unit - The currency unit of the amount. Defaults to sat.
+ * @param locale - The locale for formatting (eg: 'en-US', 'fr-FR'). Defaults to 'en-US'.
+ * @returns A formatted string (eg: '₿ 1.23456789 BTC', '$123.45').
+ * @throws Logs a warning and returns a fallback string for invalid units or locales.
+ */
+type CurrencyUnit = "btc" | "sat" | "msat" | string;
+export const formatAmount = (
+  amount: number,
+  unit: CurrencyUnit = "sat",
+  locale: string = "en-US",
+): string => {
+  const upperUnit = unit.toUpperCase();
+  const bitcoinUnits: Record<
+    string,
+    { minorUnit: number; prefix: string; suffix: string }
+  > = {
+    BTC: { minorUnit: 8, prefix: "₿ ", suffix: " BTC" },
+    SAT: { minorUnit: 0, prefix: "₿ ", suffix: " sat" },
+    MSAT: { minorUnit: 3, prefix: "₿ ", suffix: " sat" },
   };
-  const upperUnit = unit?.toUpperCase();
-  const fractionDigits =
-    upperUnit && specials[upperUnit] !== undefined ? specials[upperUnit] : 2;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-    currency: upperUnit,
-  }).format(amount / 10 ** fractionDigits);
+  let minorUnit: number;
+  let prefix = "";
+  let suffix = "";
+  let options: Intl.NumberFormatOptions = {};
+  if (upperUnit in bitcoinUnits) {
+    // Handle Bitcoin units
+    ({ minorUnit, prefix, suffix } = bitcoinUnits[upperUnit]);
+  } else {
+    // Handle Fiat currencies
+    // prettier-ignore
+    const specialMinorUnits: Record<string, number> = {
+      BHD: 3, BIF: 0, CLF: 4, CLP: 0, DJF: 0, GNF: 0,
+      IQD: 3, ISK: 0, JOD: 3, JPY: 0, KMF: 0, KRW: 0,
+      KWD: 3, LYD: 3, OMR: 3, PYG: 0, RWF: 0, TND: 3,
+      UGX: 0, UYI: 0, UYW: 4, VND: 0, VUV: 0, XAF: 0,
+      XOF: 0, XPF: 0
+    };
+    // Apply correct minor unit adjustment (default: 2)
+    minorUnit = specialMinorUnits[upperUnit] ?? 2;
+    options = { style: "currency", currency: upperUnit };
+  }
+  // Adjust to major unit for display
+  const adjustedAmount = amount / 10 ** minorUnit;
+  options.minimumFractionDigits = minorUnit;
+  options.maximumFractionDigits = minorUnit;
+  try {
+    const formatter = new Intl.NumberFormat(locale, options);
+    return prefix + formatter.format(adjustedAmount) + suffix;
+  } catch (error) {
+    console.warn(`Invalid unit or locale: ${unit}, ${locale}`, error);
+    return `${amount} ${unit}`;
+  }
 };
 
 // Define the stored/returned mint data shape
