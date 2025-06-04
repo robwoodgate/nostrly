@@ -2,10 +2,10 @@
 Contributors: robwoodgate
 Tags: nostr
 Requires at least: 5.5
-Tested up to: 6.6
+Tested up to: 6.8.1
 Stable tag: trunk
 
-Enables login with Nostr identity, and syncs profile data.
+Adds Admin screens for Nostrly App
 
 == Description ==
 Powers the Cogmentis Nostrly SaaS
