@@ -15,6 +15,8 @@ import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
 import { Proof } from "@cashu/cashu-ts";
 
+type Nip60Tag = [string, string];
+
 // Define window.nostr interface
 interface Nostr {
   nip44?: {
@@ -40,9 +42,9 @@ export const pool = new SimplePool();
 
 /**
  * Sends a message anonymously via Nostr
- * @param string   toPub   Hex pubkey to send to
- * @param string   message to send
- * @param string[] relays  array of relays to use
+ * @param {string}   toPub   Hex pubkey to send to
+ * @param {string}   message to send
+ * @param {string[]} relays  array of relays to use
  */
 export const sendViaNostr = async (
   message: string,
@@ -66,13 +68,13 @@ export const sendViaNostr = async (
 };
 
 /**
- * Sends a NutZap via Nostr
- * @param Proof[]  proofs  Token proofs to send
- * @param string   mintUrl Mint URL for the proofs
- * @param string   unit Unit of the proofs (default: "sat")
- * @param string   message to send
- * @param string   toPub   Hex pubkey to send to
- * @param string[] relays  array of relays to use
+ * Sends a NutZap anonymously via Nostr
+ * @param {Proof[]}  proofs  Token proofs to send
+ * @param {string}   mintUrl Mint URL for the proofs
+ * @param {string}   unit Unit of the proofs (default: "sat")
+ * @param {string}   message to send
+ * @param {string}   toPub   Hex pubkey to send to
+ * @param {string[]} relays  array of relays to use
  */
 export const sendNutZap = async (
   proofs: Proof[],
@@ -99,8 +101,8 @@ export const sendNutZap = async (
 
 /**
  * Gets the name and image for an Nostr npub
- * @param string   hexOrNpub   npub/hexpub to fetch details for
- * @param string[] relays relays to query
+ * @param {string}   hexOrNpub   npub/hexpub to fetch details for
+ * @param {string[]} relays relays to query
  */
 export const getContactDetails = async (
   hexOrNpub: string,
@@ -112,10 +114,7 @@ export const getContactDetails = async (
 }> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
-    let hexpub = hexOrNpub;
-    if (hexOrNpub.startsWith("npub1")) {
-      hexpub = nip19.decode(hexOrNpub).data as string;
-    }
+    let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
 
     // Look up kind:0 for contact details
     let filter: Filter = { kinds: [0], authors: [hexpub], limit: 1 };
@@ -160,10 +159,7 @@ export const getUserRelays = async (
 ): Promise<string[]> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
-    let hexpub = hexOrNpub;
-    if (hexOrNpub.startsWith("npub1")) {
-      hexpub = nip19.decode(hexOrNpub).data as string;
-    }
+    let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
     const filter: Filter = { kinds: [10002], authors: [hexpub] };
     const event = await pool.get(relays, filter);
     if (!event || !event.tags) return []; // none found
@@ -185,7 +181,6 @@ export const getUserRelays = async (
  * @param {string}   hexOrNpub npub/hexpub to fetch details for
  * @param {string[]} relays Optional. relays to query
  */
-type Nip60Tag = [string, string];
 export const getNip60Wallet = async (
   hexOrNpub: string,
   relays: string[],
@@ -196,10 +191,7 @@ export const getNip60Wallet = async (
 }> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
-    let hexpub = hexOrNpub;
-    if (hexOrNpub.startsWith("npub1")) {
-      hexpub = nip19.decode(hexOrNpub).data as string;
-    }
+    let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
     let privkeys: string[] = [];
     let mints: string[] = [];
     let filter: Filter = { kinds: [17375], authors: [hexpub] };
@@ -251,10 +243,7 @@ export const getNip61Info = async (
 ): Promise<{ pubkey: string | null; mints: string[]; relays: string[] }> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
-    let hexpub = hexOrNpub;
-    if (hexOrNpub.startsWith("npub1")) {
-      hexpub = nip19.decode(hexOrNpub).data as string;
-    }
+    let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
     const filter: Filter = { kinds: [10019], authors: [hexpub] };
     const event = await pool.get(relays, filter);
     if (!event) return { pubkey: null, mints: [], relays: [] };
@@ -296,10 +285,7 @@ export const getWalletAndInfo = async (
 }> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
-    let hexpub = hexOrNpub;
-    if (hexOrNpub.startsWith("npub1")) {
-      hexpub = nip19.decode(hexOrNpub).data as string;
-    }
+    let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
     const [{ privkeys, mints, kind }, { relays: nip61Relays, pubkey }] =
       await Promise.all([
         getNip60Wallet(hexpub, relays),
@@ -320,10 +306,27 @@ export const getWalletAndInfo = async (
 };
 
 /**
- * Converts an npub into P2PK hex format (02...)
- * @type string converted npub or original string
+ * Converts an npub into hex format
+ * @param {string} hexOrNpub public key in npub or hex format
+ * @return {string} converted npub or original string
  */
-export const maybeConvertNpubToP2PK = (key: string) => {
+export function maybeConvertNpubToHexPub(hexOrNpub: string): string {
+  if (hexOrNpub.startsWith("npub1")) {
+    try {
+      return nip19.decode(hexOrNpub).data as string;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  return hexOrNpub;
+}
+
+/**
+ * Converts an npub into P2PK hex format (02...)
+ * @param {string} key public key
+ * @return {string} converted npub or original string
+ */
+export const maybeConvertNpubToP2PK = (key: string): string => {
   // Check and convert npub to P2PK
   if (key && key.startsWith("npub1")) {
     try {
@@ -340,9 +343,10 @@ export const maybeConvertNpubToP2PK = (key: string) => {
 
 /**
  * Converts a P2PK hex format (02...) to npub
- * @type string converted npub or original string
+ * @param {string} key P2PK hex public key
+ * @return {string} converted npub or original string
  */
-export const convertP2PKToNpub = (key: string): string | null => {
+export const convertP2PKToNpub = (key: string): string => {
   // Check and convert P2PK to npub
   try {
     return nip19.npubEncode(key.slice(2));
@@ -366,7 +370,7 @@ export function isPrivkeyValid(key: string): boolean {
 
 /**
  * Converts an nsec1-encoded private key to a hex string, or returns the input unchanged if not nsec1.
- * @param key - The input key, either nsec1-encoded or a hex string.
+ * @param {string} key The input key, either nsec1-encoded or a hex string.
  * @returns {string} The hex-encoded private key, or the original key if conversion fails or is not needed.
  */
 export function maybeConvertNsecToP2PK(key: string): string {
@@ -383,7 +387,7 @@ export function maybeConvertNsecToP2PK(key: string): string {
 
 /**
  * Extracts all proofs, mint URL, and unit from a kind 9321 event
- * @param event Nostr event (kind 9321)
+ * @param {Event} event Nostr event (kind 9321)
  * @returns { proofs: Proof[], mintUrl: string | null, unit: string }
  */
 function getNutZapInfo(event: Event): {
@@ -452,10 +456,7 @@ export async function getUnclaimedNutZaps(
 }> {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
-    let hexpub = hexOrNpub;
-    if (hexOrNpub.startsWith("npub1")) {
-      hexpub = nip19.decode(hexOrNpub).data as string;
-    }
+    let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
     // Combine relays with user's NutZap relays, ensuring no duplicates
     const combinedRelays = [
       ...new Set([...nutZapRelays, ...relays].filter(Boolean)),

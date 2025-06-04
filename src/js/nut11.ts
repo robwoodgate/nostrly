@@ -18,20 +18,10 @@ interface MintRead {
   n_melts: number;
 }
 
-// Define the structure of a NUT-11 P2PK secret
-type P2PKSecret = [
-  string, // "P2PK"
-  {
-    nonce: string;
-    data: string;
-    tags: Array<string[]>;
-  },
-];
-
 /**
  * Get the list of NUT11 mint URLs
- * @param  string - auditorApiUrl Mint auditor to use
- * @return Promise<string[]> Promise to return array of mint urls
+ * @param  {string} auditorApiUrl Mint auditor to use
+ * @return {Promise<string[]>} Promise to return array of mint urls
  */
 export const getNut11Mints = async (
   auditorApiUrl: string = "https://api.audit.8333.space",
