@@ -12,14 +12,9 @@ import toastr from "toastr";
 import confetti from "canvas-confetti";
 import { decode } from "@gandlaf21/bolt11-decode";
 
-/**
- * Type and interface definitions
- */
-
-// Allowable currency units
 type CurrencyUnit = "btc" | "sat" | "msat" | string;
+const TOKEN_HISTORY_KEY = "cashu.lockedTokens";
 
-// Defines the stored/returned mint data shape
 interface MintData {
   keys: MintKeys[];
   keysets: MintKeyset[];
@@ -27,14 +22,12 @@ interface MintData {
   lastUpdated: number;
 }
 
-// Define the NutLock history entry
 interface NutLockEntry {
   date: string;
   name: string;
   token: string;
   amount: number;
 }
-const TOKEN_HISTORY_KEY = "cashu.lockedTokens";
 
 /**
  * Gets the token amount by summing its proof amounts
@@ -218,7 +211,6 @@ export const getWalletWithUnit = async (
   return wallet;
 };
 
-// Stores mint data in localStorage
 function storeMintData(mintUrl: string, mintData: MintData): void {
   localStorage.setItem(`cashu.mint.${mintUrl}`, JSON.stringify(mintData));
 }
