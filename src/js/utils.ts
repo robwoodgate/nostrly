@@ -23,10 +23,10 @@ export const getTokenAmount = (proofs: Array<Proof>): number => {
  * NB: Amount is expected to be in the minor unit of the currency
  * eg sats for Bitcoin, cents for USD etc
  *
- * @param amount - The amount to format
- * @param unit - The currency unit of the amount. Defaults to sat.
- * @param locale - The locale for formatting (eg: 'en-US', 'fr-FR'). Defaults to 'en-US'.
- * @returns A formatted string (eg: '₿ 1.23456789 BTC', '$123.45').
+ * @param {number} amount - The amount to format
+ * @param {CurrencyUnit} unit - The currency unit of the amount. Defaults to sat.
+ * @param {string} locale - The locale for formatting (eg: 'en-US', 'fr-FR'). Defaults to 'en-US'.
+ * @returns {string} A formatted string (eg: '₿ 1.23456789 BTC', '$123.45').
  * @throws Logs a warning and returns a fallback string for invalid units or locales.
  */
 type CurrencyUnit = "btc" | "sat" | "msat" | string;
