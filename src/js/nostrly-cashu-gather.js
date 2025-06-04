@@ -342,7 +342,6 @@ jQuery(function ($) {
       let proofStore;
       try {
         // Pass !fetchAllMints as strictMints (true = NutZap mints only, false = all mints)
-        toastr.info("Gathering NutZaps...");
         proofStore = await getUnclaimedNutZaps(
           pubkey,
           relays,

@@ -430,13 +430,9 @@ function getNutZapInfo(event: Event): NutZapInfo {
 async function getRedeemedNutZaps(
   hexpub: string,
   relays: string[],
-  toastrInfo: boolean = false,
 ): Promise<Set<string>> {
   const redeemedNutZapIds = new Set<string>();
   const filter: Filter = { kinds: [7376], authors: [hexpub] };
-  if (toastrInfo) {
-    toastr.info("Checking redemptions...");
-  }
   await new Promise<void>((resolve) => {
     pool.subscribeManyEose(relays, [filter], {
       onevent(event: Event) {
@@ -460,14 +456,12 @@ async function fetchNutZapEvents(
   hexpub: string,
   relays: string[],
   mints: string[],
-  toastrInfo: boolean = false,
 ): Promise<Event[]> {
   const filter: Filter = {
     kinds: [9321],
     "#p": [hexpub],
     ...(mints.length > 0 ? { "#u": mints } : {}),
   };
-  if (toastrInfo) toastr.info("Processing NutZap(s)...");
   return new Promise((resolve) => {
     const events: Event[] = [];
     pool.subscribeManyEose(relays, [filter], {
@@ -528,24 +522,13 @@ export async function getUnclaimedNutZaps(
   console.log("Using relays for NutZaps:", nutZapRelays);
 
   try {
-    // Fetch redeemed NutZap event IDs using combined relays
-    const redeemedIds = await getRedeemedNutZaps(
-      hexpub,
-      combinedRelays,
-      toastrInfo,
-    );
-
-    // Fetch NutZap events using user-specified NutZap relays
-    const nutZapEvents = await fetchNutZapEvents(
-      hexpub,
-      nutZapRelays,
-      mints,
-      toastrInfo,
-    );
-
-    // Process events into proof store
+    if (toastrInfo) toastr.info("Gathering NutZaps...");
+    // Do nutzap and redemption lookups simultaneously
+    const [redeemedIds, nutZapEvents] = await Promise.all([
+      getRedeemedNutZaps(hexpub, combinedRelays),
+      fetchNutZapEvents(hexpub, nutZapRelays, mints),
+    ]);
     const proofStore = processNutZapEvents(nutZapEvents, redeemedIds);
-
     console.log("Unclaimed NutZaps:", proofStore);
     return proofStore;
   } catch (error) {
