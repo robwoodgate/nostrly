@@ -16,6 +16,11 @@ import toastr from "toastr";
 import { Proof } from "@cashu/cashu-ts";
 
 type Nip60Tag = [string, string];
+type NutZapInfo = {
+  proofs: Proof[];
+  mintUrl: string | null;
+  unit: string;
+};
 
 // Define window.nostr interface
 interface Nostr {
@@ -385,25 +390,8 @@ export function maybeConvertNsecToP2PK(key: string): string {
   return key;
 }
 
-/**
- * Extracts all proofs, mint URL, and unit from a kind 9321 event
- * @param {Event} event Nostr event (kind 9321)
- * @returns { proofs: Proof[], mintUrl: string | null, unit: string }
- */
-function getNutZapInfo(event: Event): {
-  proofs: Proof[];
-  mintUrl: string | null;
-  unit: string;
-} {
-  const result: {
-    proofs: Proof[];
-    mintUrl: string | null;
-    unit: string;
-  } = {
-    proofs: [],
-    mintUrl: null,
-    unit: "sat",
-  };
+function getNutZapInfo(event: Event): NutZapInfo {
+  const result: NutZapInfo = { proofs: [], mintUrl: null, unit: "sat" };
   if (
     !event ||
     event.kind !== 9321 ||
@@ -430,6 +418,35 @@ function getNutZapInfo(event: Event): {
   return result;
 }
 
+async function getRedeemedNutZaps(
+  hexpub: string,
+  relays: string[],
+  toastrInfo: boolean = false,
+): Promise<Set<string>> {
+  const redeemedNutZapIds = new Set<string>();
+  const filter: Filter = { kinds: [7376], authors: [hexpub] };
+  if (toastrInfo) {
+    toastr.info("Checking redemptions...");
+  }
+  await new Promise<void>((resolve) => {
+    pool.subscribeManyEose(relays, [filter], {
+      onevent(event: Event) {
+        const redeemedTags = event.tags.filter(
+          (tag) => tag[0] === "e" && tag[3] === "redeemed",
+        );
+        redeemedTags.forEach((tag) => {
+          if (tag[1]) {
+            redeemedNutZapIds.add(tag[1]); // Add <9321-event-id> to set
+          }
+        });
+      },
+      onclose: resolve as any,
+    });
+  });
+  // console.log("Redeemed NutZap IDs:", Array.from(redeemedNutZapIds));
+  return redeemedNutZapIds;
+}
+
 /**
  * Fetches unredeemed NutZap proofs for a user, grouped by mint URL and unit,
  * with each proof linked to its NutZap event ID
@@ -445,7 +462,7 @@ function getNutZapInfo(event: Event): {
  */
 export async function getUnclaimedNutZaps(
   hexOrNpub: string,
-  relays: string[] = DEFAULT_RELAYS,
+  relays: string[],
   nutZapRelays: string[] = [],
   mints: string[] = [],
   toastrInfo: boolean = false,
@@ -464,27 +481,11 @@ export async function getUnclaimedNutZaps(
     console.log("Using relays:", combinedRelays);
     // Step 1: Collect redeemed NutZap event IDs from kind 7376 events
     // Note: we use all user relays for this request
-    const redeemedNutZapIds = new Set<string>();
-    const kind7376Filter: Filter = { kinds: [7376], authors: [hexpub] };
-    if (toastrInfo) {
-      toastr.info("Checking redemptions...");
-    }
-    await new Promise<void>((resolve) => {
-      pool.subscribeManyEose(combinedRelays, [kind7376Filter], {
-        onevent(event: Event) {
-          const redeemedTags = event.tags.filter(
-            (tag) => tag[0] === "e" && tag[3] === "redeemed",
-          );
-          redeemedTags.forEach((tag) => {
-            if (tag[1]) {
-              redeemedNutZapIds.add(tag[1]); // Add <9321-event-id> to set
-            }
-          });
-        },
-        onclose: resolve as any,
-      });
-    });
-    // console.log("Redeemed NutZap IDs:", Array.from(redeemedNutZapIds));
+    const redeemedNutZapIds: Set<string> = await getRedeemedNutZaps(
+      hexpub,
+      combinedRelays,
+      toastrInfo,
+    );
     // Step 2: Fetch kind 9321 events (NutZaps) and filter out redeemed ones
     // Note: we use the user's NutZap relays for this request
     const proofStore: {
