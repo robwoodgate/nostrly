@@ -1,15 +1,14 @@
 // Imports
+import { getDecodedToken, getEncodedTokenV4 } from "@cashu/cashu-ts";
 import {
-  getDecodedToken,
-  getEncodedTokenV4,
   getP2PKExpectedKWitnessPubkeys,
   getP2PKNSigs,
   getP2PKSigFlag,
   getP2PKWitnessSignatures,
-  parseP2PKSecret,
+  getP2PKLocktime,
   signP2PKProofs,
   hasP2PKSignedProof,
-} from "@cashu/cashu-ts";
+} from "@cashu/cashu-ts/crypto/client/NUT11";
 import { nip19 } from "nostr-tools";
 import {
   decode as emojiDecode,
@@ -183,10 +182,7 @@ jQuery(function ($) {
       return;
     }
     const now = Math.floor(Date.now() / 1000);
-    const parsed = parseP2PKSecret(proofs[0].secret);
-    const { tags } = parsed[1];
-    const locktimeTag = tags && tags.find((tag) => tag[0] === "locktime");
-    const locktime = locktimeTag ? parseInt(locktimeTag[1], 10) : null;
+    const locktime = getP2PKLocktime(proofs[0].secret);
     if (!p2pkParams.pubkeys.length) {
       let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
       html += "<strong>Witness Requirements:</strong><ul>";

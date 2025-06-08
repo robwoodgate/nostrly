@@ -3,13 +3,15 @@ import {
   getDecodedToken,
   CheckStateEnum,
   getEncodedTokenV4,
+} from "@cashu/cashu-ts";
+import {
   getP2PKExpectedKWitnessPubkeys,
   getP2PKLocktime,
   getP2PKNSigs,
   signP2PKProofs,
   hasP2PKSignedProof,
   getP2PKWitnessSignatures,
-} from "@cashu/cashu-ts";
+} from "@cashu/cashu-ts/crypto/client/NUT11";
 import {
   doConfettiBomb,
   getWalletWithUnit,
