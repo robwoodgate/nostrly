@@ -28,7 +28,7 @@ import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder.ts";
 import { handleCashuDonation } from "./cashu-donate.js";
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256Hex } from "./nut11.ts";
 import { bytesToHex } from "@noble/hashes/utils";
 
 // Cashu Redeem
@@ -76,7 +76,7 @@ jQuery(function ($) {
     $lightningStatus.text("");
     $tokenRemover.addClass("hidden");
     $pkeyWrapper.hide();
-    $pkey.val("");
+    // $pkey.val("");
     $redeemButton.prop("disabled", true);
   };
 
@@ -261,9 +261,6 @@ jQuery(function ($) {
             return;
           }
         }
-      } else {
-        $pkeyWrapper.hide();
-        $pkey.val("");
       }
       let mintHost = new URL(mintUrl).hostname;
       $tokenStatus.text(
@@ -555,12 +552,12 @@ jQuery(function ($) {
     if (!pubkeys.length) return proofs;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      const hash = bytesToHex(sha256(proof.secret));
+      const hash = sha256Hex(proof.secret);
       // console.log('hash:>>', hash);
       const sig = await window.nostr.signSchnorr(hash);
       if (sig.length) {
         const signatures = getP2PKWitnessSignatures(proof.witness);
-        console.log("existing wit", signatures);
+        console.log("existing witnesses", signatures);
         proofs[index].witness = JSON.stringify({
           signatures: [...signatures, sig],
         });
@@ -577,7 +574,7 @@ jQuery(function ($) {
     if (!pubkeys.length) return proofs;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      const expHash = bytesToHex(sha256(proof.secret));
+      const expHash = sha256Hex(proof.secret);
       const { hash, sig, pubkey } = await window.nostr.signString(proof.secret);
       // Check we got a signature from expected pubkey on expected hash
       if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
@@ -600,7 +597,7 @@ jQuery(function ($) {
     if (!pubkeys.length) return proofs;
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
-      const expHash = bytesToHex(sha256(proof.secret));
+      const expHash = sha256Hex(proof.secret);
       const { hash, sig, pubkey } = await window.nostr.nip60.signSecret(
         proof.secret,
       );
