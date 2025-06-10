@@ -13,6 +13,7 @@ import {
   getP2PKWitnessSignatures,
 } from "@cashu/cashu-ts/crypto/client/NUT11";
 import {
+  debounce,
   doConfettiBomb,
   getWalletWithUnit,
   formatAmount,
@@ -76,7 +77,7 @@ jQuery(function ($) {
     $lightningStatus.text("");
     $tokenRemover.addClass("hidden");
     $pkeyWrapper.hide();
-    // $pkey.val("");
+    $pkey.val("");
     $redeemButton.prop("disabled", true);
   };
 
@@ -489,14 +490,12 @@ jQuery(function ($) {
       $redeemButton.prop("disabled", true);
     }
   });
-  // Debounce pkey input to prevent excessive mint calls
-  let timeout = null;
-  $pkey.on("input", () => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      processToken();
-    }, 1000);
-  });
+  $pkey.on(
+    "input",
+    debounce(() => {
+      $lnurl.trigger("input"), 200;
+    }),
+  );
   $redeemButton.on("click", async (event) => {
     makePayment(event);
     $redeemButton.prop("disabled", true);
@@ -537,9 +536,8 @@ jQuery(function ($) {
         proofs = signP2PKProofs(proofs, privkey);
       });
       // Stringify the witness again
-      proofs = proofs.map((proof) => {
-        proof.witness = JSON.stringify(proof.witness);
-        return proof;
+      proofs = proofs.map((p) => {
+        return { ...p, witness: JSON.stringify(p.witness) };
       });
     }
     console.log("proofs after NIP-60:>>", proofs);
