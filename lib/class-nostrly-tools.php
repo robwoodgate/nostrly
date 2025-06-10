@@ -623,7 +623,7 @@ class NostrlyTools
                     <p><a id="invoice-link"><img id="invoice-img"/></a></p>
                     <p><button id="invoice-copy" class="button">{$copy_inv}</button></p>
                     <div class="subtitle">Or paste a <span id="amount_to_pay"></span> Cashu token from:</div>
-                    <div class="mint_url">https://mint.minibits.cash/Bitcoin</div>
+                    <div class="mint_url" id="mint_url"></div>
                     <div><input id="payby-cashu" type="text" placeholder="CashuB..."></p></div>
                     <p class="description"><span id="min_fee"></span><br>*overpaid tokens / LN Fees will be donated to Cashu NutLock</p>
                 </div>

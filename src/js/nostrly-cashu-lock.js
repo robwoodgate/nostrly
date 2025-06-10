@@ -83,6 +83,7 @@ jQuery(function ($) {
   const $nip07Button = $("#use-nip07");
   const $orderButton = $("#lock-next");
   const $amountToPay = $("#amount_to_pay");
+  const $mintUrl = $("#mint_url");
   const $invoiceLink = $("#invoice-link");
   const $invoiceImg = $("#invoice-img");
   const $invoiceCopy = $("#invoice-copy");
@@ -199,6 +200,7 @@ jQuery(function ($) {
     const quote = await wallet.createMintQuote(totalNeeded);
     console.log("quote:>>", quote);
     $amountToPay.text(formatAmount(totalNeeded));
+    $mintUrl.text(mintUrl);
     $invoiceLink.attr("href", `lightning:${quote.request}`);
     const img =
       "https://quickchart.io/chart?cht=qr&chs=200x200&chl=" + quote.request;
