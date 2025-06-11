@@ -11,7 +11,9 @@ import {
   signP2PKProofs,
   hasP2PKSignedProof,
   getP2PKWitnessSignatures,
+  verifyP2PKsecretSignature,
 } from "@cashu/cashu-ts/crypto/client/NUT11";
+import { verifyP2PKSig } from "@cashu/cashu-ts/crypto/mint/NUT11";
 import {
   debounce,
   doConfettiBomb,
@@ -242,9 +244,13 @@ jQuery(function ($) {
           updateContactName(npub, nostrly_ajax.relays);
         }
         let msg = `Token is P2PK locked to ${keyholders.join(", ")}`;
-        if (locktime > Math.floor(new Date().getTime() / 1000)) {
+        const now = Math.floor(new Date().getTime() / 1000);
+        if (locktime > now) {
           msg +=
-            " until " + new Date(locktime * 1000).toLocaleString().slice(0, -3);
+            locktime == Infinity
+              ? " permanently"
+              : " until " +
+                new Date(locktime * 1000).toLocaleString().slice(0, -3);
         }
         $lightningStatus.html(msg);
 
@@ -283,7 +289,7 @@ jQuery(function ($) {
         await makePayment();
       }
     } catch (e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : e);
       let errMsg = e instanceof Error ? e.message : e;
       if (
         errMsg.startsWith("InvalidCharacterError") ||
@@ -324,6 +330,18 @@ jQuery(function ($) {
         proofs = await signSchnorrProofs(proofs); // sign main proofs array
       }
       console.log("signed proofs :>>", proofs);
+
+      // Double check the signatures to make sure proofs are fully signed
+      for (const proof of proofs) {
+        try {
+          if (!verifyP2PKSig(proof)) {
+            console.warn("Proof is not signed properly!", proof);
+          }
+        } catch (e) {
+          console.warn("Proof is not signed properly!", proof);
+          console.warn(e.message);
+        }
+      }
 
       // Prepare to fetch an LN invoice and melt the token
       let invoice = "";
@@ -463,7 +481,7 @@ jQuery(function ($) {
         $lightningStatus.text("Payment failed");
       }
     } catch (e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : e);
       $lightningStatus.text("Payment failed: " + e);
     }
   };
@@ -535,10 +553,6 @@ jQuery(function ($) {
       privkeys.forEach((privkey) => {
         proofs = signP2PKProofs(proofs, privkey);
       });
-      // Stringify the witness again
-      proofs = proofs.map((p) => {
-        return { ...p, witness: JSON.stringify(p.witness) };
-      });
     }
     console.log("proofs after NIP-60:>>", proofs);
     return proofs;
@@ -551,15 +565,17 @@ jQuery(function ($) {
     for (const [index, proof] of proofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
       const hash = sha256Hex(proof.secret);
-      // console.log('hash:>>', hash);
+      const pubkey = await window.nostr.getPublicKey();
       const sig = await window.nostr.signSchnorr(hash);
-      if (sig.length) {
-        const signatures = getP2PKWitnessSignatures(proof.witness);
-        console.log("existing witnesses", signatures);
-        proofs[index].witness = JSON.stringify({
-          signatures: [...signatures, sig],
-        });
-        console.log("added sig!", sig);
+      // Check we got a signature from expected pubkey on expected hash
+      if (sig.length && proof.secret.includes(pubkey)) {
+        if (!hasP2PKSignedProof(pubkey, proof)) {
+          const signatures = getP2PKWitnessSignatures(proof.witness);
+          proofs[index].witness = {
+            signatures: [...signatures, sig],
+          };
+          console.log("added sig!", sig);
+        }
       }
     }
     return proofs;
@@ -578,9 +594,9 @@ jQuery(function ($) {
       if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
         if (!hasP2PKSignedProof(pubkey, proof)) {
           const signatures = getP2PKWitnessSignatures(proof.witness);
-          proofs[index].witness = JSON.stringify({
+          proofs[index].witness = {
             signatures: [...signatures, sig],
-          });
+          };
           console.log("added sig!", sig);
         }
       }
@@ -603,9 +619,9 @@ jQuery(function ($) {
       if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
         if (!hasP2PKSignedProof(pubkey, proof)) {
           const signatures = getP2PKWitnessSignatures(proof.witness);
-          proofs[index].witness = JSON.stringify({
+          proofs[index].witness = {
             signatures: [...signatures, sig],
-          });
+          };
           console.log("added sig!", sig);
         }
       }

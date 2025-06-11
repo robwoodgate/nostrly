@@ -15,7 +15,7 @@ import {
   encode as emojiEncode,
 } from "./emoji-encoder.ts";
 import { isPrivkeyValid, maybeConvertNsecToP2PK } from "./nostr.ts";
-import { verifyP2PKsecretSignature, sha256Hex } from "./nut11.ts";
+import { sha256Hex } from "./nut11.ts";
 import {
   copyTextToClipboard,
   debounce,
@@ -209,10 +209,10 @@ jQuery(function ($) {
     console.log("signedPubkeys:>>", signedPubkeys);
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
     html += "<strong>Witness Requirements:</strong><ul>";
-    if (locktime > now) {
-      html += `<li>Locked until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
-    } else {
+    if (locktime == Infinity) {
       html += `<li>Permanently Locked</li>`;
+    } else if (locktime > now) {
+      html += `<li>Locked until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
     }
     if (n_sigs > 1) {
       html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
