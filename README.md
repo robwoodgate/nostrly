@@ -10,6 +10,13 @@ Because of this, it may not build correctly unless the appropriate feature branc
 
 **Note**: This plugin is pre-release and experimental. It is not recommended for production use.
 
+## Prerequisites
+
+- A WordPress environment (local or remote installation)
+- Node.js and npm (Node Package Manager) installed
+- Composer installed for managing WordPress dependencies
+- The PHP-GMP extension enabled on your WordPress server
+
 ## Installation
 
 To install and set up the plugin:
