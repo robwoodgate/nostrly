@@ -77,6 +77,7 @@ jQuery(function ($) {
   const $divSuccess = $("#cashu-lock-success");
   const $mintSelect = $("#mint-select");
   const $lockValue = $("#lock-value");
+  const $preferNip61 = $("#prefer-nip61");
   const $lockNpub = $("#lock-npub");
   const $lockExpiry = $("#lock-expiry");
   const $refundNpub = $("#refund-npub");
@@ -232,25 +233,38 @@ jQuery(function ($) {
    * @return {string}        NIP-61 hex pubkey or original key
    */
   const doNip61Check = async function (p2pkey, relays) {
-    const { name, hexpub } = await getContactDetails(p2pkey.slice(2), relays);
+    const sliced = p2pkey.slice(2); // Convert to Nostr format key
+    const { name, hexpub } = await getContactDetails(sliced, relays);
     console.log("name", name);
     console.log("hexpub", hexpub);
-    if (name && hexpub == p2pkey.slice(2)) {
-      // key is main key
-      const { pubkey, mints } = await getNip61Info(p2pkey.slice(2));
-      console.log("NIP61:", pubkey, mints);
-      if (pubkey) {
-        toastr.info(
-          `Using ${name}'s NIP-61 P2PK KEY for security: <code>${"02" + pubkey}</code>`,
-        );
-        return "02" + pubkey;
-      }
-      toastr.warning(
-        `${name} does not have a NIP-61 P2PK Key. The token will be locked to their NPUB, and they will have to use a compatible NIP-07 signer or enter their NSEC to unlock`,
-      );
-    } else if (name) {
-      toastr.info(`${name}'s NIP-61 P2PK KEY`);
+    // Unknown Nostr ID
+    if (!name) {
+      return p2pkey;
     }
+    // Is already a NIP-61
+    if (hexpub !== sliced) {
+      toastr.info(`${name}'s NIP-61 P2PK KEY`);
+      return p2pkey;
+    }
+    // Prefers NPUB
+    if (!$preferNip61.is(":checked")) {
+      toastr.info(`${name}'s NPUB P2PK KEY`);
+      return p2pkey;
+    }
+    // Prefers NIP-61
+    const { pubkey, mints } = await getNip61Info(sliced);
+    console.log("NIP61:", pubkey, mints);
+    if (pubkey) {
+      const nip61Key = "02" + pubkey;
+      toastr.info(
+        `Using ${name}'s NIP-61 P2PK KEY for security: <code>${nip61Key}</code>`,
+      );
+      return nip61Key;
+    }
+    // Default: use NPUB
+    toastr.warning(
+      `${name} does not have a NIP-61 P2PK Key. The token will be locked to their NPUB, and they will have to use a compatible NIP-07 signer or enter their NSEC to unlock`,
+    );
     return p2pkey;
   };
 

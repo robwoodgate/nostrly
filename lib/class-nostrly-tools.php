@@ -397,6 +397,11 @@ class NostrlyTools
                         padding: 6px 15px;
                         width: 100%;
                     }
+                    #cashu-lock-form input[type="checkbox"] {
+                        height: 1rem;
+                        margin-right: 0.25rem;
+                        width: 1rem;
+                    }
                     /* Validation feedback */
                     #cashu-lock-form [data-valid="no"] {
                         border: 2px solid rgb(204, 55, 55);
@@ -574,6 +579,13 @@ class NostrlyTools
                         <input type="number" id="lock-value" name="lock-value" min="1" step="1" placeholder="1000" required>
                     </div>
                     <div>
+                        <label>
+                            <input type="checkbox" id="prefer-nip61">
+                            Prefer NIP-61 Pubkeys?
+                        </label>
+                        <div class="description">Check this box if you want NutLock to replace Nostr NPUBs with the user's corresponding NIP-61 pubkey, if found. This adds security, but may make the token harder to redeem as not all Cashu wallets support NIP-61.<br>Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support NIP-61.</div>
+                    </div>
+                    <div>
                         <label for="lock-npub">Lock Token to Public Key (NPUB/P2PK):</label>
                         <input type="text" id="lock-npub" name="lock-npub" placeholder="npub1... | 02..." required>
                         <div class="description">Token will be exclusively redeemable by the owner of this public key until the lock expires</div>
@@ -597,7 +609,7 @@ class NostrlyTools
                             <input type="text" id="refund-npub" name="refund-npub" placeholder="npub1... | 02...">
                             <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                         </div>
-                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. <a href="https://www.nostrly.com/cashu-redeem/">Nostrly Cashu Redeem</a> does.</div>
+                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/">Cashu Redeem</a> do.</div>
                         <a href="#" id="add-refund-keys">+ Add More Refund Keys</a>
                         <div id="refund-keys-options" class="hidden">
                             <label for="extra-refund-keys">Additional Refund Pubkeys (one per line or CSV):</label>
