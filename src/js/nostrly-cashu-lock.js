@@ -1,7 +1,5 @@
 // Imports
 import {
-  CashuMint,
-  CashuWallet,
   getDecodedToken,
   CheckStateEnum,
   getEncodedTokenV4,
@@ -571,18 +569,13 @@ jQuery(function ($) {
   // handle Locked token and donation
   const createLockedToken = async () => {
     try {
-      const { send: p2pkProofs, keep: donationProofs } = await wallet.swap(
-        tokenAmount,
-        proofs,
-        {
-          p2pk: {
-            pubkey: lockKeys,
-            locktime: expireTime,
-            refundKeys: refundKeys.length ? refundKeys : undefined,
-            nsig: nSigValue,
-          },
-        },
-      );
+      const { send: p2pkProofs, keep: donationProofs } =
+        await wallet.sendAsP2PK(tokenAmount, proofs, {
+          pubkey: lockKeys,
+          locktime: expireTime,
+          refundKeys: refundKeys.length ? refundKeys : undefined,
+          nsig: nSigValue,
+        });
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
 

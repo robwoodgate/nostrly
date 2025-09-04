@@ -434,17 +434,14 @@ jQuery(function ($) {
       }
       // console.log("privkey:>>", privkey);
 
-      // CashuWallet.send performs coin selection and swaps the proofs with the mint
+      // wallet.send performs coin selection and swaps the proofs with the mint
       // if no appropriate amount can be selected offline. We must include potential
       // ecash fees that the mint might require to melt the resulting proofsToSend later.
-      const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(
-        amountToSend,
-        proofs,
-        {
+      const { keep: proofsToKeep, send: proofsToSend } =
+        await wallet.sendAsDefault(amountToSend, proofs, {
           includeFees: true,
           privkey: privkey,
-        },
-      );
+        });
       console.log("proofsToKeep :>> ", proofsToKeep);
       console.log("proofsToSend :>> ", proofsToSend);
       const meltResponse = await wallet.meltProofs(meltQuote, proofsToSend);

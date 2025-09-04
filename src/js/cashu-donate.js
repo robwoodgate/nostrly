@@ -1,9 +1,4 @@
-import {
-  CashuMint,
-  CashuWallet,
-  getDecodedToken,
-  getEncodedTokenV4,
-} from "@cashu/cashu-ts";
+import { getDecodedToken, getEncodedTokenV4 } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import {
   NOSTRLY_PUBKEY,
@@ -46,7 +41,8 @@ export const handleCashuDonation = async (token, message, relays, toPub) => {
       // We have a NIP-61 pubkey and the mint is one of the approved ones
       // Receive the token to the wallet (creates new proofs)
       // locked to our p2pk pubkey, and send as NutZap to the NIP-61 relays
-      proofs = await wallet.receive(token, { p2pk: { pubkey: "02" + pubkey } });
+      // proofs = await wallet.receive(token, { p2pk: { pubkey: "02" + pubkey } }); // v2
+      proofs = await wallet.receiveAsP2PK(token, { pubkey: "02" + pubkey });
       await sendNutZap(proofs, mintUrl, unit, message, toPub, nutzapRelays);
     } else {
       // Receive the token to the wallet (creates new proofs) and send as Nostr DM

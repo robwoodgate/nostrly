@@ -1,6 +1,6 @@
 import {
-  CashuMint,
-  CashuWallet,
+  Mint,
+  Wallet,
   type MintKeys,
   type MintKeyset,
   type GetInfoResponse,
@@ -190,24 +190,25 @@ export function clearLockedTokens(): void {
  * Instantiates a Cashu wallet for a specified mint and unit
  * @param  {string} mintUrl The mint URL
  * @param  {CurrencyUnit} unit    The wallet unit (default: sat)
- * @return {Promise<CashuWallet>} A promise to return the wallet
+ * @return {Promise<Wallet>} A promise to return the wallet
  */
 export const getWalletWithUnit = async (
   mintUrl: string,
   unit: CurrencyUnit = "sat",
-): Promise<CashuWallet> => {
+): Promise<Wallet> => {
   const mintData = await loadMint(mintUrl);
-  const mint = new CashuMint(mintUrl);
+  const mint = new Mint(mintUrl);
   const keys = mintData.keys.filter((ks) => ks.unit === unit);
   const keysets = mintData.keysets.filter((ks) => ks.unit === unit);
   // console.log("keys:>>", keys);
   // console.log("keysets:>>", keysets);
-  const wallet = new CashuWallet(mint, {
+  const wallet = new Wallet(mint, {
     keys,
     keysets,
     mintInfo: mintData.info,
     unit,
   });
+  await wallet.loadMint(); // v3 requirement (gets active keyset)
   return wallet;
 };
 
@@ -220,7 +221,7 @@ async function loadMint(mintUrl: string): Promise<MintData> {
   const cachedData: MintData | null = stored ? JSON.parse(stored) : null;
   try {
     // Always fetch info and keysets
-    const cashuMint = new CashuMint(mintUrl);
+    const cashuMint = new Mint(mintUrl);
     const mintInfo = await cashuMint.getInfo();
     const mintAllKeysets: MintAllKeysets = await cashuMint.getKeySets();
     // Check we have keys cached for all active keyset IDs
