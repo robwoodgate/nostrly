@@ -1,6 +1,6 @@
 import {
-  Mint,
   Wallet,
+  ConsoleLogger,
   type MintKeys,
   type MintKeyset,
   type GetInfoResponse,
@@ -200,10 +200,12 @@ export const getWalletWithUnit = async (
   // Load cached data
   const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
   const cache: MintData | null = stored ? JSON.parse(stored) : null;
+  const logger = new ConsoleLogger("DEBUG");
+  console.log("getWalletWithUnit:>> cache", cache);
 
   // Cache expired (> 12 hours) - load fresh and save data
   if (!cache || cache.lastUpdated < Date.now() - 12 * 3600) {
-    const wallet = new Wallet(mintUrl, { unit });
+    const wallet = new Wallet(mintUrl, { unit, logger });
     await wallet.loadMint();
     // Cache the data
     const cache = wallet.keyChain.getCache();
@@ -221,6 +223,7 @@ export const getWalletWithUnit = async (
     unit: cache.unit,
     keysets: cache.keysets,
     keys: cache.keys,
+    logger,
   });
   await wallet.loadMint();
   console.log("getWalletWithUnit:>> using cached data", cache);
