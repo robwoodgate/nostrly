@@ -16,9 +16,10 @@ type CurrencyUnit = "btc" | "sat" | "msat" | string;
 const TOKEN_HISTORY_KEY = "cashu.lockedTokens";
 
 interface MintData {
-  keys: MintKeys[];
   keysets: MintKeyset[];
-  info: GetInfoResponse;
+  keys: MintKeys[];
+  unit: string;
+  mintUrl: string;
   lastUpdated: number;
 }
 
@@ -196,72 +197,38 @@ export const getWalletWithUnit = async (
   mintUrl: string,
   unit: CurrencyUnit = "sat",
 ): Promise<Wallet> => {
-  const mintData = await loadMint(mintUrl);
-  const mint = new Mint(mintUrl);
-  const keys = mintData.keys.filter((ks) => ks.unit === unit);
-  const keysets = mintData.keysets.filter((ks) => ks.unit === unit);
-  // console.log("keys:>>", keys);
-  // console.log("keysets:>>", keysets);
-  const wallet = new Wallet(mint, {
-    keys,
-    keysets,
-    mintInfo: mintData.info,
-    unit,
+  // Load cached data
+  const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
+  const cache: MintData | null = stored ? JSON.parse(stored) : null;
+
+  // Cache expired (> 12 hours) - load fresh and save data
+  if (!cache || cache.lastUpdated < Date.now() - 12 * 3600) {
+    const wallet = new Wallet(mintUrl, { unit });
+    await wallet.loadMint();
+    // Cache the data
+    const cache = wallet.keyChain.getCache();
+    const freshData: MintData = {
+      ...cache,
+      lastUpdated: Date.now(),
+    };
+    localStorage.setItem(`cashu.mint.${mintUrl}`, JSON.stringify(freshData));
+    console.log("getWalletWithUnit:>> using fresh data", freshData);
+    return wallet;
+  }
+
+  // Use cached data
+  const wallet = new Wallet(cache.mintUrl, {
+    unit: cache.unit,
+    keysets: cache.keysets,
+    keys: cache.keys,
   });
-  await wallet.loadMint(); // v3 requirement (gets active keyset)
+  await wallet.loadMint();
+  console.log("getWalletWithUnit:>> using cached data", cache);
   return wallet;
 };
 
 function storeMintData(mintUrl: string, mintData: MintData): void {
   localStorage.setItem(`cashu.mint.${mintUrl}`, JSON.stringify(mintData));
-}
-
-async function loadMint(mintUrl: string): Promise<MintData> {
-  const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
-  const cachedData: MintData | null = stored ? JSON.parse(stored) : null;
-  try {
-    // Always fetch info and keysets
-    const cashuMint = new Mint(mintUrl);
-    const mintInfo = await cashuMint.getInfo();
-    const mintAllKeysets: MintAllKeysets = await cashuMint.getKeySets();
-    // Check we have keys cached for all active keyset IDs
-    const cachedKeysetIds = cachedData?.keys?.map((keyset) => keyset.id) || [];
-    const activeKeysetIds = mintAllKeysets.keysets
-      .filter((keyset) => keyset.active)
-      .map((keyset) => keyset.id);
-    const hasAllActiveKeys = activeKeysetIds.every((id) =>
-      cachedKeysetIds.includes(id),
-    );
-    let mintActiveKeys: MintActiveKeys; // scope
-    if (cachedData && hasAllActiveKeys) {
-      // Use cached keys if they cover all active keyset IDs
-      console.log("loadMint:>> using cached keys", cachedData.keys);
-      mintActiveKeys = { keysets: cachedData.keys };
-    } else {
-      // Fetch fresh keys if any active keyset ID is missing
-      mintActiveKeys = await cashuMint.getKeys();
-      console.log("loadMint:>> fetched fresh keys", mintActiveKeys);
-    }
-    // Cache the data
-    const freshData: MintData = {
-      info: mintInfo,
-      keys: mintActiveKeys.keysets,
-      keysets: mintAllKeysets.keysets,
-      lastUpdated: Date.now(),
-    };
-    storeMintData(mintUrl, freshData);
-    console.log("loadMint:>> using fresh data", freshData);
-    return freshData;
-  } catch (error) {
-    if (cachedData) {
-      console.log(
-        "loadMint:>> fetch failed, returning cached data",
-        cachedData,
-      );
-      return cachedData;
-    }
-    throw new Error(`Could not load mint: ${mintUrl}`, { cause: error });
-  }
 }
 
 /**
