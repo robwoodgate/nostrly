@@ -450,7 +450,7 @@ jQuery(function ($) {
     // Check secret length is under MAX_SECRET characters as some mints have
     // this limit. To do this, let's create a 1 sat blinded message with p2pk
     // @see: https://github.com/cashubtc/nuts/pull/234
-    const keyset = await wallet.keyChain.getKeys();
+    const keyset = await wallet.keyChain.getKeyset();
     const testBlindedMessage = OutputData.createSingleP2PKData(
       {
         pubkey: lockKeys,
