@@ -3,8 +3,6 @@ import {
   getDecodedToken,
   CheckStateEnum,
   getEncodedTokenV4,
-} from "@cashu/cashu-ts";
-import {
   getP2PKExpectedKWitnessPubkeys,
   getP2PKLocktime,
   getP2PKNSigs,
@@ -12,8 +10,8 @@ import {
   hasP2PKSignedProof,
   getP2PKWitnessSignatures,
   verifyP2PKsecretSignature,
-} from "@cashu/cashu-ts/crypto/client/NUT11";
-import { verifyP2PKSig } from "@cashu/cashu-ts/crypto/mint/NUT11";
+  verifyP2PKSig,
+} from "@cashu/cashu-ts";
 import {
   debounce,
   doConfettiBomb,

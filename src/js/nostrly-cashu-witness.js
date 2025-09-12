@@ -1,6 +1,7 @@
 // Imports
-import { getDecodedToken, getEncodedTokenV4 } from "@cashu/cashu-ts";
 import {
+  getDecodedToken,
+  getEncodedTokenV4,
   getP2PKExpectedKWitnessPubkeys,
   getP2PKNSigs,
   getP2PKSigFlag,
@@ -8,7 +9,7 @@ import {
   getP2PKLocktime,
   signP2PKProofs,
   hasP2PKSignedProof,
-} from "@cashu/cashu-ts/crypto/client/NUT11";
+} from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
 import {
   decode as emojiDecode,

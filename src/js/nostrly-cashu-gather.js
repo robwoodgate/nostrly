@@ -1,8 +1,9 @@
-import { getEncodedTokenV4, getDecodedToken } from "@cashu/cashu-ts";
 import {
+  getEncodedTokenV4,
+  getDecodedToken,
   getP2PKNSigs,
   signP2PKProofs,
-} from "@cashu/cashu-ts/crypto/client/NUT11";
+} from "@cashu/cashu-ts";
 import {
   copyTextToClipboard,
   delay,
