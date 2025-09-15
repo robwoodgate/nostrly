@@ -118,6 +118,7 @@ jQuery(function ($) {
         type: "POST",
         data: {
           action: "nostr_sync_profile",
+          pubkey: pubkey,
           metadata: usermeta.content,
           nonce: nostrly_ajax.nonce,
         },

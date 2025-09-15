@@ -199,7 +199,7 @@ class NostrlyLogin
             wp_send_json_success(['redirect' => $redirect_url]);
         } else {
             Nostrly::log_debug('Login failed for public key: '.$public_key);
-            wp_send_json_error(['message' => __('Login failed. Please try again.', 'nostrly')]);
+            wp_send_json_error(['message' => __('No user found for this public key. Make sure you have registered a Nostrly NIP-05 Nostr Address at nostrly.com/register/', 'nostrly')]);
         }
     }
 
@@ -232,18 +232,18 @@ class NostrlyLogin
             }
 
             // Validate public key
-            if (empty($metadata['pubkey']) || !$this->is_valid_public_key($metadata['pubkey'])) {
+            if (empty($_POST['pubkey']) || !$this->is_valid_public_key($_POST['pubkey'])) {
                 throw new Exception(__('Invalid public key.', 'nostrly'));
             }
 
             // Check for existing public key
-            $existing_user = $this->get_user_by_public_key($metadata['pubkey']);
+            $existing_user = $this->get_user_by_public_key($_POST['pubkey']);
             if ($existing_user && $existing_user->ID !== $user_id) {
                 throw new Exception(__('This Nostr account is already linked to another user.', 'nostrly'));
             }
 
             // Update Nostr Public Key
-            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($metadata['pubkey']));
+            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($_POST['pubkey']));
 
             // Update the other fields
             $this->update_user_metadata($user_id, $raw_metadata);
