@@ -4,7 +4,6 @@ import {
   getEncodedTokenV4,
   MintQuoteState,
   OutputData,
-  SendBuilder,
   Wallet,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
@@ -44,7 +43,8 @@ jQuery(function ($) {
   const MAX_SECRET = 512; // Characters (mint limit)
 
   // Init vars
-  let wallet;
+  /** @type {import('@cashu/cashu-ts').Wallet} */
+  let wallet = null;
   let mintUrl = "";
   let expireTime; // unix TS
   let lockP2PK; // P2PKey
@@ -559,13 +559,15 @@ jQuery(function ($) {
   // handle Locked token and donation
   const createLockedToken = async () => {
     try {
-      const { send: p2pkProofs, keep: donationProofs } =
-        await wallet.ops.send(tokenAmount, proofs).sendP2PK({
+      const { send: p2pkProofs, keep: donationProofs } = await wallet.ops
+        .send(tokenAmount, proofs)
+        .asP2PK({
           pubkey: lockKeys,
           locktime: expireTime,
           refundKeys: refundKeys.length ? refundKeys : undefined,
           nsig: nSigValue,
-        });
+        })
+        .run();
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
 
