@@ -1,11 +1,4 @@
-import {
-  nip19,
-  nip98,
-  finalizeEvent,
-  getPublicKey,
-  SimplePool,
-  verifyEvent,
-} from "nostr-tools";
+import { SimplePool } from "nostr-tools";
 
 // Create pool and set relays
 const pool = new SimplePool();
@@ -325,12 +318,11 @@ jQuery(function ($) {
   }
 
   // Add event listener
-  $(document).ready(function () {
+  $(function () {
     console.log("Nostrly script loaded"); // Debug log
 
     const $connectButton = $("#nostr-connect-extension");
     const $resyncButton = $("#nostr-resync-extension");
-    const $disconnectButton = $("#nostr-disconnect");
 
     if ($connectButton.length || $resyncButton.length) {
       console.log("Found Nostr connect/resync buttons"); // Debug log

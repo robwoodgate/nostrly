@@ -10,7 +10,6 @@ import {
   signP2PKProofs,
   hasP2PKSignedProof,
 } from "@cashu/cashu-ts";
-import { nip19 } from "nostr-tools";
 import {
   decode as emojiDecode,
   encode as emojiEncode,
@@ -101,7 +100,7 @@ jQuery(function ($) {
 
   // Input handlers
   $token.on("input", debounce(processToken, 200));
-  $privkey.on("paste", (e) => {
+  $privkey.on("paste", (_e) => {
     setTimeout(() => {
       privkey = $privkey.val();
       if (isPrivkeyValid(privkey)) {
@@ -281,11 +280,6 @@ jQuery(function ($) {
   async function signAndWitnessToken(useNip07 = false) {
     try {
       const hasNip44 = typeof window?.nostr?.nip44?.decrypt !== "undefined";
-      const hasSignString =
-        typeof window?.nostr?.signSchnorr !== "undefined" ||
-        typeof window?.nostr?.signString !== "undefined" ||
-        typeof window?.nostr?.nip60?.signSecret !== "undefined";
-
       toastr.info("Signing each of the proofs in this token...");
       let originalProofs = [...proofs]; // Store original state
       let signedProofs = [...proofs];
@@ -370,7 +364,6 @@ jQuery(function ($) {
     for (const [index, proof] of signedProofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
       const pubkeys = getP2PKExpectedKWitnessPubkeys(proof.secret);
-      const n_sigs = getP2PKNSigs(proof.secret);
       console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
       if (!pubkeys.length) continue;
       let signatures = getP2PKWitnessSignatures(proof.witness);

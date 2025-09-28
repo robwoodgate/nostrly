@@ -1,11 +1,10 @@
 // Imports
-import { nip19, getPublicKey } from "nostr-tools";
+import { nip19 } from "nostr-tools";
 import { copyTextToClipboard, doConfettiBomb } from "./utils.ts";
 
 jQuery(function ($) {
   const domain = nostrly_ajax.domain;
   let stage = 0; // used to disable listener functions
-  let firstNameEntry = true;
   let timeout;
   let valid = { name: false, pubkey: false };
   let currentAjax = null;
@@ -149,7 +148,7 @@ jQuery(function ($) {
         name: $username.val(),
       },
       success: handleAvailabilityResponse,
-      error: function (xhr, status, error) {
+      error: function (_xhr, status, error) {
         if (status !== "abort") handleAvailabilityError(error);
       },
     });
@@ -168,7 +167,6 @@ jQuery(function ($) {
     } else {
       $username.attr("data-valid", "no");
       $status.attr("data-available", "no").text(`✖ ${res.data.reason}`);
-      firstNameEntry = false;
     }
   }
 
@@ -178,11 +176,10 @@ jQuery(function ($) {
       .attr("data-available", "no")
       .text("✖ server error, please try refreshing the page");
     console.error(e.stack);
-    firstNameEntry = false;
   }
 
   // Handle button click for proceeding to checkout
-  function handleNextButtonClick(e) {
+  function handleNextButtonClick(_e) {
     if ($nextButton.prop("disabled") || stage !== 0) return;
     disableUI();
     performCheckout();
@@ -359,7 +356,7 @@ jQuery(function ($) {
     function setupCopyTextArea(selector) {
       $(selector).on("click", function () {
         let $this = $(this);
-        $this.select();
+        $this.on("select");
         copyTextToClipboard($this.val());
       });
     }

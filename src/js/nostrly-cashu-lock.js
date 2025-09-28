@@ -1,19 +1,11 @@
 // Imports
 import {
   getDecodedToken,
-  CheckStateEnum,
   getEncodedTokenV4,
   MintQuoteState,
   OutputData,
 } from "@cashu/cashu-ts";
-import {
-  SimplePool,
-  finalizeEvent,
-  generateSecretKey,
-  getPublicKey,
-  nip04,
-  nip19,
-} from "nostr-tools";
+import { nip19 } from "nostr-tools";
 import {
   encode as emojiEncode,
   decode as emojiDecode,
@@ -39,16 +31,12 @@ import {
   clearLockedTokens,
 } from "./utils.ts";
 import { handleCashuDonation } from "./cashu-donate.js";
-import { sha256 } from "@noble/hashes/sha256";
-import { bytesToHex } from "@noble/hashes/utils";
 import toastr from "toastr";
 
 // DOM ready
 jQuery(function ($) {
   // Init constants
   const relays = nostrly_ajax.relays;
-  const pool = new SimplePool();
-  const params = new URL(document.location.href).searchParams;
   const MIN_FEE = 1; // sats
   const PCT_FEE = 1; // 1%
   const MAX_SECRET = 512; // Characters (mint limit)
@@ -134,7 +122,7 @@ jQuery(function ($) {
       console.log("mints:>>", mints);
       if (mints) {
         $mintSelect.children("option:not(:first)").remove(); // remove current
-        $.each(mints, function (key, value) {
+        $.each(mints, function (_key, value) {
           $mintSelect.append(
             $("<option></option>").attr("value", value).text(value),
           );
@@ -296,7 +284,7 @@ jQuery(function ($) {
           validKeys.push(nip61);
         }
       } else {
-        toastr.error(`Invalid pubkey: ${key}`);
+        toastr.error(`Invalid pubkey: ${p2pk}`);
       }
     }
     // Final dedup (for NIP-61 conversions)
@@ -333,7 +321,7 @@ jQuery(function ($) {
       }, 200);
     });
     // Block non-paste inputs with a warning
-    $input.on("input", (e) => {
+    $input.on("input", (_e) => {
       if (!isPasting && $input.val()) {
         clearTimeout(timeout);
         timeout = setTimeout(async () => {
@@ -641,10 +629,10 @@ jQuery(function ($) {
       const name =
         entry.name.length > 20 ? entry.name.slice(0, 20) + "..." : entry.name;
       const amount = formatAmount(entry.amount);
-      const token =
-        entry.token.length > 20
-          ? entry.token.slice(0, 20) + "..."
-          : entry.token;
+      // const token =
+      //   entry.token.length > 20
+      //     ? entry.token.slice(0, 20) + "..."
+      //     : entry.token;
       const $item = $(`
         <li class="history-item">
           <span class="copytkn">Copy Token</span>&nbsp;&nbsp;<span class="copyemj">Copy 🥜</span> &nbsp; ${date} - ${name} - ${amount}

@@ -9,7 +9,6 @@ import {
   signP2PKProofs,
   hasP2PKSignedProof,
   getP2PKWitnessSignatures,
-  verifyP2PKsecretSignature,
   verifyP2PKSig,
 } from "@cashu/cashu-ts";
 import {

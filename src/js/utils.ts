@@ -3,10 +3,7 @@ import {
   ConsoleLogger,
   type MintKeys,
   type MintKeyset,
-  type GetInfoResponse,
   type Proof,
-  type MintActiveKeys,
-  type MintAllKeysets,
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import confetti from "canvas-confetti";
@@ -32,8 +29,8 @@ interface NutLockEntry {
 
 /**
  * Gets the token amount by summing its proof amounts
- * @param {Array<Proof>} Array of proofs to sum
- * @return {number} The token amount
+ * @param proofs Array of proofs to sum
+ * @return The token amount
  */
 export const getTokenAmount = (proofs: Array<Proof>): number => {
   return proofs.reduce((acc, proof) => {
@@ -200,7 +197,7 @@ export const getWalletWithUnit = async (
   // Load cached data
   const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
   const cache: MintData | null = stored ? JSON.parse(stored) : null;
-  const logger = new ConsoleLogger("DEBUG");
+  const logger = new ConsoleLogger("debug");
   console.log("getWalletWithUnit:>> cache", cache);
 
   // Cache expired (> 12 hours) - load fresh and save data
@@ -229,10 +226,6 @@ export const getWalletWithUnit = async (
   console.log("getWalletWithUnit:>> using cached data", cache);
   return wallet;
 };
-
-function storeMintData(mintUrl: string, mintData: MintData): void {
-  localStorage.setItem(`cashu.mint.${mintUrl}`, JSON.stringify(mintData));
-}
 
 /**
  * Copies text to clipboard, with fallback for localhost operation
@@ -316,7 +309,7 @@ export function doConfettiBomb() {
 
 /**
  * Returns apromise to create a delay
- * @param {number} Delay time in ms
+ * @param delay time in ms
  * @example await delay(1000); // waits 1 second
  */
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));

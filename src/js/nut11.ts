@@ -1,7 +1,5 @@
-import { type Proof, type P2PKWitness } from "@cashu/cashu-ts";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils";
 import { sha256 } from "@noble/hashes/sha256";
-import { schnorr } from "@noble/curves/secp256k1";
 
 interface MintRead {
   id: number;

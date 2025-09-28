@@ -1,12 +1,7 @@
 // Imports
 import * as nip19 from "nostr-tools/nip19";
-import {
-  nip57,
-  signEvent,
-  finalizeEvent,
-  generateSecretKey,
-} from "nostr-tools";
-import { verifyEvent, SimplePool } from "nostr-tools";
+import { nip57, finalizeEvent, generateSecretKey } from "nostr-tools";
+import { SimplePool } from "nostr-tools";
 import { copyTextToClipboard, doConfettiBomb } from "./utils.ts";
 
 jQuery(function ($) {
@@ -25,7 +20,7 @@ jQuery(function ($) {
   const decode = $("#nip19_decode"); // nip19 decoder
   const $reset = $(".reset"); // univeral
   $npub.on("input", () => {
-    let { type, data } = nip19.decode($npub.val());
+    let { data } = nip19.decode($npub.val());
     $hex.val(data);
   });
   $hex.on("input", () => {
@@ -62,7 +57,7 @@ jQuery(function ($) {
     try {
       let note = nip19.decode($delevent.val());
       // console.log(note);
-      const { type, data } = note;
+      const { type } = note;
       if ("nevent" == type) {
         $delbutton.prop("disabled", false);
       }
@@ -91,7 +86,7 @@ jQuery(function ($) {
     }
     let note = nip19.decode($delevent.val());
     // console.log(note);
-    const { type, data } = note;
+    const { data } = note;
     let delreq = await window.nostr.signEvent({
       kind: 5,
       created_at: Math.round(Date.now() / 1e3),
@@ -132,7 +127,7 @@ jQuery(function ($) {
     try {
       let note = nip19.decode($nevent.val());
       // console.log(note);
-      const { type, data } = note;
+      const { type } = note;
       if ("npub" == type || "nevent" == type) {
         $paybutton.prop("disabled", false);
       }
@@ -197,7 +192,7 @@ jQuery(function ($) {
       url = `${url}&comment=${encodeURIComponent(comment)}`;
     }
     const res = await fetch(url);
-    const { pr, reason, status } = await res.json();
+    const { pr, status } = await res.json();
 
     // Eek, something went wrong...
     if (status === "ERROR" || !pr) {
