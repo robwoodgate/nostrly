@@ -57,23 +57,6 @@ jQuery(function ($) {
   let lockKey = "";
   const eventIdsToRedeem = new Set();
 
-  /** Filters out spent proofs from the given proof entries. */
-  async function filterUnspentProofs(mintUrl, unit, proofEntries) {
-    const wallet = await getWalletWithUnit(mintUrl, unit);
-    const proofs = proofEntries.map((entry) => entry.proof);
-    const proofStates = await wallet.checkProofsStates(proofs);
-    const spentEntries = [];
-    const unspentEntries = [];
-    proofEntries.forEach((entry, i) => {
-      if (proofStates[i].state === CheckStateEnum.UNSPENT) {
-        unspentEntries.push(entry);
-      } else {
-        spentEntries.push(entry);
-      }
-    });
-    return { spentEntries, unspentEntries };
-  }
-
   /** Signs proofs using private keys from the NIP-60 wallet. */
   async function signProofs(proofEntries) {
     let signedProofs = proofEntries.map((entry) => entry.proof);
@@ -135,23 +118,20 @@ jQuery(function ($) {
     try {
       const mintHost = new URL(mintUrl).hostname;
       // Start by filtering for spent proofs
-      const { spentEntries, unspentEntries } = await filterUnspentProofs(
-        mintUrl,
-        unit,
-        proofEntries,
-      );
+      const wallet = await getWalletWithUnit(mintUrl, unit);
+      const { spent, unspent } = await wallet.groupProofsByState(proofEntries);
       // Add spent proof event IDs to the redeem list
-      spentEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
-      if (!unspentEntries.length) {
+      spent.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
+      if (!unspent.length) {
         toastr.warning(`Found a spent ${unit} token from ${mintHost}`);
         return null;
       }
       // Sign unspent proofs and categorize them
-      const signedProofs = await signProofs(unspentEntries);
+      const signedProofs = await signProofs(unspent);
       const validEntries = []; // Format: [{proof, eventId}, ...]
       const invalidEventIds = [];
       for (const [i, proof] of signedProofs.entries()) {
-        const eventId = unspentEntries[i].eventId;
+        const eventId = unspent[i].eventId;
         if (!proof.secret.includes("P2PK")) {
           // Unspent and unlocked proof... rare!
           console.log("An unlocked NutZap proof!", proof);

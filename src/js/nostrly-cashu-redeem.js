@@ -435,7 +435,7 @@ jQuery(function ($) {
       // if no appropriate amount can be selected offline. We must include potential
       // ecash fees that the mint might require to melt the resulting proofsToSend later.
       const { keep: proofsToKeep, send: proofsToSend } =
-        await wallet.sendAsDefault(amountToSend, proofs, {
+        await wallet.send(amountToSend, proofs, {
           includeFees: true,
           privkey: privkey,
         });

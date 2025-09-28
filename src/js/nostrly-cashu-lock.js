@@ -4,6 +4,8 @@ import {
   getEncodedTokenV4,
   MintQuoteState,
   OutputData,
+  SendBuilder,
+  Wallet,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
 import {
@@ -558,7 +560,7 @@ jQuery(function ($) {
   const createLockedToken = async () => {
     try {
       const { send: p2pkProofs, keep: donationProofs } =
-        await wallet.sendAsP2PK(tokenAmount, proofs, {
+        await wallet.ops.send(tokenAmount, proofs).sendP2PK({
           pubkey: lockKeys,
           locktime: expireTime,
           refundKeys: refundKeys.length ? refundKeys : undefined,
