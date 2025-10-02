@@ -9,7 +9,7 @@ import {
 } from "./nostr.ts";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import toastr from "toastr";
-import { handleCashuDonation } from "./cashu-donate.js";
+import { handleCashuDonation } from "./cashu-donate.ts";
 
 // DOM ready
 jQuery(function ($) {

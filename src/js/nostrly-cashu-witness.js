@@ -30,7 +30,7 @@ import {
   getNip60Wallet,
 } from "./nostr.ts";
 import toastr from "toastr";
-import { handleCashuDonation } from "./cashu-donate.js";
+import { handleCashuDonation } from "./cashu-donate.ts";
 
 // DOM ready
 jQuery(function ($) {

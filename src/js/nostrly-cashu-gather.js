@@ -19,7 +19,7 @@ import {
 } from "./nostr.ts";
 import { encode as emojiEncode } from "./emoji-encoder.ts";
 import toastr from "toastr";
-import { handleCashuDonation } from "./cashu-donate.js";
+import { handleCashuDonation } from "./cashu-donate.ts";
 
 const CheckStateEnum = {
   UNSPENT: "UNSPENT",

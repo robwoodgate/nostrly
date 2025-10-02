@@ -27,7 +27,7 @@ import {
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder.ts";
-import { handleCashuDonation } from "./cashu-donate.js";
+import { handleCashuDonation } from "./cashu-donate.ts";
 import { sha256Hex } from "./nut11.ts";
 import { bytesToHex } from "@noble/hashes/utils";
 

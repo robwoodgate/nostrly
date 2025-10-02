@@ -5,12 +5,14 @@ import {
   sendViaNostr,
   sendNutZap,
   getNip61Info,
-} from "./nostr.ts";
-import { getWalletWithUnit, getTokenAmount, formatAmount } from "./utils.ts";
+} from "./nostr";
 import {
-  encode as emojiEncode,
-  decode as emojiDecode,
-} from "./emoji-encoder.ts";
+  getWalletWithUnit,
+  getTokenAmount,
+  formatAmount,
+  getErrorMessage,
+} from "./utils";
+import { encode as emojiEncode, decode as emojiDecode } from "./emoji-encoder";
 
 /**
  * Cashu Donation
@@ -19,11 +21,20 @@ import {
  * @param  {array}  relays array of Nostr relays
  * @param  {string} toPub Nostr pubkey (hex)
  */
-export const handleCashuDonation = async (token, message, relays, toPub) => {
+export const handleCashuDonation = async (
+  token: string,
+  message: string,
+  relays: string[],
+  toPub: string,
+) => {
   try {
     // Try get Nip-61 locking p2pkey
     toPub = toPub || NOSTRLY_PUBKEY; // Fallback
-    const { pubkey, mints, relays: nutzapRelays } = await getNip61Info(toPub);
+    const {
+      pubkey,
+      mints,
+      relays: nutzapRelays,
+    } = await getNip61Info(toPub, relays);
     // Decode token / emoji
     if (!token.startsWith("cashu")) {
       token = emojiDecode(token);
@@ -62,8 +73,9 @@ export const handleCashuDonation = async (token, message, relays, toPub) => {
     toastr.success(`${amount} donation received! Thanks for your support 🧡`);
     return true;
   } catch (error) {
-    console.error(error);
-    toastr.error(error.message);
+    const message = getErrorMessage(error);
+    console.error(message);
+    toastr.error(message);
     return false;
   }
 };

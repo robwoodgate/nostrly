@@ -31,7 +31,7 @@ import {
   storeLockedToken,
   clearLockedTokens,
 } from "./utils.ts";
-import { handleCashuDonation } from "./cashu-donate.js";
+import { handleCashuDonation } from "./cashu-donate.ts";
 import toastr from "toastr";
 
 // DOM ready
