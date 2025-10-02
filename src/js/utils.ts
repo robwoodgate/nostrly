@@ -354,3 +354,20 @@ export const getSatsAmount = (lnInvoice: string) => {
     throw e;
   }
 };
+
+export function getErrorMessage(
+  error: unknown,
+  defaultMsg: string = "Unknown error",
+): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  // Handle non-Error throws gracefully
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return defaultMsg;
+}

@@ -168,7 +168,8 @@ jQuery(function ($) {
       );
       $token.attr("data-valid", "");
     } catch (e) {
-      toastr.error(e.message || "Invalid token");
+      const message = getErrorMessage(error, "Invalid token");
+      toastr.error(emessage);
       console.error("processToken error:", e);
       resetVars();
     }
@@ -354,7 +355,8 @@ jQuery(function ($) {
       );
     } catch (e) {
       console.error("Error in signAndWitnessToken:", e);
-      toastr.info(e.message || "Failed to sign token");
+      const message = getErrorMessage(e, "Failed to sign token");
+      toastr.error(message);
     }
   }
 
@@ -412,7 +414,8 @@ jQuery(function ($) {
           console.log("adding sig:", sig);
         }
       } catch (e) {
-        toastr.warning(`Skipped signing proof ${index + 1}: ${e.message}`);
+        const message = getErrorMessage(e, "Failed to sign token");
+        toastr.warning(`Skipped signing proof ${index + 1}: ${message}`);
         console.error("NIP-07 signing error:", e);
         continue;
       }
@@ -446,7 +449,8 @@ jQuery(function ($) {
       );
     } catch (e) {
       console.error("Error unlocking token:", e);
-      toastr.error(e.message || "Failed to unlock token");
+      const message = getErrorMessage(e, "Failed to unlock token");
+      toastr.error(message);
     }
   }
 
