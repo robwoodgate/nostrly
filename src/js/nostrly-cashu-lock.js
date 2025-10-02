@@ -4,6 +4,7 @@ import {
   getEncodedTokenV4,
   MintQuoteState,
   OutputData,
+  P2PKBuilder,
   Wallet,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
@@ -66,6 +67,7 @@ jQuery(function ($) {
   const $mintSelect = $("#mint-select");
   const $lockValue = $("#lock-value");
   const $preferNip61 = $("#prefer-nip61");
+  const $useP2BK = $("#use-p2bk");
   const $lockNpub = $("#lock-npub");
   const $lockExpiry = $("#lock-expiry");
   const $refundNpub = $("#refund-npub");
@@ -559,14 +561,20 @@ jQuery(function ($) {
   // handle Locked token and donation
   const createLockedToken = async () => {
     try {
+      const p2pk = new P2PKBuilder()
+        .addLockPubkey(lockKeys)
+        .lockUntil(expireTime)
+        .addRefundPubkey(refundKeys)
+        .requireLockSignatures(nSigValue)
+        .requireRefundSignatures(1);
+      if ($useP2BK.is(":checked")) {
+        p2pk.blindKeys();
+      }
+      const p2pkOptions = p2pk.toOptions();
+      console.log("p2pkOptions", p2pkOptions);
       const { send: p2pkProofs, keep: donationProofs } = await wallet.ops
         .send(tokenAmount, proofs)
-        .asP2PK({
-          pubkey: lockKeys,
-          locktime: expireTime,
-          refundKeys: refundKeys.length ? refundKeys : undefined,
-          nsig: nSigValue,
-        })
+        .asP2PK(p2pkOptions)
         .run();
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
