@@ -32,9 +32,19 @@ interface ProofStore {
 }
 
 // Define window.nostr interface
-interface Nostr {
+export interface Nostr {
+  getPublicKey?: () => Promise<string>;
+  signSchnorr?: (secret: string) => Promise<string>;
+  signString?: (
+    secret: string,
+  ) => Promise<{ hash: string; sig: string; pubkey: string }>;
   nip44?: {
     decrypt: (pubkey: string, content: string) => Promise<string>;
+  };
+  nip60?: {
+    signSecret?: (
+      secret: string,
+    ) => Promise<{ hash: string; sig: string; pubkey: string }>;
   };
 }
 declare global {
@@ -197,7 +207,7 @@ export const getUserRelays = async (
  */
 export const getNip60Wallet = async (
   hexOrNpub: string,
-  relays: string[],
+  relays?: string[],
 ): Promise<{
   privkeys: string[];
   mints: string[];

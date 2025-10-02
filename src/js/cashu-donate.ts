@@ -5,6 +5,7 @@ import {
   sendViaNostr,
   sendNutZap,
   getNip61Info,
+  DEFAULT_RELAYS,
 } from "./nostr";
 import {
   getWalletWithUnit,
@@ -24,12 +25,14 @@ import { encode as emojiEncode, decode as emojiDecode } from "./emoji-encoder";
 export const handleCashuDonation = async (
   token: string,
   message: string,
-  relays: string[],
-  toPub: string,
+  relays?: string[],
+  toPub?: string,
 ) => {
   try {
+    // Set defaults if needed
+    relays = relays ?? DEFAULT_RELAYS;
+    toPub = toPub ?? NOSTRLY_PUBKEY;
     // Try get Nip-61 locking p2pkey
-    toPub = toPub || NOSTRLY_PUBKEY; // Fallback
     const {
       pubkey,
       mints,

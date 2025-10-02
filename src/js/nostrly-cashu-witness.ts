@@ -9,41 +9,47 @@ import {
   getP2PKLocktime,
   signP2PKProofs,
   hasP2PKSignedProof,
+  Proof,
+  Wallet,
+  Token,
 } from "@cashu/cashu-ts";
-import {
-  decode as emojiDecode,
-  encode as emojiEncode,
-} from "./emoji-encoder.ts";
-import { isPrivkeyValid, maybeConvertNsecToP2PK } from "./nostr.ts";
-import { sha256Hex } from "./nut11.ts";
+import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
+import { isPrivkeyValid, maybeConvertNsecToP2PK } from "./nostr";
+import { sha256Hex } from "./nut11";
 import {
   copyTextToClipboard,
   debounce,
   doConfettiBomb,
   formatAmount,
+  getErrorMessage,
   getTokenAmount,
   getWalletWithUnit,
-} from "./utils.ts";
-import {
-  getContactDetails,
-  convertP2PKToNpub,
-  getNip60Wallet,
-} from "./nostr.ts";
+} from "./utils";
+import { getContactDetails, convertP2PKToNpub, getNip60Wallet } from "./nostr";
 import toastr from "toastr";
-import { handleCashuDonation } from "./cashu-donate.ts";
+import { handleCashuDonation } from "./cashu-donate";
+
+declare const nostrly_ajax: {
+  relays: string[];
+};
 
 // DOM ready
 jQuery(function ($) {
   // Init vars
-  let wallet;
-  let mintUrl = "";
+  let wallet: Wallet | undefined;
+  let mintUrl: string = "";
   let unit = "sat";
-  let proofs = [];
-  let tokenAmount = 0;
-  let nip07Pubkey = "";
-  let privkey = "";
-  let p2pkParams = { pubkeys: [], n_sigs: 0 };
-  let signedPubkeys = [];
+  let proofs: Proof[] = [];
+  let tokenAmount: number = 0;
+  let nip07Pubkey: string = "";
+  let privkey: string = "";
+  let p2pkParams: { pubkeys: string[]; n_sigs: number } = {
+    pubkeys: [],
+    n_sigs: 0,
+  };
+  let signedPubkeys: string[] = [];
+  const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
+  const hasNip44 = typeof window?.nostr?.nip44?.decrypt !== "undefined";
 
   // DOM elements
   const $divForm = $("#cashu-witness-form");
@@ -66,7 +72,10 @@ jQuery(function ($) {
   // Donation input
   $donateCashu.on("paste", () => {
     setTimeout(async () => {
-      handleCashuDonation($donateCashu.val(), "Cashu Redeem Donation");
+      handleCashuDonation(
+        $donateCashu.val() as string,
+        "Cashu Redeem Donation",
+      );
       $donateCashu.val("");
     }, 200);
     console.log("donation");
@@ -102,7 +111,7 @@ jQuery(function ($) {
   $token.on("input", debounce(processToken, 200));
   $privkey.on("paste", (_e) => {
     setTimeout(() => {
-      privkey = $privkey.val();
+      privkey = $privkey.val() as string;
       if (isPrivkeyValid(privkey)) {
         $privkey.attr("data-valid", "");
         signAndWitnessToken(false);
@@ -114,9 +123,13 @@ jQuery(function ($) {
     }, 100); // Delay to ensure paste value is available
   });
   $useNip07.on("click", () => signAndWitnessToken(true));
-  $copyToken.on("click", () => copyTextToClipboard($witnessedToken.val()));
+  $copyToken.on("click", () =>
+    copyTextToClipboard($witnessedToken.val() as string),
+  );
   $copyEmoji.on("click", () =>
-    copyTextToClipboard(emojiEncode("\uD83E\uDD5C", $witnessedToken.val())),
+    copyTextToClipboard(
+      emojiEncode("\uD83E\uDD5C", $witnessedToken.val() as string),
+    ),
   );
   $clearHistory.on("click", () => {
     clearWitnessHistory();
@@ -131,7 +144,7 @@ jQuery(function ($) {
       resetVars();
 
       // check token
-      let tokenEncoded = $token.val();
+      let tokenEncoded: string = $token.val() as string;
       if (!tokenEncoded) {
         return;
       }
@@ -142,12 +155,12 @@ jQuery(function ($) {
           $token.val(decoded);
         }
       }
-      const token = getDecodedToken(tokenEncoded);
+      const token: Token = getDecodedToken(tokenEncoded);
       if (!token.proofs.length || !token.mint.length) {
         throw new Error("Invalid token format");
       }
       mintUrl = token.mint;
-      unit = token.unit;
+      unit = token.unit || "sat";
       proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
       if (!proofs.length) {
         toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
@@ -168,8 +181,8 @@ jQuery(function ($) {
       );
       $token.attr("data-valid", "");
     } catch (e) {
-      const message = getErrorMessage(error, "Invalid token");
-      toastr.error(emessage);
+      const message = getErrorMessage(e, "Invalid token");
+      toastr.error(message);
       console.error("processToken error:", e);
       resetVars();
     }
@@ -222,7 +235,11 @@ jQuery(function ($) {
     }
     html += `<li>Expected Public Keys:</li><ul>`;
     // Define a function to handle the async update
-    const updateContactName = (npub, p2pkey, relays) => {
+    const updateContactName = (
+      npub: string,
+      p2pkey: string,
+      relays: string[],
+    ) => {
       getContactDetails(npub, relays).then(({ name, hexpub }) => {
         if (name) {
           const nip61 = hexpub != p2pkey.slice(2) ? "(NIP-61)" : "(NPUB)";
@@ -259,7 +276,6 @@ jQuery(function ($) {
 
   // Check NIP-07 button state and handle unlocked tokens
   function checkNip07ButtonState() {
-    const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
     console.log("hasNip07", hasNip07);
     console.log("tokenAmount", tokenAmount);
     console.log("proofs length", proofs.length);
@@ -280,16 +296,19 @@ jQuery(function ($) {
   // Sign and witness the token
   async function signAndWitnessToken(useNip07 = false) {
     try {
-      const hasNip44 = typeof window?.nostr?.nip44?.decrypt !== "undefined";
       toastr.info("Signing each of the proofs in this token...");
       let originalProofs = [...proofs]; // Store original state
       let signedProofs = [...proofs];
       console.log("signedProofs before:>>", signedProofs);
 
-      // Handle NIP-60 wallet
-      if (hasNip44) {
-        nip07Pubkey = await window.nostr.getPublicKey();
+      // Get Nostr Pubkey if available
+      if (useNip07 && window.nostr?.getPublicKey) {
+        nip07Pubkey = (await window?.nostr?.getPublicKey()) ?? "";
         console.log("nip07Pubkey:>>", nip07Pubkey);
+      }
+
+      // Handle NIP-60 wallet (requires NIP-44 decryption)
+      if (hasNip44 && nip07Pubkey) {
         const { privkeys } = await getNip60Wallet(nip07Pubkey);
         if (privkeys.length > 0) {
           console.log("signing using nip60...");
@@ -361,7 +380,7 @@ jQuery(function ($) {
   }
 
   // Sign proofs with NIP-07 (aligned with reference functions)
-  async function signWithNip07(proofs) {
+  async function signWithNip07(proofs: Proof[]) {
     const signedProofs = proofs.map((proof) => ({ ...proof }));
     for (const [index, proof] of signedProofs.entries()) {
       if (!proof.secret.includes("P2PK")) continue;
@@ -399,7 +418,7 @@ jQuery(function ($) {
             pubkey,
           });
         } else if (typeof window?.nostr?.signSchnorr !== "undefined") {
-          pubkey = await window.nostr.getPublicKey();
+          pubkey = nip07Pubkey;
           signedSig = await window.nostr.signSchnorr(hash);
           signedHash = hash;
           console.log("signSchnorr pubkey:", pubkey);
@@ -434,7 +453,7 @@ jQuery(function ($) {
     try {
       console.log("unit:>>", unit);
       wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
-      const unlockedProofs = await wallet.receive($token.val());
+      const unlockedProofs = await wallet.receive($token.val() as string);
       const unlockedToken = getEncodedTokenV4({
         mint: mintUrl,
         proofs: unlockedProofs,
@@ -454,8 +473,19 @@ jQuery(function ($) {
     }
   }
 
+  interface WitnessHistoryItem {
+    token: string;
+    amount: number;
+    date: string; // ISO string from Date.toISOString()
+    status: string;
+  }
+
   // Store witness history
-  function storeWitnessHistory(token, amount, status) {
+  function storeWitnessHistory(
+    token: string,
+    amount: number,
+    status: string,
+  ): void {
     const history = getWitnessHistory();
     history.push({
       token,
@@ -467,19 +497,19 @@ jQuery(function ($) {
   }
 
   // Get witness history
-  function getWitnessHistory() {
+  function getWitnessHistory(): WitnessHistoryItem[] {
     const history = localStorage.getItem("cashu-witness-history");
     return history ? JSON.parse(history) : [];
   }
 
   // Clear witness history
-  function clearWitnessHistory() {
+  function clearWitnessHistory(): void {
     localStorage.removeItem("cashu-witness-history");
   }
 
   // Load witness history (descending order)
   function loadWitnessHistory() {
-    const history = getWitnessHistory();
+    const history: WitnessHistoryItem[] = getWitnessHistory();
     $historyDiv.empty();
     if (history.length === 0) {
       $historyDiv.html("<p>No witnessed tokens found.</p>");
@@ -487,7 +517,9 @@ jQuery(function ($) {
     }
     const $list = $("<ul></ul>");
     history
-      .sort((a, b) => new Date(b.date) - new Date(a.date)) // Descending order
+      .sort((a: { date: any }, b: { date: string }) =>
+        b.date.localeCompare(a.date),
+      ) // Descending order
       .forEach((entry) => {
         const date = new Date(entry.date).toLocaleString();
         const amount = formatAmount(entry.amount);
