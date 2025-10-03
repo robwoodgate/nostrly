@@ -5,20 +5,19 @@ import {
   MintQuoteState,
   OutputData,
   P2PKBuilder,
+  Proof,
+  Token,
   Wallet,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
-import {
-  encode as emojiEncode,
-  decode as emojiDecode,
-} from "./emoji-encoder.ts";
+import { encode as emojiEncode, decode as emojiDecode } from "./emoji-encoder";
 import {
   getContactDetails,
   maybeConvertNpubToP2PK,
   convertP2PKToNpub,
   getNip61Info,
-} from "./nostr.ts";
-import { isPublicKeyValidP2PK, getNut11Mints } from "./nut11.ts";
+} from "./nostr";
+import { isPublicKeyValidP2PK, getNut11Mints } from "./nut11";
 import {
   copyTextToClipboard,
   delay,
@@ -31,9 +30,14 @@ import {
   getLockedTokens,
   storeLockedToken,
   clearLockedTokens,
-} from "./utils.ts";
-import { handleCashuDonation } from "./cashu-donate.ts";
+  getErrorMessage,
+} from "./utils";
+import { handleCashuDonation } from "./cashu-donate";
 import toastr from "toastr";
+
+declare const nostrly_ajax: {
+  relays: string[];
+};
 
 // DOM ready
 jQuery(function ($) {
@@ -45,20 +49,20 @@ jQuery(function ($) {
 
   // Init vars
   /** @type {import('@cashu/cashu-ts').Wallet} */
-  let wallet = null;
-  let mintUrl = "";
-  let expireTime; // unix TS
-  let lockP2PK; // P2PKey
-  let refundP2PK; // P2PKey
-  let proofs = [];
-  let tokenAmount = 0;
-  let feeAmount = 0;
-  let donationAmount = 0;
-  let extraLockKeys = [];
-  let extraRefundKeys = [];
-  let nSigValue = 1;
-  let lockKeys = []; // sanitized keys
-  let refundKeys = []; // sanitized keys
+  let wallet: Wallet | null = null;
+  let mintUrl: string = "";
+  let expireTime: number; // unix TS
+  let lockP2PK: string; // P2PKey
+  let refundP2PK: any; // P2PKey
+  let proofs: Proof[] = [];
+  let tokenAmount: number = 0;
+  let feeAmount: number = 0;
+  let donationAmount: number = 0;
+  let extraLockKeys: string[] = [];
+  let extraRefundKeys: string[] = [];
+  let nSigValue: number = 1;
+  let lockKeys: string[] = []; // sanitized keys
+  let refundKeys: string[] = []; // sanitized keys
 
   // DOM elements
   const $divOrderFm = $("#cashu-lock-form");
@@ -141,7 +145,7 @@ jQuery(function ($) {
       return;
     }
     // Lookup selected mint
-    mintUrl = $mintSelect.val();
+    mintUrl = $mintSelect.val() as string;
     try {
       wallet = await getWalletWithUnit(mintUrl); // Load wallet
       proofs = getMintProofs(mintUrl); // Load saved proofs
@@ -150,21 +154,22 @@ jQuery(function ($) {
       toastr.success(`Loaded Mint: ${mintUrl}`);
       $mintSelect.attr("data-valid", "");
     } catch (e) {
-      toastr.error(e);
+      const msg = getErrorMessage(e);
+      toastr.error(msg);
       $mintSelect.attr("data-valid", "no");
     }
     console.log("mintUrl:>>", mintUrl);
     checkIsReadyToOrder();
   });
   $lockValue.on("input", () => {
-    tokenAmount = parseInt($lockValue.val(), 10); // Base10 int
+    tokenAmount = parseInt($lockValue.val() as string, 10); // Base10 int
     console.log("tokenAmount:>>", tokenAmount);
     feeAmount = Math.max(Math.ceil((tokenAmount * PCT_FEE) / 100), MIN_FEE); // 1% with MIN_FEE
     console.log("feeAmount:>>", feeAmount);
     checkIsReadyToOrder();
   });
   $addDonation.on("input", () => {
-    donationAmount = Math.abs(parseInt($addDonation.val(), 10)); // Base10 int
+    donationAmount = Math.abs(parseInt($addDonation.val() as string, 10)); // Base10 int
     console.log("donationAmount:>>", donationAmount);
   });
   const checkMinDate = debounce((expireTime) => {
@@ -179,7 +184,9 @@ jQuery(function ($) {
     }
   }, 500);
   $lockExpiry.on("input", () => {
-    expireTime = Math.floor(new Date($lockExpiry.val()).getTime() / 1000);
+    expireTime = Math.floor(
+      new Date($lockExpiry.val() as string).getTime() / 1000,
+    );
     console.log("expireTime:>>", expireTime);
     // Check if expireTime is less than now
     checkMinDate(expireTime);
@@ -187,8 +194,11 @@ jQuery(function ($) {
   });
   $orderButton.on("click", async () => {
     showPaymentPage();
+    if (!wallet) {
+      return;
+    }
     const totalNeeded = tokenAmount + feeAmount + donationAmount;
-    const quote = await wallet.createMintQuote(totalNeeded);
+    const quote = await wallet.createMintQuoteBolt11(totalNeeded);
     console.log("quote:>>", quote);
     $amountToPay.text(formatAmount(totalNeeded));
     $mintUrl.text(mintUrl);
@@ -218,11 +228,14 @@ jQuery(function ($) {
 
   /**
    * Checks if npub has a NIP-61 P2PK pubkey
-   * @param  {string} p2pkey P2PK Pubkey (prefixed 02...)
-   * @param  {array} relays  Optional relays (DEFAULT_RELAYS used if unset)
-   * @return {string}        NIP-61 hex pubkey or original key
+   * @param  p2pkey P2PK Pubkey (prefixed 02...)
+   * @param  relays  Optional relays (DEFAULT_RELAYS used if unset)
+   * @return NIP-61 hex pubkey or original key
    */
-  const doNip61Check = async function (p2pkey, relays) {
+  const doNip61Check = async function (
+    p2pkey: string,
+    relays?: string[],
+  ): Promise<string> {
     const sliced = p2pkey.slice(2); // Convert to Nostr format key
     const { name, hexpub } = await getContactDetails(sliced, relays);
     console.log("name", name);
@@ -264,10 +277,10 @@ jQuery(function ($) {
    * Each key is validated, converted if necessary, and checked against NIP-61.
    * Invalid keys are reported via toastr, and duplicates are removed.
    *
-   * @param {string} text - The input text containing one or more public keys.
-   * @returns {Promise<string[]>} A promise that resolves to an array of unique, valid public keys.
+   * @param text - The input text containing one or more public keys.
+   * @returns A promise that resolves to an array of unique, valid public keys.
    */
-  async function parsePubkeys(text) {
+  async function parsePubkeys(text: string): Promise<string[]> {
     // Parse, trim, filter and deduplicate
     const keys = [
       ...new Set(
@@ -308,12 +321,12 @@ jQuery(function ($) {
    * @param {string} [errorMsgPrefix="Invalid"] - The prefix for error messages displayed to the user.
    */
   const handlePubkeyInput = (
-    $input,
-    setKeyFn,
-    isTextarea = false,
-    errorMsgPrefix = "Invalid",
+    $input: JQuery,
+    setKeyFn: Function,
+    isTextarea: boolean = false,
+    errorMsgPrefix: string = "Invalid",
   ) => {
-    let timeout;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     let isPasting = false;
     // Detect paste and process after a short delay
     $input.on("paste", () => {
@@ -337,7 +350,7 @@ jQuery(function ($) {
     });
     // Process the pasted input
     const processInput = async () => {
-      const text = $input.val();
+      const text = $input.val() as string;
       $input.attr("data-valid", "");
       // Handle empty input
       if (!text) {
@@ -380,22 +393,30 @@ jQuery(function ($) {
   };
   handlePubkeyInput(
     $lockNpub,
-    (key) => (lockP2PK = key),
+    (key: string) => (lockP2PK = key),
     false,
     "Invalid Lock",
   );
   handlePubkeyInput(
     $refundNpub,
-    (key) => (refundP2PK = key),
+    (key: string) => (refundP2PK = key),
     false,
     "Invalid Refund",
   );
-  handlePubkeyInput($extraLockKeys, (keys) => (extraLockKeys = keys), true);
-  handlePubkeyInput($extraRefundKeys, (keys) => (extraRefundKeys = keys), true);
+  handlePubkeyInput(
+    $extraLockKeys,
+    (keys: string[]) => (extraLockKeys = keys),
+    true,
+  );
+  handlePubkeyInput(
+    $extraRefundKeys,
+    (keys: string[]) => (extraRefundKeys = keys),
+    true,
+  );
 
   // Handle n_sigs
   $nSigs.on("input", () => {
-    nSigValue = parseInt($nSigs.val(), 10);
+    nSigValue = parseInt($nSigs.val() as string, 10);
     if (nSigValue < 1) {
       $nSigs.val(1);
       nSigValue = 1;
@@ -409,7 +430,10 @@ jQuery(function ($) {
   $nip07Button.on("click", useNip07);
   async function useNip07() {
     try {
-      const pubkey = await window.nostr.getPublicKey();
+      if (typeof window?.nostr?.getPublicKey === "undefined") {
+        throw new Error("NIP-07 signer not detected.");
+      }
+      const pubkey = await window?.nostr?.getPublicKey();
       if (pubkey) {
         $refundNpub.val(nip19.npubEncode(pubkey));
         $refundNpub.trigger("paste"); // validation
@@ -417,7 +441,8 @@ jQuery(function ($) {
         throw new Error("Could not fetch public key from NIP-07 signer.");
       }
     } catch (e) {
-      toastr.error(e);
+      const msg = getErrorMessage(e);
+      toastr.error(msg);
       console.error(e);
     }
   }
@@ -442,13 +467,13 @@ jQuery(function ($) {
     // Check secret length is under MAX_SECRET characters as some mints have
     // this limit. To do this, let's create a 1 sat blinded message with p2pk
     // @see: https://github.com/cashubtc/nuts/pull/234
-    const keyset = await wallet.keyChain.getKeyset();
+    const keyset = wallet.keyChain.getKeyset();
     const testBlindedMessage = OutputData.createSingleP2PKData(
       {
         pubkey: lockKeys,
         locktime: expireTime,
         refundKeys: refundKeys.length ? refundKeys : undefined,
-        nsig: nSigValue,
+        requiredSignatures: nSigValue,
       },
       1, // for testing
       keyset.id,
@@ -491,11 +516,14 @@ jQuery(function ($) {
     .trigger("input");
 
   // Check Mint Quote for payment
-  const checkQuote = async (quote) => {
-    const newquote = await wallet.checkMintQuote(quote);
+  const checkQuote = async (quote: string) => {
+    if (!wallet) {
+      throw new Error("Wallet instance not found!");
+    }
+    const newquote = await wallet.checkMintQuoteBolt11(quote);
     const totalNeeded = tokenAmount + feeAmount + donationAmount;
     if (newquote.state === MintQuoteState.PAID) {
-      const ps = await wallet.mintProofs(totalNeeded, quote);
+      const ps = await wallet.mintProofsBolt11(totalNeeded, quote);
       proofs = [...proofs, ...ps];
       storeMintProofs(mintUrl, proofs, true); // Store all for safety
       createLockedToken();
@@ -513,16 +541,19 @@ jQuery(function ($) {
     // Wait for paste to finish
     setTimeout(async () => {
       try {
-        let token = $payByCashu.val();
+        if (!wallet) {
+          throw new Error("Wallet instance not found!");
+        }
+        let token: string | Token = $payByCashu.val() as string;
         if (!token.startsWith("cashu")) {
           token = emojiDecode(token);
         }
         token = getDecodedToken(token);
-        // Check this token is from same mint
+        // Check this token is from same mint as wallet
         if (token.mint != mintUrl) {
           throw new Error("Token is not from " + mintUrl);
         }
-        // Check this token unit from same mint
+        // Check this token unit matches wallet unit
         if (token.unit !== wallet.unit) {
           throw new Error(
             `Unit mismatch: Needed ${wallet.unit}, Received ${token.unit}`,
@@ -549,7 +580,8 @@ jQuery(function ($) {
         // We don't createLockedToken() here...
         // We let checkQuote() handle it as it checks stored proofs
       } catch (e) {
-        toastr.error(e);
+        const msg = getErrorMessage(e);
+        toastr.error(msg);
         console.error(e);
       } finally {
         $payByCashu.val("");
@@ -561,6 +593,9 @@ jQuery(function ($) {
   // handle Locked token and donation
   const createLockedToken = async () => {
     try {
+      if (!wallet) {
+        throw new Error("Wallet instance not found!");
+      }
       const p2pk = new P2PKBuilder()
         .addLockPubkey(lockKeys)
         .lockUntil(expireTime)
@@ -604,8 +639,9 @@ jQuery(function ($) {
       );
       storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
+      const msg = getErrorMessage(e, "Error creating locked token.");
       toastr.remove(); // clears any messages
-      toastr.error(e.message || "Error creating locked token.");
+      toastr.error(msg);
       console.error(e);
       proofs = getMintProofs(mintUrl); // revert to saved proofs
       showOrderForm();

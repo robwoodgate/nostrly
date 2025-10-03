@@ -138,7 +138,7 @@ export const sendNutZap = async (
  */
 export const getContactDetails = async (
   hexOrNpub: string,
-  relays: string[],
+  relays?: string[],
 ): Promise<{
   name: string | null;
   img: string | null;
@@ -271,7 +271,7 @@ export const getNip60Wallet = async (
  */
 export const getNip61Info = async (
   hexOrNpub: string,
-  relays: string[],
+  relays?: string[],
 ): Promise<{ pubkey: string | null; mints: string[]; relays: string[] }> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
