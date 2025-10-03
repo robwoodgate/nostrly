@@ -42,6 +42,7 @@ interface ProofStore {
 // Define window.nostr interface
 export interface Nostr {
   getPublicKey?: () => Promise<string>;
+  signEvent?: (event: EventTemplate) => Promise<Event>;
   signSchnorr?: (secret: string) => Promise<string>;
   signString?: (
     secret: string,
@@ -187,7 +188,7 @@ export const getContactDetails = async (
  */
 export const getUserRelays = async (
   hexOrNpub: string,
-  relays: string[],
+  relays?: string[],
 ): Promise<string[]> => {
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
@@ -307,7 +308,7 @@ export const getNip61Info = async (
  */
 export const getWalletAndInfo = async (
   hexOrNpub: string,
-  relays: string[],
+  relays?: string[],
 ): Promise<{
   privkeys: string[];
   mints: string[];
@@ -526,7 +527,7 @@ function processNutZapEvents(
  */
 export async function getUnclaimedNutZaps(
   hexOrNpub: string,
-  relays: string[],
+  relays?: string[],
   nutZapRelays: string[] = [],
   mints: string[] = [],
   toastrInfo: boolean = false,

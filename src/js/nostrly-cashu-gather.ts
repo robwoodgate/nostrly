@@ -3,6 +3,8 @@ import {
   getDecodedToken,
   getP2PKNSigs,
   signP2PKProofs,
+  Proof,
+  CheckStateEnum,
 } from "@cashu/cashu-ts";
 import {
   copyTextToClipboard,
@@ -10,21 +12,24 @@ import {
   getWalletWithUnit,
   getTokenAmount,
   formatAmount,
-} from "./utils.ts";
+} from "./utils";
 import {
   pool,
   getUserRelays,
   getUnclaimedNutZaps,
   getWalletAndInfo,
-} from "./nostr.ts";
-import { encode as emojiEncode } from "./emoji-encoder.ts";
+} from "./nostr";
+import { encode as emojiEncode } from "./emoji-encoder";
 import toastr from "toastr";
-import { handleCashuDonation } from "./cashu-donate.ts";
+import { handleCashuDonation } from "./cashu-donate";
+import { type Event, type EventTemplate } from "nostr-tools";
 
-const CheckStateEnum = {
-  UNSPENT: "UNSPENT",
-  SPENT: "SPENT",
-  PENDING: "PENDING",
+type ProofEntry = { proof: Proof; eventId: string };
+type TokenData = {
+  mintUrl: string;
+  unit: string;
+  token: string;
+  timestamp?: number;
 };
 
 // DOM ready
@@ -42,23 +47,47 @@ jQuery(function ($) {
   // Donation input
   $donateCashu.on("paste", () => {
     setTimeout(async () => {
-      handleCashuDonation($donateCashu.val(), "Cashu Redeem Donation");
+      handleCashuDonation(
+        $donateCashu.val() as string,
+        "Cashu Redeem Donation",
+      );
       $donateCashu.val("");
     }, 200);
     console.log("donation");
   });
 
   // Init vars
-  let pubkey = "";
-  let relays = [];
-  let privkeys = [];
-  let nutzapRelays = [];
-  let mints = "";
-  let lockKey = "";
+  let pubkey: string = "";
+  let relays: string[] = [];
+  let privkeys: string[] = [];
+  let nutzapRelays: string[] = [];
+  let mints: string[] = [];
+  let lockKey: string | null = null;
   const eventIdsToRedeem = new Set();
 
+  /** Filters out spent proofs from the given proof entries. */
+  async function filterUnspentProofs(
+    mintUrl: string,
+    unit: string,
+    proofEntries: ProofEntry[],
+  ) {
+    const wallet = await getWalletWithUnit(mintUrl, unit);
+    const proofs = proofEntries.map((entry) => entry.proof);
+    const proofStates = await wallet.checkProofsStates(proofs);
+    const spentEntries: ProofEntry[] = [];
+    const unspentEntries: ProofEntry[] = [];
+    proofEntries.forEach((entry, i) => {
+      if (proofStates[i].state === CheckStateEnum.UNSPENT) {
+        unspentEntries.push(entry);
+      } else {
+        spentEntries.push(entry);
+      }
+    });
+    return { spentEntries, unspentEntries };
+  }
+
   /** Signs proofs using private keys from the NIP-60 wallet. */
-  async function signProofs(proofEntries) {
+  async function signProofs(proofEntries: ProofEntry[]) {
     let signedProofs = proofEntries.map((entry) => entry.proof);
     privkeys.forEach((privkey) => {
       signedProofs = signP2PKProofs(signedProofs, privkey);
@@ -67,7 +96,11 @@ jQuery(function ($) {
   }
 
   /** Processes valid proofs and generates a new token. */
-  async function processValidProofs(mintUrl, unit, validEntries) {
+  async function processValidProofs(
+    mintUrl: string,
+    unit: string,
+    validEntries: ProofEntry[],
+  ) {
     const validSignedProofs = validEntries.map((entry) => entry.proof);
     const token = getEncodedTokenV4({
       mint: mintUrl,
@@ -90,17 +123,26 @@ jQuery(function ($) {
 
   /** Publishes a kind 7376 Nostr event to redeem proofs. */
   async function publishRedeemEvent() {
+    if (typeof window?.nostr?.signEvent === "undefined") {
+      throw new Error("Nostr NIP-07 extension not found.");
+    }
     const eventArr = Array.from(eventIdsToRedeem);
-    const eventTags = eventArr.map((id) => ["e", id, "", "redeemed"]);
-    const event = {
+    const eTags: string[][] = eventArr.map((id) => [
+      "e",
+      id,
+      "", // relay hint
+      "redeemed",
+    ]) as string[][];
+    const event: EventTemplate = {
       kind: 7376,
       content: "",
-      tags: eventTags,
+      tags: eTags,
       created_at: Math.floor(Date.now() / 1000),
     };
     toastr.info(`Marking NutZaps as redeemed`);
+    console.log("redeem event:", event);
     await delay(2000);
-    const signedEvent = await window.nostr.signEvent(event);
+    const signedEvent: Event = await window.nostr.signEvent(event);
     await Promise.any(pool.publish(nutzapRelays, signedEvent));
   }
 
@@ -110,28 +152,31 @@ jQuery(function ($) {
    * will invalidate a token
    */
   async function receiveProofs(
-    mintUrl,
-    unit,
-    proofEntries,
+    mintUrl: string,
+    unit: string,
+    proofEntries: ProofEntry[],
     clearInvalid = false,
   ) {
+    const mintHost = new URL(mintUrl).hostname;
     try {
-      const mintHost = new URL(mintUrl).hostname;
       // Start by filtering for spent proofs
-      const wallet = await getWalletWithUnit(mintUrl, unit);
-      const { spent, unspent } = await wallet.groupProofsByState(proofEntries);
+      const { spentEntries, unspentEntries } = await filterUnspentProofs(
+        mintUrl,
+        unit,
+        proofEntries,
+      );
       // Add spent proof event IDs to the redeem list
-      spent.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
-      if (!unspent.length) {
+      spentEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
+      if (!unspentEntries.length) {
         toastr.warning(`Found a spent ${unit} token from ${mintHost}`);
         return null;
       }
       // Sign unspent proofs and categorize them
-      const signedProofs = await signProofs(unspent);
+      const signedProofs = await signProofs(unspentEntries);
       const validEntries = []; // Format: [{proof, eventId}, ...]
       const invalidEventIds = [];
       for (const [i, proof] of signedProofs.entries()) {
-        const eventId = unspent[i].eventId;
+        const eventId = unspentEntries[i].eventId;
         if (!proof.secret.includes("P2PK")) {
           // Unspent and unlocked proof... rare!
           console.log("An unlocked NutZap proof!", proof);
@@ -177,35 +222,39 @@ jQuery(function ($) {
   }
 
   /** Helper function to create a token list item with copy buttons. */
-  function createTokenListItem({ mintUrl, unit, token, timestamp = null }) {
-    const decodedToken = getDecodedToken(token);
-    const amount = formatAmount(getTokenAmount(decodedToken.proofs), unit);
+  function createTokenListItem(data: TokenData) {
+    const decodedToken = getDecodedToken(data.token);
+    const amount = formatAmount(getTokenAmount(decodedToken.proofs), data.unit);
     const li = document.createElement("li");
-    li.className = timestamp ? "history-item" : "";
+    li.className = data.timestamp ? "history-item" : "";
     li.innerHTML = `
       <span class="copy-token">Copy Token</span>
       <span class="copy-emoji">Copy 🥜</span>
-      ${timestamp ? `<span>${timestamp}</span>` : ""}
-      <span class="token"> ${amount} from ${mintUrl}</span>
+      ${data.timestamp ? `<span>${data.timestamp}</span>` : ""}
+      <span class="token"> ${amount} from ${data.mintUrl}</span>
     `;
-    li.querySelector(".copy-token").addEventListener("click", () => {
-      copyTextToClipboard(token);
+    li.querySelector(".copy-token")!.addEventListener("click", () => {
+      copyTextToClipboard(data.token);
     });
-    li.querySelector(".copy-emoji").addEventListener("click", () => {
-      const emojiToken = emojiEncode("\uD83E\uDD5C", token);
+    li.querySelector(".copy-emoji")!.addEventListener("click", () => {
+      const emojiToken = emojiEncode("\uD83E\uDD5C", data.token);
       copyTextToClipboard(emojiToken);
     });
     return li;
   }
 
   /** Displays a list of tokens in the specified target element. */
-  function displayTokenList($target, tokenDataArray, emptyMessage = null) {
+  function displayTokenList(
+    $target: JQuery,
+    tokenDataArray: TokenData[],
+    emptyMessage?: string,
+  ) {
     if (emptyMessage && tokenDataArray.length === 0) {
       $target.html(emptyMessage);
       return;
     }
     const fragment = document.createDocumentFragment();
-    tokenDataArray.forEach((tokenData) => {
+    tokenDataArray.forEach((tokenData: TokenData) => {
       const li = createTokenListItem(tokenData);
       fragment.appendChild(li);
     });
@@ -213,7 +262,7 @@ jQuery(function ($) {
   }
 
   /** Displays new tokens and saves them to localStorage under a new-tokens key. */
-  function displayAndSaveNewTokens(tokens) {
+  function displayAndSaveNewTokens(tokens: TokenData[]) {
     // Save to localStorage under a separate key for new tokens
     const newTokensWithTimestamp = tokens.map(({ mintUrl, unit, token }) => ({
       mintUrl,
@@ -276,9 +325,14 @@ jQuery(function ($) {
   }
 
   /** Processes a single mint-unit pair. */
-  async function processMintUnit(mintUrl, unit, proofEntries, clearInvalid) {
+  async function processMintUnit(
+    mintUrl: string,
+    unit: string,
+    proofEntries: ProofEntry[],
+    clearInvalid: boolean,
+  ): Promise<TokenData | null> {
+    const mintHost = new URL(mintUrl).hostname;
     try {
-      const mintHost = new URL(mintUrl).hostname;
       const newToken = await receiveProofs(
         mintUrl,
         unit,
@@ -287,18 +341,23 @@ jQuery(function ($) {
       );
       if (newToken) {
         toastr.success(`Gathered a ${unit} token from ${mintHost}`);
-        return { mintUrl, unit, token: newToken };
+        return { mintUrl, unit, token: newToken } as TokenData;
       }
-      return null;
     } catch (error) {
       console.error(`Error processing ${mintUrl}, ${unit}:`, error);
       toastr.error(`Failed to process ${unit} proofs from ${mintHost}`);
-      return null;
     }
+    return null;
   }
 
   // Main fetch handler
   $fetchNutZaps.on("click", async () => {
+    if (
+      typeof window?.nostr?.signEvent === "undefined" ||
+      typeof window?.nostr?.getPublicKey === "undefined"
+    ) {
+      throw new Error("Nostr NIP-07 extension not found.");
+    }
     $fetchNutZaps.prop("disabled", true).text("Fetching...");
     try {
       toastr.info("Fetching NIP-60 wallet...");
@@ -342,7 +401,10 @@ jQuery(function ($) {
           );
         }
       }
-      const tokens = (await Promise.all(tokenPromises)).filter(Boolean);
+      const resolved: (TokenData | null)[] = await Promise.all(tokenPromises);
+      const tokens: TokenData[] = resolved.filter(
+        (item): item is TokenData => item !== null,
+      );
       if (tokens.length > 0) {
         displayAndSaveNewTokens(tokens);
       } else {
@@ -379,10 +441,16 @@ jQuery(function ($) {
     JSON.parse(localStorage.getItem("mark-invalid-redeemed") || "false"),
   );
   $fetchAllMints.on("change", () => {
-    localStorage.setItem("fetch-all-mints", $fetchAllMints.is(":checked"));
+    localStorage.setItem(
+      "fetch-all-mints",
+      $fetchAllMints.is(":checked").toString(),
+    );
   });
   $clearInvalid.on("change", () => {
-    localStorage.setItem("mark-invalid-redeemed", $clearInvalid.is(":checked"));
+    localStorage.setItem(
+      "mark-invalid-redeemed",
+      $clearInvalid.is(":checked").toString(),
+    );
   });
 
   // Initialize
