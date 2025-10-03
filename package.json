@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
+  "author": "robwoodgate",
   "dependencies": {
     "@cashu/cashu-ts": "file:../../../../../../assets/cashu-ts/",
     "@gandlaf21/bolt11-decode": "^3.1.1",
