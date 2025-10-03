@@ -622,7 +622,9 @@ class NostrlyTools
                         <div id="refund-keys-options" class="hidden">
                             <label for="extra-refund-keys">Additional Refund Pubkeys (one per line or CSV):</label>
                             <textarea id="extra-refund-keys" name="extra-refund-keys" rows="3" placeholder="npub1...\n02..."></textarea>
-                            <div class="description">Any one of these keys can claim the token after expiry.</div>
+                            <label for="r-sigs">Signatures Required (n_sigs_refund):</label>
+                            <input type="number" id="r-sigs" name="r-sigs" min="1" step="1" value="1" required>
+                            <div class="description">Number of signatures needed to refund (e.g., 2 for 2-of-3 multisig).</div>
                         </div>
                     </div>
                     <div class="center">

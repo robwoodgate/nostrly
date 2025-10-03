@@ -60,6 +60,7 @@ jQuery(function ($) {
   let extraLockKeys: string[] = [];
   let extraRefundKeys: string[] = [];
   let nSigValue: number = 1;
+  let rSigValue: number = 1;
   let lockKeys: string[] = []; // sanitized keys
   let refundKeys: string[] = []; // sanitized keys
 
@@ -93,6 +94,7 @@ jQuery(function ($) {
   const $multisigOptions = $("#multisig-options");
   const $extraLockKeys = $("#extra-lock-keys");
   const $nSigs = $("#n-sigs");
+  const $rSigs = $("#r-sigs");
   const $addRefundKeys = $("#add-refund-keys");
   const $refundKeysOptions = $("#refund-keys-options");
   const $extraRefundKeys = $("#extra-refund-keys");
@@ -425,6 +427,18 @@ jQuery(function ($) {
     checkIsReadyToOrder();
   });
 
+  // Handle n_sigs_refund
+  $rSigs.on("input", () => {
+    rSigValue = parseInt($rSigs.val() as string, 10);
+    if (rSigValue < 1) {
+      $rSigs.val(1);
+      rSigValue = 1;
+      toastr.error("Signatures required must be at least 1");
+    }
+    console.log("n_sigs_refund:>>", rSigValue);
+    checkIsReadyToOrder();
+  });
+
   // Use NIP-07 to fetch public key
   $nip07Button.on("click", useNip07);
   async function useNip07() {
@@ -473,6 +487,7 @@ jQuery(function ($) {
         locktime: expireTime,
         refundKeys: refundKeys.length ? refundKeys : undefined,
         requiredSignatures: nSigValue,
+        requiredRefundSignatures: rSigValue,
       },
       1, // for testing
       keyset.id,
@@ -600,7 +615,7 @@ jQuery(function ($) {
         .lockUntil(expireTime)
         .addRefundPubkey(refundKeys)
         .requireLockSignatures(nSigValue)
-        .requireRefundSignatures(1);
+        .requireRefundSignatures(rSigValue);
       if ($useP2BK.is(":checked")) {
         p2pk.blindKeys();
       }
