@@ -579,20 +579,7 @@ jQuery(function ($) {
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
 
-      // Check if locked
-      if (p2pkProofs.length) {
-        try {
-          const secretData = JSON.parse(p2pkProofs[0].secret);
-          console.log("secretData:>>", secretData);
-          if (secretData[0] !== "P2PK") {
-            toastr.warning("Token not locked—unexpected P2PK format.");
-          }
-        } catch (e) {
-          toastr.warning("Token not locked—random secret detected.");
-        }
-      }
-
-      if (donationProofs) {
+      if (donationProofs.length) {
         const donationToken = getEncodedTokenV4({
           mint: mintUrl,
           proofs: donationProofs,

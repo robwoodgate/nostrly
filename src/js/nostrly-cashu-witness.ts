@@ -161,7 +161,9 @@ jQuery(function ($) {
       }
       mintUrl = token.mint;
       unit = token.unit || "sat";
-      proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
+      proofs = token.proofs.filter(
+        (p) => p.secret.includes("P2PK") || p.secret.includes("P2BK"),
+      );
       if (!proofs.length) {
         toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
         return;
@@ -311,19 +313,21 @@ jQuery(function ($) {
       if (hasNip44 && nip07Pubkey) {
         const { privkeys } = await getNip60Wallet(nip07Pubkey);
         if (privkeys.length > 0) {
-          console.log("signing using nip60...");
-          privkeys.forEach((privkey) => {
-            signedProofs = signP2PKProofs(signedProofs, privkey);
-          });
+          console.log("signing using nip60...", privkeys);
+          signedProofs = signP2PKProofs(signedProofs, privkeys, wallet!.logger);
+          console.log("signedProofs after NIP-60:>>", signedProofs);
         }
       }
-      console.log("signedProofs after NIP-60:>>", signedProofs);
 
+      // Handle NIP-07 signing
       if (useNip07) {
         signedProofs = await signWithNip07(signedProofs);
         console.log("signedProofs after NIP-07:>>", signedProofs);
-      } else {
-        if (!privkey || !isPrivkeyValid(privkey)) {
+      }
+
+      // Handle secret key input
+      if (privkey) {
+        if (!isPrivkeyValid(privkey)) {
           throw new Error("No valid private key provided");
         }
         signedProofs = signP2PKProofs(
@@ -379,7 +383,11 @@ jQuery(function ($) {
     }
   }
 
-  // Sign proofs with NIP-07 (aligned with reference functions)
+  // Sign proofs with NIP-07, using whatever signing approach is present:
+  // - nip60.signSecret() - the official Cashu signer
+  // - nostr.signString() - per https://github.com/nostr-protocol/nips/pull/1842
+  // - nostr.signSchnorr() - Alby implementation
+  // NOTE: Does not support P2BK as NIP-07 signers don't understand blinded pubkeys
   async function signWithNip07(proofs: Proof[]) {
     const signedProofs = proofs.map((proof) => ({ ...proof }));
     for (const [index, proof] of signedProofs.entries()) {
