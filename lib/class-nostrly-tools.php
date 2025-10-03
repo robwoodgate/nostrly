@@ -584,14 +584,14 @@ class NostrlyTools
                             <input type="checkbox" id="prefer-nip61">
                             Prefer NIP-61 Pubkeys?
                         </label>
-                        <div class="description">Check this box if you want NutLock to replace Nostr NPUBs with the user's corresponding NIP-61 pubkey, if found. This adds security, but may make the token harder to redeem as not all Cashu wallets support NIP-61. Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support NIP-61.</div>
+                        <div class="description">Check this box if you want NutLock to replace Nostr NPUBs with the user's corresponding NIP-61 pubkey, if found. This adds security, but may make the token harder to redeem as not all Cashu wallets support NIP-61. <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support NIP-61.</div>
                     </div>
                     <div>
                         <label>
                             <input type="checkbox" id="use-p2bk">
-                            Blind Public Keys? (!EXPERIMENTAL!)
+                            Use Pay-to-Blinded-Key (P2BK)?
                         </label>
-                        <div class="description">Check this box if you want NutLock to blind all public keys and create a <a href="https://github.com/cashubtc/nuts/pull/291" target="_blank">P2BK format secret</a>. This adds security, but may make the token harder to redeem, and REQUIRES a private key (you cannot sign using NIP-07). Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support P2BK.</div>
+                        <div class="description"><strong>WARNING: THIS IS AN EXPERIMENTAL OPTION! Don't be reckless!</strong><br>Check this box if you want NutLock to blind all public keys and create a <a href="https://github.com/cashubtc/nuts/pull/291" target="_blank">P2BK secret</a>. This adds privacy, but requires a PRIVATE KEY, or a NIP-60 wallet (for NIP-61 pubkeys), to redeem. You CANNOT sign P2BK tokens with NIP-07. <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support P2BK.</div>
                     </div>
                     <div>
                         <label for="lock-npub">Lock Token to Public Key (NPUB/P2PK):</label>
