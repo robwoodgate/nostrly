@@ -48,9 +48,8 @@ jQuery(function ($) {
   const MAX_SECRET = 512; // Characters (mint limit)
 
   // Init vars
-  /** @type {import('@cashu/cashu-ts').Wallet} */
-  let wallet: Wallet | null = null;
-  let mintUrl: string = "";
+  let wallet: Wallet;
+  let mintUrl: string;
   let expireTime: number; // unix TS
   let lockP2PK: string; // P2PKey
   let refundP2PK: any; // P2PKey

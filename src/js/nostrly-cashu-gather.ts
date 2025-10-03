@@ -57,12 +57,12 @@ jQuery(function ($) {
   });
 
   // Init vars
-  let pubkey: string = "";
-  let relays: string[] = [];
-  let privkeys: string[] = [];
-  let nutzapRelays: string[] = [];
-  let mints: string[] = [];
-  let lockKey: string | null = null;
+  let pubkey: string;
+  let relays: string[];
+  let privkeys: string[];
+  let nutzapRelays: string[];
+  let mints: string[];
+  let lockKey: string | null;
   const eventIdsToRedeem = new Set();
 
   /** Filters out spent proofs from the given proof entries. */

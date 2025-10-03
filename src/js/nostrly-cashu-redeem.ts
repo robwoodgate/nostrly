@@ -5,9 +5,6 @@ import {
   getP2PKExpectedKWitnessPubkeys,
   getP2PKLocktime,
   getP2PKNSigs,
-  signP2PKProofs,
-  hasP2PKSignedProof,
-  getP2PKWitnessSignatures,
   verifyP2PKSig,
   Wallet,
   Proof,
@@ -24,7 +21,6 @@ import {
 import {
   convertP2PKToNpub,
   getContactDetails,
-  getNip60Wallet,
   signNip60Proofs,
   signWithNip07,
 } from "./nostr";
@@ -32,7 +28,6 @@ import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder";
 import { handleCashuDonation } from "./cashu-donate";
-import { sha256Hex } from "./nut11";
 import { bytesToHex } from "@noble/hashes/utils";
 
 declare const nostrly_ajax: {
@@ -43,11 +38,11 @@ declare const nostrly_ajax: {
 jQuery(function ($) {
   // Init vars
   let wallet: Wallet | undefined;
-  let mintUrl: string = "";
+  let mintUrl: string;
   let unit: string = "sat";
-  let proofs: Proof[] = [];
-  let tokenAmount: number = 0;
-  let pubkeys: string[] = [];
+  let proofs: Proof[];
+  let tokenAmount: number;
+  let pubkeys: string[];
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
 

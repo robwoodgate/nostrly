@@ -30,7 +30,7 @@ import {
   getTokenAmount,
   getWalletWithUnit,
 } from "./utils";
-import { getContactDetails, convertP2PKToNpub, getNip60Wallet } from "./nostr";
+import { getContactDetails, convertP2PKToNpub } from "./nostr";
 import toastr from "toastr";
 import { handleCashuDonation } from "./cashu-donate";
 
@@ -42,19 +42,17 @@ declare const nostrly_ajax: {
 jQuery(function ($) {
   // Init vars
   let wallet: Wallet | undefined;
-  let mintUrl: string = "";
-  let unit = "sat";
-  let proofs: Proof[] = [];
-  let tokenAmount: number = 0;
-  let nip07Pubkey: string = "";
-  let privkey: string = "";
+  let mintUrl: string;
+  let unit: string;
+  let proofs: Proof[];
+  let tokenAmount: number;
+  let privkey: string;
   let p2pkParams: { pubkeys: string[]; n_sigs: number } = {
     pubkeys: [],
     n_sigs: 0,
   };
   let signedPubkeys: string[] = [];
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
-  const hasNip44 = typeof window?.nostr?.nip44?.decrypt !== "undefined";
   const logger = new ConsoleLogger("debug");
 
   // DOM elements
@@ -95,7 +93,6 @@ jQuery(function ($) {
     unit = "sat";
     proofs = [];
     tokenAmount = 0;
-    nip07Pubkey = "";
     privkey = "";
     p2pkParams = { pubkeys: [], n_sigs: 0 };
     signedPubkeys = [];

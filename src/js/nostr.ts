@@ -48,6 +48,7 @@ export interface Nostr {
     secret: string,
   ) => Promise<{ hash: string; sig: string; pubkey: string }>;
   nip44?: {
+    encrypt: (pubkey: string, data: string) => Promise<string>;
     decrypt: (pubkey: string, content: string) => Promise<string>;
   };
   nip60?: {
