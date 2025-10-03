@@ -10,7 +10,7 @@ export default {
     "nostrly-login": "./src/js/nostrly-login.js",
     "nostrly-register": "./src/js/nostrly-register.js",
     "nostrly-tools": "./src/js/nostrly-tools.js",
-    "nostrly-cashu-redeem": "./src/js/nostrly-cashu-redeem.js",
+    "nostrly-cashu-redeem": "./src/js/nostrly-cashu-redeem.ts",
     "nostrly-cashu-lock": "./src/js/nostrly-cashu-lock.js",
     "nostrly-cashu-witness": "./src/js/nostrly-cashu-witness.ts",
     "nostrly-cashu-cache": "./src/js/nostrly-cashu-cache.js",
