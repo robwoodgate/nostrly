@@ -1,7 +1,6 @@
 // Imports
 import {
   getDecodedToken,
-  CheckStateEnum,
   getEncodedTokenV4,
   getP2PKExpectedKWitnessPubkeys,
   getP2PKLocktime,
@@ -164,17 +163,10 @@ jQuery(function ($) {
       proofs = token.proofs ?? [];
       console.log("proofs :>>", proofs);
       // Check proofs are not spent
-      const proofStates = await wallet.checkProofsStates(proofs);
-      console.log("proofStates :>>", proofStates);
-      let unspentProofs = [];
-      proofStates.forEach((state, index) => {
-        if (state.state == CheckStateEnum.UNSPENT) {
-          unspentProofs.push(proofs[index]);
-        }
-      });
-      console.log("unspentProofs :>>", unspentProofs);
+      const { unspent } = await wallet.groupProofsByState(proofs);
+      console.log("unspentProofs :>>", unspent);
       // All proofs spent?
-      if (!unspentProofs.length) {
+      if (!unspent.length) {
         // Is this our saved token? If so, remove it
         const lstoken = localStorage.getItem("nostrly-cashu-token");
         if (lstoken == $token.val()) {
@@ -183,15 +175,15 @@ jQuery(function ($) {
         throw "Token already spent";
       }
       // Token partially spent - so update token
-      if (unspentProofs.length != proofs.length) {
+      if (unspent.length != proofs.length) {
         $token.val(
           getEncodedTokenV4({
             mint: mintUrl,
             unit: unit,
-            proofs: unspentProofs,
+            proofs: unspent,
           }),
         );
-        proofs = unspentProofs;
+        proofs = unspent;
         $lightningStatus.text(
           "(Partially spent token detected - new token generated)",
         );
