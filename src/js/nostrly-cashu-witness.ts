@@ -12,6 +12,7 @@ import {
   Proof,
   Wallet,
   Token,
+  ConsoleLogger,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import { isPrivkeyValid, maybeConvertNsecToP2PK } from "./nostr";
@@ -50,6 +51,7 @@ jQuery(function ($) {
   let signedPubkeys: string[] = [];
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   const hasNip44 = typeof window?.nostr?.nip44?.decrypt !== "undefined";
+  const logger = new ConsoleLogger("debug");
 
   // DOM elements
   const $divForm = $("#cashu-witness-form");
@@ -314,7 +316,7 @@ jQuery(function ($) {
         const { privkeys } = await getNip60Wallet(nip07Pubkey);
         if (privkeys.length > 0) {
           console.log("signing using nip60...", privkeys);
-          signedProofs = signP2PKProofs(signedProofs, privkeys, wallet!.logger);
+          signedProofs = signP2PKProofs(signedProofs, privkeys, logger);
           console.log("signedProofs after NIP-60:>>", signedProofs);
         }
       }
@@ -333,6 +335,7 @@ jQuery(function ($) {
         signedProofs = signP2PKProofs(
           signedProofs,
           maybeConvertNsecToP2PK(privkey),
+          logger,
         );
         console.log("signedProofs after privkey:>>", signedProofs);
       }
