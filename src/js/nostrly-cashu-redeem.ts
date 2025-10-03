@@ -21,7 +21,13 @@ import {
   getTokenAmount,
   getErrorMessage,
 } from "./utils";
-import { convertP2PKToNpub, getContactDetails, getNip60Wallet } from "./nostr";
+import {
+  convertP2PKToNpub,
+  getContactDetails,
+  getNip60Wallet,
+  signNip60Proofs,
+  signWithNip07,
+} from "./nostr";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder";
@@ -197,7 +203,7 @@ jQuery(function ($) {
       tokenAmount = getTokenAmount(proofs);
       // Check if proofs are P2PK locked
       const lockedProofs = proofs.filter(function (k) {
-        return k.secret.includes("P2PK");
+        return k.secret.includes("P2PK") || k.secret.includes("P2BK");
       });
       let n_sigs = 0;
       let locktime;
@@ -305,28 +311,11 @@ jQuery(function ($) {
     $lightningStatus.text("Attempting payment...");
     try {
       // Sign P2PK proofs using NIP-60 wallet keys
-      if (typeof window?.nostr?.nip44?.decrypt !== "undefined") {
-        console.log("we can decrypt nip44!");
-        proofs = await signNip60Proofs(proofs); // sign main proofs array
-      }
+      proofs = await signNip60Proofs(proofs);
 
-      // Sign P2PK proofs using proposed NIP-60 secret signer
-      // @see: https://github.com/nostr-protocol/nips/pull/1890
-      if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
-        console.log("we can signSecret!");
-        proofs = await signSecretProofs(proofs); // sign main proofs array
-      }
-      // Support for proposed NIP-07 schnorr signer
-      // @see: https://github.com/nostr-protocol/nips/pull/1842
-      else if (typeof window?.nostr?.signString !== "undefined") {
-        console.log("we can signString!");
-        proofs = await signStringProofs(proofs); // sign main proofs array
-      }
-      // The Alby extension can sign schnorr signatures directly - woohoo!
-      else if (typeof window?.nostr?.signSchnorr !== "undefined") {
-        console.log("we can signSchnorr!");
-        proofs = await signSchnorrProofs(proofs); // sign main proofs array
-      }
+      // Handle NIP-07 signing
+      proofs = await signWithNip07(proofs);
+
       console.log("signed proofs :>>", proofs);
 
       // Double check the signatures to make sure proofs are fully signed
@@ -385,7 +374,9 @@ jQuery(function ($) {
             console.log(
               `Melt invoice too high... token: ${tokenAmount}, quote: ${neededAmount}`,
             );
-            (estInvSats = estInvSats * (tokenAmount / neededAmount) - 1), 10;
+            estInvSats = Math.round(
+              estInvSats * (tokenAmount / neededAmount) - 1,
+            );
             if (estInvSats <= 0) {
               throw new Error("Token amount too low to cover fee reserve");
             }
@@ -429,34 +420,26 @@ jQuery(function ($) {
           privkey = bytesToHex(data);
         }
       }
+      // Sign proofs if privkey provided
+      if (privkey) {
+        proofs = wallet.signP2PKProofs(proofs, privkey);
+      }
       // console.log("privkey:>>", privkey);
 
-      // wallet.send performs coin selection and swaps the proofs with the mint
-      // if no appropriate amount can be selected offline. We must include potential
-      // ecash fees that the mint might require to melt the resulting proofsToSend later.
-      const signedProofs = wallet.signP2PKProofs(proofs, privkey);
-      const { keep: proofsToKeep, send: proofsToSend } = await wallet.ops
-        .send(amountToSend, signedProofs)
-        .includeFees()
-        .run();
-      console.log("proofsToKeep :>> ", proofsToKeep);
-      console.log("proofsToSend :>> ", proofsToSend);
-      const meltResponse = await wallet.meltProofsBolt11(
-        meltQuote,
-        proofsToSend,
-      );
+      // Melt the token using the quote. We can send all proofs, as the balance
+      // will be returned to us as change. This also saves a swap fee.
+      const meltResponse = await wallet.meltProofsBolt11(meltQuote, proofs);
       console.log("meltResponse :>> ", meltResponse);
       if (meltResponse.quote) {
         $lightningStatus.text("Payment successful!");
         doConfettiBomb();
-        // Tokenize any unspent proofs
-        if (proofsToKeep.length > 0 || meltResponse.change.length > 0) {
+        // Tokenize our change (overpayment)
+        if (meltResponse.change.length > 0) {
           $lightningStatus.text("Success! Preparing your change token...");
-          const change = proofsToKeep.concat(meltResponse.change);
           let newToken = getEncodedTokenV4({
             mint: mintUrl,
             unit: unit,
-            proofs: change,
+            proofs: meltResponse.change,
           });
           console.log("change token :>> ", newToken);
           localStorage.setItem("nostrly-cashu-token", newToken);
@@ -537,96 +520,5 @@ jQuery(function ($) {
     $(".preamble").hide();
     $lnurl.val(to);
     $lnurl.trigger("input");
-  }
-
-  // Sign P2PK proofs using NIP-60 wallet keys
-  async function signNip60Proofs(proofs: Proof[]) {
-    if (typeof window?.nostr?.nip44?.decrypt === "undefined") return proofs;
-    if (typeof window?.nostr?.getPublicKey === "undefined") return proofs;
-    if (!pubkeys.length) return proofs;
-    const pubkey = await window.nostr.getPublicKey();
-    const { privkeys } = await getNip60Wallet(pubkey);
-    if (privkeys.length > 0) {
-      console.log("signing using nip60...");
-      privkeys.forEach((privkey) => {
-        proofs = signP2PKProofs(proofs, privkey);
-      });
-    }
-    console.log("proofs after NIP-60:>>", proofs);
-    return proofs;
-  }
-
-  // Sign P2PK proofs using Alby Nostr Extension
-  async function signSchnorrProofs(proofs: Proof[]) {
-    if (typeof window?.nostr?.signSchnorr === "undefined") return proofs;
-    if (typeof window?.nostr?.getPublicKey === "undefined") return proofs;
-    if (!pubkeys.length) return proofs;
-    for (const [index, proof] of proofs.entries()) {
-      if (!proof.secret.includes("P2PK")) continue;
-      const hash = sha256Hex(proof.secret);
-      const pubkey = await window.nostr.getPublicKey();
-      const sig = await window.nostr.signSchnorr(hash);
-      // Check we got a signature from expected pubkey on expected hash
-      if (sig.length && proof.secret.includes(pubkey)) {
-        if (!hasP2PKSignedProof(pubkey, proof)) {
-          const signatures = getP2PKWitnessSignatures(proof.witness);
-          proofs[index].witness = {
-            signatures: [...signatures, sig],
-          };
-          console.log("added sig!", sig);
-        }
-      }
-    }
-    return proofs;
-  }
-
-  // Sign P2PK proofs using proposed NIP-07 method
-  // @see: https://github.com/nostr-protocol/nips/pull/1842
-  async function signStringProofs(proofs: Proof[]) {
-    if (typeof window?.nostr?.signString === "undefined") return proofs;
-    if (typeof window?.nostr?.getPublicKey === "undefined") return proofs;
-    if (!pubkeys.length) return proofs;
-    for (const [index, proof] of proofs.entries()) {
-      if (!proof.secret.includes("P2PK")) continue;
-      const expHash = sha256Hex(proof.secret);
-      const { hash, sig, pubkey } = await window.nostr.signString(proof.secret);
-      // Check we got a signature from expected pubkey on expected hash
-      if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
-        if (!hasP2PKSignedProof(pubkey, proof)) {
-          const signatures = getP2PKWitnessSignatures(proof.witness);
-          proofs[index].witness = {
-            signatures: [...signatures, sig],
-          };
-          console.log("added sig!", sig);
-        }
-      }
-    }
-    return proofs;
-  }
-
-  // Sign P2PK proofs using proposed NIP-60 secret signer
-  // @see: https://github.com/nostr-protocol/nips/pull/1890
-  async function signSecretProofs(proofs: Proof[]) {
-    if (typeof window?.nostr?.nip60?.signSecret === "undefined") return proofs;
-    if (typeof window?.nostr?.getPublicKey === "undefined") return proofs;
-    if (!pubkeys.length) return proofs;
-    for (const [index, proof] of proofs.entries()) {
-      if (!proof.secret.includes("P2PK")) continue;
-      const expHash = sha256Hex(proof.secret);
-      const { hash, sig, pubkey } = await window.nostr.nip60.signSecret(
-        proof.secret,
-      );
-      // Check we got a signature from expected pubkey on expected hash
-      if (sig.length && proof.secret.includes(pubkey) && expHash === hash) {
-        if (!hasP2PKSignedProof(pubkey, proof)) {
-          const signatures = getP2PKWitnessSignatures(proof.witness);
-          proofs[index].witness = {
-            signatures: [...signatures, sig],
-          };
-          console.log("added sig!", sig);
-        }
-      }
-    }
-    return proofs;
   }
 });
