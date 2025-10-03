@@ -1,25 +1,20 @@
 import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
-import { getNut11Mints } from "./nut11.ts";
-import { copyTextToClipboard, debounce, delay } from "./utils.ts";
-import {
-  DEFAULT_RELAYS,
-  pool,
-  getUserRelays,
-  getWalletAndInfo,
-} from "./nostr.ts";
+import { getNut11Mints } from "./nut11";
+import { copyTextToClipboard, debounce, delay } from "./utils";
+import { DEFAULT_RELAYS, pool, getUserRelays, getWalletAndInfo } from "./nostr";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import toastr from "toastr";
-import { handleCashuDonation } from "./cashu-donate.ts";
+import { handleCashuDonation } from "./cashu-donate";
 
 // DOM ready
 jQuery(function ($) {
   // Init vars
-  let userPubkey = "";
-  let userRelays = "";
-  let privkeys = [];
-  let mintUrls = [];
-  let mints = [];
-  let relays = [];
+  let userPubkey: string;
+  let userRelays: string[];
+  let privkeys: string[];
+  let mintUrls: string[];
+  let mints: string[];
+  let relays: string[];
   let kind = null;
 
   // DOM elements
@@ -43,7 +38,10 @@ jQuery(function ($) {
   // Donation input
   $donateCashu.on("paste", () => {
     setTimeout(async () => {
-      handleCashuDonation($donateCashu.val(), "Cashu Redeem Donation");
+      handleCashuDonation(
+        $donateCashu.val() as string,
+        "Cashu Redeem Donation",
+      );
       $donateCashu.val("");
     }, 200);
     console.log("donation");
@@ -64,12 +62,17 @@ jQuery(function ($) {
   // Fetch existing wallet
   $getWallet.on("click", async () => {
     try {
+      if (typeof window?.nostr?.getPublicKey === "undefined") {
+        throw "NIP-07 extension not found.";
+      }
       toastr.info("Fetching your NIP-60 Wallet");
       if (!userPubkey) {
         userPubkey = await window.nostr.getPublicKey();
+        console.log("userPubkey>>", userPubkey);
       }
       if (!userRelays) {
         userRelays = await getUserRelays(userPubkey);
+        console.log("userRelays>>", userRelays);
       }
       ({ mints, relays, privkeys, kind } = await getWalletAndInfo(
         userPubkey,
@@ -129,9 +132,12 @@ jQuery(function ($) {
 
   // Handle mint selection
   $mintSelect.on("change", () => {
-    const selectedMint = $mintSelect.val();
+    const selectedMint: string = $mintSelect.val() as string;
     if (selectedMint) {
-      const currentMints = $mints.val().trim().split("\n").filter(Boolean);
+      const currentMints = ($mints.val() as string)
+        .trim()
+        .split("\n")
+        .filter(Boolean);
       if (!currentMints.includes(selectedMint)) {
         currentMints.push(selectedMint);
         $mints.val(currentMints.join("\n"));
@@ -145,8 +151,7 @@ jQuery(function ($) {
 
   // Validate mints
   const validateMints = debounce(() => {
-    const mintList = $mints
-      .val()
+    const mintList = ($mints.val() as string)
       .trim()
       .split("\n")
       .filter(Boolean)
@@ -172,8 +177,7 @@ jQuery(function ($) {
 
   // Validate relays
   const validateRelays = debounce(() => {
-    const relayList = $relays
-      .val()
+    const relayList = ($relays.val() as string)
       .trim()
       .split("\n")
       .filter(Boolean)
@@ -198,6 +202,9 @@ jQuery(function ($) {
   // Fetch relays via NIP-07
   $getRelays.on("click", async () => {
     try {
+      if (typeof window?.nostr?.getPublicKey === "undefined") {
+        throw "NIP-07 extension not found.";
+      }
       if (!userPubkey) {
         userPubkey = await window.nostr.getPublicKey();
       }
@@ -227,6 +234,13 @@ jQuery(function ($) {
   // Create NIP-60 wallet
   $createWallet.on("click", async () => {
     try {
+      if (
+        typeof window?.nostr?.getPublicKey === "undefined" ||
+        typeof window?.nostr?.signEvent === "undefined" ||
+        typeof window?.nostr?.nip44?.encrypt === "undefined"
+      ) {
+        throw "NIP-07 extension not found.";
+      }
       let sk;
       let pk;
       try {
