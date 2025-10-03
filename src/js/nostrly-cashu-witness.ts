@@ -15,8 +15,12 @@ import {
   ConsoleLogger,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
-import { isPrivkeyValid, maybeConvertNsecToP2PK } from "./nostr";
-import { sha256Hex } from "./nut11";
+import {
+  isPrivkeyValid,
+  maybeConvertNsecToP2PK,
+  signNip60Proofs,
+  signWithNip07,
+} from "./nostr";
 import {
   copyTextToClipboard,
   debounce,
@@ -209,6 +213,11 @@ jQuery(function ($) {
       } else {
         html += `<li>No valid pubkeys found.</li>`;
       }
+      const hasP2BK = proofs.some((p) => p.secret.includes("P2BK"));
+      if (hasP2BK) {
+        html += `<li>Token is P2BK encoded (unlock token below to convert).</li>`;
+        $unlockDiv.show();
+      }
       html += `</ul>`;
       $witnessInfo.show().html(html);
       return;
@@ -232,12 +241,14 @@ jQuery(function ($) {
     } else if (locktime > now) {
       html += `<li>Locked until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
     }
-    if (n_sigs > 1) {
+    if (n_sigs > 1 && locktime) {
       html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
-    } else {
+    } else if (locktime > now) {
       html += `<li>Single signature required</li>`;
     }
-    html += `<li>Expected Public Keys:</li><ul>`;
+    if (pubkeys.length) {
+      html += `<li>Expected Public Keys:</li><ul>`;
+    }
     // Define a function to handle the async update
     const updateContactName = (
       npub: string,
@@ -305,21 +316,8 @@ jQuery(function ($) {
       let signedProofs = [...proofs];
       console.log("signedProofs before:>>", signedProofs);
 
-      // Get Nostr Pubkey if available
-      if (useNip07 && window.nostr?.getPublicKey) {
-        nip07Pubkey = (await window?.nostr?.getPublicKey()) ?? "";
-        console.log("nip07Pubkey:>>", nip07Pubkey);
-      }
-
-      // Handle NIP-60 wallet (requires NIP-44 decryption)
-      if (hasNip44 && nip07Pubkey) {
-        const { privkeys } = await getNip60Wallet(nip07Pubkey);
-        if (privkeys.length > 0) {
-          console.log("signing using nip60...", privkeys);
-          signedProofs = signP2PKProofs(signedProofs, privkeys, logger);
-          console.log("signedProofs after NIP-60:>>", signedProofs);
-        }
-      }
+      // Handle NIP-60 wallet
+      signedProofs = await signNip60Proofs(signedProofs);
 
       // Handle NIP-07 signing
       if (useNip07) {
@@ -384,79 +382,6 @@ jQuery(function ($) {
       const message = getErrorMessage(e, "Failed to sign token");
       toastr.error(message);
     }
-  }
-
-  // Sign proofs with NIP-07, using whatever signing approach is present:
-  // - nip60.signSecret() - the official Cashu signer
-  // - nostr.signString() - per https://github.com/nostr-protocol/nips/pull/1842
-  // - nostr.signSchnorr() - Alby implementation
-  // NOTE: Does not support P2BK as NIP-07 signers don't understand blinded pubkeys
-  async function signWithNip07(proofs: Proof[]) {
-    const signedProofs = proofs.map((proof) => ({ ...proof }));
-    for (const [index, proof] of signedProofs.entries()) {
-      if (!proof.secret.includes("P2PK")) continue;
-      const pubkeys = getP2PKExpectedKWitnessPubkeys(proof.secret);
-      console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
-      if (!pubkeys.length) continue;
-      let signatures = getP2PKWitnessSignatures(proof.witness);
-
-      const hash = sha256Hex(proof.secret);
-      let pubkey = "";
-      let sig = "";
-      let signedSig = "";
-      let signedHash = "";
-      try {
-        if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
-          ({
-            hash: signedHash,
-            sig: signedSig,
-            pubkey,
-          } = await window.nostr.nip60.signSecret(proof.secret));
-          console.log("signSecret result:", {
-            hash: signedHash,
-            sig: signedSig,
-            pubkey,
-          });
-        } else if (typeof window?.nostr?.signString !== "undefined") {
-          ({
-            hash: signedHash,
-            sig: signedSig,
-            pubkey,
-          } = await window.nostr.signString(proof.secret));
-          console.log("signString result:", {
-            hash: signedHash,
-            sig: signedSig,
-            pubkey,
-          });
-        } else if (typeof window?.nostr?.signSchnorr !== "undefined") {
-          pubkey = nip07Pubkey;
-          signedSig = await window.nostr.signSchnorr(hash);
-          signedHash = hash;
-          console.log("signSchnorr pubkey:", pubkey);
-          console.log("signSchnorr sig:", signedSig);
-        }
-        const normalizedPubkey = "02" + pubkey;
-        console.log("normalizedPubkey:", normalizedPubkey);
-        console.log("signedHash:", signedHash);
-        console.log("hash:", hash);
-        if (signedHash === hash && pubkeys.includes(normalizedPubkey)) {
-          sig = signedSig;
-          console.log("adding sig:", sig);
-        }
-      } catch (e) {
-        const message = getErrorMessage(e, "Failed to sign token");
-        toastr.warning(`Skipped signing proof ${index + 1}: ${message}`);
-        console.error("NIP-07 signing error:", e);
-        continue;
-      }
-      if (sig && !hasP2PKSignedProof(pubkey, proof)) {
-        signedProofs[index].witness = {
-          signatures: [...signatures, sig],
-        };
-        console.log("added sig!", sig);
-      }
-    }
-    return signedProofs;
   }
 
   // Receives the token for an unlocked one

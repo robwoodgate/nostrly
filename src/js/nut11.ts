@@ -57,7 +57,6 @@ export const getNut11Mints = async (
 
 /**
  * Checks a public key is a valid P2PK ECC hex key
- * @type Boolean
  */
 export const isPublicKeyValidP2PK = (key: string): boolean => {
   const regex = /^(02|03)[0-9a-fA-F]{64}$/; // P2PK ECC Key

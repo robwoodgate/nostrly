@@ -13,7 +13,15 @@ import {
 import { bytesToHex } from "@noble/hashes/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
-import { Proof } from "@cashu/cashu-ts";
+import {
+  getP2PKExpectedKWitnessPubkeys,
+  getP2PKWitnessSignatures,
+  hasP2PKSignedProof,
+  Proof,
+  signP2PKProofs,
+} from "@cashu/cashu-ts";
+import { getErrorMessage } from "./utils";
+import { sha256Hex } from "./nut11";
 
 type Nip60Tag = [string, string];
 type NutZapInfo = {
@@ -550,4 +558,98 @@ export async function getUnclaimedNutZaps(
     }
     return {};
   }
+}
+
+// Sign proofs with NIP-07, using whatever signing approach is present:
+// - nip60.signSecret() - the official Cashu signer
+// - nostr.signString() - per https://github.com/nostr-protocol/nips/pull/1842
+// - nostr.signSchnorr() - Alby implementation
+// NOTE: Does not support P2BK as NIP-07 signers don't understand blinded pubkeys
+export async function signWithNip07(proofs: Proof[]) {
+  // Make a copy of each proof
+  const signedProofs = proofs.map((proof) => ({ ...proof }));
+  for (const [index, proof] of signedProofs.entries()) {
+    if (!proof.secret.includes("P2PK")) continue;
+    const pubkeys = getP2PKExpectedKWitnessPubkeys(proof.secret);
+    console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
+    if (!pubkeys.length) continue;
+    let signatures = getP2PKWitnessSignatures(proof.witness);
+
+    const hash = sha256Hex(proof.secret);
+    let pubkey = "";
+    let sig = "";
+    let signedSig = "";
+    let signedHash = "";
+    try {
+      if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
+        ({
+          hash: signedHash,
+          sig: signedSig,
+          pubkey,
+        } = await window.nostr.nip60.signSecret(proof.secret));
+        console.log("signSecret result:", {
+          hash: signedHash,
+          sig: signedSig,
+          pubkey,
+        });
+      } else if (typeof window?.nostr?.signString !== "undefined") {
+        ({
+          hash: signedHash,
+          sig: signedSig,
+          pubkey,
+        } = await window.nostr.signString(proof.secret));
+        console.log("signString result:", {
+          hash: signedHash,
+          sig: signedSig,
+          pubkey,
+        });
+      } else if (
+        typeof window?.nostr?.signSchnorr !== "undefined" &&
+        typeof window?.nostr?.getPublicKey !== "undefined"
+      ) {
+        pubkey = await window.nostr.getPublicKey();
+        signedSig = await window.nostr.signSchnorr(hash);
+        signedHash = hash;
+        console.log("signSchnorr pubkey:", pubkey);
+        console.log("signSchnorr sig:", signedSig);
+      }
+      const normalizedPubkey = "02" + pubkey;
+      console.log("normalizedPubkey:", normalizedPubkey);
+      console.log("signedHash:", signedHash);
+      console.log("hash:", hash);
+      if (signedHash === hash && pubkeys.includes(normalizedPubkey)) {
+        sig = signedSig;
+        console.log("adding sig:", sig);
+      }
+    } catch (e) {
+      const message = getErrorMessage(e, "Failed to sign token");
+      toastr.warning(`Skipped signing proof ${index + 1}: ${message}`);
+      console.error("NIP-07 signing error:", e);
+      continue;
+    }
+    if (sig && !hasP2PKSignedProof(pubkey, proof)) {
+      signedProofs[index].witness = {
+        signatures: [...signatures, sig],
+      };
+      console.log("added sig!", sig);
+    }
+  }
+  return signedProofs;
+}
+
+// Sign P2PK proofs using NIP-60 wallet keys
+export async function signNip60Proofs(proofs: Proof[]) {
+  if (typeof window?.nostr?.nip44?.decrypt === "undefined") return proofs;
+  if (typeof window?.nostr?.getPublicKey === "undefined") return proofs;
+  const pubkey = await window.nostr.getPublicKey();
+  const { privkeys } = await getNip60Wallet(pubkey);
+  if (!privkeys.length) {
+    return proofs;
+  }
+  console.log("signing using nip60...");
+  privkeys.forEach((privkey) => {
+    proofs = signP2PKProofs(proofs, privkey);
+  });
+  console.log("proofs after NIP-60:>>", proofs);
+  return proofs;
 }
