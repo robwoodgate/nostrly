@@ -8,6 +8,7 @@ import {
   verifyP2PKSig,
   Wallet,
   Proof,
+  signP2PKProofs,
 } from "@cashu/cashu-ts";
 import {
   debounce,
@@ -133,7 +134,7 @@ jQuery(function ($) {
         return json.pr ?? new Error("Unable to get invoice");
       } else throw "Host unable to make a lightning invoice for this amount.";
     } catch (e) {
-      console.error(e instanceof Error ? e.message : e);
+      console.error(e);
       return "";
     }
   };
@@ -286,7 +287,7 @@ jQuery(function ($) {
       }
     } catch (e) {
       let errMsg = getErrorMessage(e);
-      console.error(errMsg);
+      console.error(e);
       if (
         errMsg.startsWith("InvalidCharacterError") ||
         errMsg.startsWith("SyntaxError:")
@@ -297,6 +298,46 @@ jQuery(function ($) {
     }
   };
 
+  // Sign proofs if any are locked
+  const signProofs = async (proofs: Proof[]) => {
+    const lockedProofs = proofs.some(
+      (p) => p.secret.includes("P2PK") || p.secret.includes("P2BK"),
+    );
+    if (!lockedProofs) return proofs; // nothing to do
+    $lightningStatus.text(`Signing locked proofs...`);
+    // Sign P2PK proofs using NIP-60 wallet keys
+    proofs = await signNip60Proofs(proofs);
+    // Sign P2PK proofs using NIP-07
+    proofs = await signWithNip07(proofs);
+    console.log("signed proofs :>>", proofs);
+    // Sign P2PK proofs using private key
+    let privkey = $pkey.val() as string;
+    if (privkey && privkey.startsWith("nsec1")) {
+      const { type, data } = nip19.decode(privkey);
+      // NB: nostr-tools doesn't hex string nsec automatically
+      if (type === "nsec" && data.length === 32) {
+        privkey = bytesToHex(data);
+      }
+    }
+    if (privkey) {
+      proofs = signP2PKProofs(proofs, privkey);
+    }
+    // console.log("privkey:>>", privkey);
+    // Double check the signatures to make sure proofs are fully signed
+    for (const proof of proofs) {
+      try {
+        if (!verifyP2PKSig(proof)) {
+          console.warn("Proof is not signed properly!", proof);
+        }
+      } catch (e) {
+        const msg = getErrorMessage(e);
+        console.warn("Proof is not signed properly!", proof);
+        console.warn(msg);
+      }
+    }
+    return proofs;
+  };
+
   // Melt the token and send the payment
   const makePayment = async (event?: JQuery.Event) => {
     if (event) event.preventDefault();
@@ -305,27 +346,6 @@ jQuery(function ($) {
     }
     $lightningStatus.text("Attempting payment...");
     try {
-      // Sign P2PK proofs using NIP-60 wallet keys
-      proofs = await signNip60Proofs(proofs);
-
-      // Handle NIP-07 signing
-      proofs = await signWithNip07(proofs);
-
-      console.log("signed proofs :>>", proofs);
-
-      // Double check the signatures to make sure proofs are fully signed
-      for (const proof of proofs) {
-        try {
-          if (!verifyP2PKSig(proof)) {
-            console.warn("Proof is not signed properly!", proof);
-          }
-        } catch (e) {
-          const msg = getErrorMessage(e);
-          console.warn("Proof is not signed properly!", proof);
-          console.warn(msg);
-        }
-      }
-
       // Prepare to fetch an LN invoice and melt the token
       let invoice = "";
       let address = ($lnurl.val() as string) ?? "";
@@ -402,24 +422,12 @@ jQuery(function ($) {
       if (amountToSend > tokenAmount) {
         throw `Not enough to pay the invoice: needs ${formatAmount(meltQuote.amount, unit)} + ${formatAmount(meltQuote.fee_reserve, unit)}`;
       }
+      // Sign P2PK/P2BK proofs if needed
+      proofs = await signProofs(proofs);
+
       $lightningStatus.text(
         `Sending ${formatAmount(meltQuote.amount, unit)} (plus ${formatAmount(meltQuote.fee_reserve, unit)} network fees) via Lightning`,
       );
-
-      // Convert nsec to hex if needed
-      let privkey = $pkey.val() as string;
-      if (privkey && privkey.startsWith("nsec1")) {
-        const { type, data } = nip19.decode(privkey);
-        // NB: nostr-tools doesn't hex string nsec automatically
-        if (type === "nsec" && data.length === 32) {
-          privkey = bytesToHex(data);
-        }
-      }
-      // Sign proofs if privkey provided
-      if (privkey) {
-        proofs = wallet.signP2PKProofs(proofs, privkey);
-      }
-      // console.log("privkey:>>", privkey);
 
       // Melt the token using the quote. We can send all proofs, as the balance
       // will be returned to us as change. This also saves a swap fee.
@@ -456,8 +464,9 @@ jQuery(function ($) {
         $lightningStatus.text("Payment failed");
       }
     } catch (e) {
-      console.error(e instanceof Error ? e.message : e);
-      $lightningStatus.text("Payment failed: " + e);
+      const msg = getErrorMessage(e);
+      console.error(e);
+      $lightningStatus.text("Payment failed: " + msg);
     }
   };
 

@@ -568,6 +568,10 @@ export async function getUnclaimedNutZaps(
 // - nostr.signSchnorr() - Alby implementation
 // NOTE: Does not support P2BK as NIP-07 signers don't understand blinded pubkeys
 export async function signWithNip07(proofs: Proof[]) {
+  if (typeof window?.nostr === "undefined") {
+    console.log("Nostr extension not found. Ignoing NIP-07 signing.");
+    return proofs;
+  }
   // Make a copy of each proof
   const signedProofs = proofs.map((proof) => ({ ...proof }));
   for (const [index, proof] of signedProofs.entries()) {
