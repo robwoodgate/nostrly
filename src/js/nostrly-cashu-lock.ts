@@ -45,7 +45,7 @@ jQuery(function ($) {
   const relays = nostrly_ajax.relays;
   const MIN_FEE = 1; // sats
   const PCT_FEE = 1; // 1%
-  const MAX_SECRET = 512; // Characters (mint limit)
+  const MAX_SECRET = 1024; // Characters (mint limit)
 
   // Init vars
   let wallet: Wallet;
