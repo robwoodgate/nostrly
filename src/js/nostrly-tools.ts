@@ -1,8 +1,20 @@
 // Imports
 import * as nip19 from "nostr-tools/nip19";
-import { nip57, finalizeEvent, generateSecretKey } from "nostr-tools";
+import {
+  nip57,
+  finalizeEvent,
+  generateSecretKey,
+  EventTemplate,
+  Event,
+} from "nostr-tools";
 import { SimplePool } from "nostr-tools";
-import { copyTextToClipboard, doConfettiBomb } from "./utils.ts";
+import { copyTextToClipboard, doConfettiBomb, getErrorMessage } from "./utils";
+import toastr from "toastr";
+import { getUserRelays, Nostr } from "./nostr";
+
+declare const nostrly_ajax: {
+  relays: string[];
+};
 
 jQuery(function ($) {
   console.log("Starting Nostrly tools");
@@ -20,23 +32,25 @@ jQuery(function ($) {
   const decode = $("#nip19_decode"); // nip19 decoder
   const $reset = $(".reset"); // univeral
   $npub.on("input", () => {
-    let { data } = nip19.decode($npub.val());
-    $hex.val(data);
+    let { data }: nip19.DecodeResult = nip19.decode($npub.val() as string);
+    $hex.val(data as string);
   });
   $hex.on("input", () => {
-    let npub = nip19.npubEncode($hex.val());
+    let npub: nip19.NPub = nip19.npubEncode($hex.val() as string);
     $npub.val(npub);
   });
   $nip19.on("input", () => {
     try {
-      let result = nip19.decode($nip19.val());
-      if (result.type == "nsec") {
+      let decoded: nip19.DecodeResult = nip19.decode($nip19.val() as string);
+      let out: typeof decoded | { type: string; data: string } = decoded;
+      if (decoded.type == "nsec") {
         // nostr-tools doesn't hex string nsec automatically
-        result.data = toHexString(result.data);
+        out = { ...decoded, data: toHexString(decoded.data as Uint8Array) };
       }
-      decode.val(JSON.stringify(result, null, 2)); // pretty print
+      decode.val(JSON.stringify(out, null, 2)); // pretty print
     } catch (e) {
-      decode.val(e);
+      const msg = getErrorMessage(e);
+      decode.val(msg);
     }
   });
   $reset.on("click", (e) => {
@@ -55,45 +69,47 @@ jQuery(function ($) {
   $delevent.on("input", () => {
     $delbutton.prop("disabled", true);
     try {
-      let note = nip19.decode($delevent.val());
+      let note: nip19.DecodeResult = nip19.decode($delevent.val() as string);
       // console.log(note);
       const { type } = note;
       if ("nevent" == type) {
         $delbutton.prop("disabled", false);
       }
     } catch (e) {
-      console.log(e);
+      const msg = getErrorMessage(e);
+      console.log(msg);
     }
   });
   $delbutton.on("click", handleEventDelete);
   $delreset.on("click", (e) => {
     e.preventDefault();
-    $delsent.hide().text($delsent.attr("data-orig"));
+    $delsent.hide().text($delsent.attr("data-orig") as string);
     $delevent.val("");
     $delbutton.prop("disabled", true);
     $(".preamble").show();
   });
-  async function handleEventDelete(e) {
+  async function handleEventDelete(e: JQuery.ClickEvent) {
+    if (typeof window?.nostr?.signEvent === "undefined") {
+      toastr.error("NIP-07 Extension not found");
+      throw new Error("NIP-07 Extension not found");
+    }
     e.preventDefault();
     $(".preamble").hide();
-    // Check for Nostr extension
-    if (typeof window.nostr === "undefined") {
-      console.error("Nostr extension not found");
-      alert(
-        "Nostr extension not found. Please install or enable your Nostr extension.",
-      );
-      return;
+
+    let decoded: nip19.DecodeResult = nip19.decode($delevent.val() as string);
+    // console.log(decoded);
+    const { type, data } = decoded;
+    if ("nevent" !== type) {
+      toastr.error("Not a Nostr nevent");
+      throw new Error("Not a Nostr nevent");
     }
-    let note = nip19.decode($delevent.val());
-    // console.log(note);
-    const { data } = note;
     let delreq = await window.nostr.signEvent({
       kind: 5,
       created_at: Math.round(Date.now() / 1e3),
       content: "",
       tags: [
         ["e", data.id],
-        ["k", data.kind.toString()],
+        ["k", data?.kind?.toString() ?? ""],
       ],
     });
     // console.log(delreq);
@@ -103,7 +119,12 @@ jQuery(function ($) {
       return;
     }
     // Get user relays from cache, or request them from user
-    let userRelays = await getUserRelays();
+    if (typeof window?.nostr?.getPublicKey === "undefined") {
+      toastr.error("NIP-07 Extension not found");
+      throw new Error("NIP-07 Extension not found");
+    }
+    const pubkey = await window.nostr.getPublicKey();
+    let userRelays = await getUserRelays(pubkey);
     await Promise.any(pool.publish(userRelays, delreq));
     console.log("published delete request to at least one relay!");
     doConfettiBomb();
@@ -125,17 +146,20 @@ jQuery(function ($) {
   $nevent.on("input", () => {
     $paybutton.prop("disabled", true);
     try {
-      let note = nip19.decode($nevent.val());
+      let note: nip19.DecodeResult = nip19.decode($nevent.val() as string);
       // console.log(note);
       const { type } = note;
       if ("npub" == type || "nevent" == type) {
         $paybutton.prop("disabled", false);
       }
     } catch (e) {
-      console.log(e);
+      const msg = getErrorMessage(e);
+      console.log(msg);
     }
   });
-  let zapDefaults = JSON.parse(localStorage.getItem("nostrly-webzap-defaults"));
+  let zapDefaults = JSON.parse(
+    localStorage.getItem("nostrly-webzap-defaults") as string,
+  );
   if (zapDefaults) {
     $amount.val(zapDefaults.sats);
     $comment.val(zapDefaults.comment);
@@ -144,27 +168,35 @@ jQuery(function ($) {
     e.preventDefault();
     try {
       localStorage.removeItem("nostrly-webzap-defaults");
-    } catch (e) {}
+    } catch (_e) {}
     $amount.val("");
     $comment.val("");
     $(".preamble").show();
   });
-  async function handleWebZap(e) {
+  async function handleWebZap(e: JQuery.ClickEvent) {
     e.preventDefault();
     $(".preamble").hide();
 
     // Get author and event id from note or npub
-    let note = nip19.decode($nevent.val());
+    let note: nip19.DecodeResult = nip19.decode($nevent.val() as string);
     const { type, data } = note;
-    let { author, id } = data;
+    let author: string | undefined;
+    let id: string | null = null;
+    if ("nevent" == type) {
+      ({ author, id } = data);
+    }
     if ("npub" == type) {
       author = data;
     }
+    if (!author) {
+      toastr.error("Cannot zap this nevent, it has no author...");
+      throw new Error("Cannot zap this nevent, it has no author...");
+    }
 
     // Sanitize amount and convert to millisats, default to 21 sats
-    const sats = parseInt($amount.val(), 10) || 21;
+    const sats = parseInt($amount.val() as string, 10) || 21;
     const amount = sats * 1000;
-    const comment = $comment.val() || "sent via nostrly web zap 🫡";
+    const comment = ($comment.val() as string) || "sent via nostrly web zap 🫡";
     localStorage.setItem(
       "nostrly-webzap-defaults",
       JSON.stringify({
@@ -175,16 +207,21 @@ jQuery(function ($) {
 
     // Build and sign zap
     let zap = await makeZapEvent({
-      profile: author,
+      profile: author ?? "",
       event: id,
       amount: amount,
       relays: relays,
       comment: comment,
+      anon: false,
     });
     console.log("ZAP: ", zap);
 
     // Get a Lightning invoice from author
     const metaProfile = await getProfileFromPubkey(author);
+    if (!metaProfile) {
+      toastr.error("Cound not get Nostr profile for author.");
+      throw new Error("Cound not get Nostr profile for author.");
+    }
     const callback = await nip57.getZapEndpoint(metaProfile);
     let encZap = encodeURIComponent(JSON.stringify(zap));
     let url = `${callback}?amount=${amount}&nostr=${encZap}`;
@@ -221,7 +258,7 @@ jQuery(function ($) {
 
     // Subscribe to receipt events
     let paymentReceived = false;
-    let timeoutId; // keep ref outside
+    let timeoutId: ReturnType<typeof setTimeout> | undefined; // keep ref outside
     let since = Math.round(Date.now() / 1000);
     let sub = pool.subscribeMany(
       relays,
@@ -263,15 +300,16 @@ jQuery(function ($) {
   }
 
   // Query for the profile event (kind:0)
-  async function getProfileFromPubkey(pubkey) {
+  async function getProfileFromPubkey(pubkey: string) {
     try {
       // Query for the profile event (kind:0)
       return await pool.get(relays, {
         kinds: [0],
         authors: [pubkey],
       });
-    } catch (error) {
-      console.error("Error fetching or parsing profile:", error);
+    } catch (e) {
+      toastr.error("Error fetching or parsing profile");
+      console.error("Error fetching or parsing profile:", e);
       return null;
     }
   }
@@ -284,6 +322,13 @@ jQuery(function ($) {
     relays,
     comment,
     anon,
+  }: {
+    profile: string;
+    event: string | null;
+    amount: number;
+    relays: string[];
+    comment: string;
+    anon: boolean;
   }) => {
     const zapEvent = nip57.makeZapRequest({
       profile,
@@ -295,7 +340,7 @@ jQuery(function ($) {
 
     // Informal tag used by apps like Damus
     // They should display zap as anonymous
-    if (!canUseNip07Signer() || anon) {
+    if (!canUseNip07Signer(window) || anon) {
       zapEvent.tags.push(["anon"]);
     }
 
@@ -303,14 +348,18 @@ jQuery(function ($) {
   };
 
   // Sign event using NIP07, or sign anonymously
-  const signEvent = async (zapEvent, anon) => {
-    if (canUseNip07Signer() && !anon) {
+  const signEvent = async (
+    zapEvent: EventTemplate,
+    anon: boolean,
+  ): Promise<Event> => {
+    if (canUseNip07Signer(window) && !anon) {
       try {
-        const signed = await window.nostr.signEvent(zapEvent);
+        const sign = window?.nostr?.signEvent;
+        const signed = sign && (await sign(zapEvent));
         if (signed) {
           return signed;
         }
-      } catch (e) {
+      } catch (_e) {
         // fail silently and sign event as an anonymous user
       }
     }
@@ -319,25 +368,11 @@ jQuery(function ($) {
   };
 
   // Check for Nostr Extension
-  const canUseNip07Signer = () => {
-    return window !== undefined && window.nostr !== undefined;
-  };
-
-  // Get user's relays
-  async function getUserRelays() {
-    // Get user relays from cache, or request them from user
-    let userRelays = JSON.parse(localStorage.getItem("nostrly-user-relays"));
-    if (!userRelays) {
-      const relayObject = await window.nostr.getRelays();
-      userRelays = Object.keys(relayObject);
-      localStorage.setItem("nostrly-user-relays", JSON.stringify(userRelays));
-    }
-    // console.log('USER RELAYS: ', userRelays);
-    return userRelays;
-  }
+  const canUseNip07Signer = (w: Window): w is Window & { nostr: Nostr } =>
+    typeof w !== "undefined" && !!w.nostr;
 
   // Helper function
-  function toHexString(bytes) {
+  function toHexString(bytes: Uint8Array) {
     return Array.from(bytes, (byte) =>
       ("00" + (byte & 0xff).toString(16)).slice(-2),
     ).join("");
