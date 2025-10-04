@@ -89,7 +89,10 @@ jQuery(function ($) {
     $(".preamble").show();
   });
   async function handleEventDelete(e: JQuery.ClickEvent) {
-    if (typeof window?.nostr?.signEvent === "undefined" || typeof window?.nostr?.getPublicKey === "undefined") {
+    if (
+      typeof window?.nostr?.signEvent === "undefined" ||
+      typeof window?.nostr?.getPublicKey === "undefined"
+    ) {
       toastr.error("NIP-07 Extension not found");
       throw new Error("NIP-07 Extension not found");
     }
