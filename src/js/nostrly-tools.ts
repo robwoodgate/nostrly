@@ -10,7 +10,7 @@ import {
 import { SimplePool } from "nostr-tools";
 import { copyTextToClipboard, doConfettiBomb, getErrorMessage } from "./utils";
 import toastr from "toastr";
-import { getUserRelays, Nostr } from "./nostr";
+import { getUserRelays } from "./nostr";
 
 declare const nostrly_ajax: {
   relays: string[];
@@ -89,7 +89,7 @@ jQuery(function ($) {
     $(".preamble").show();
   });
   async function handleEventDelete(e: JQuery.ClickEvent) {
-    if (typeof window?.nostr?.signEvent === "undefined") {
+    if (typeof window?.nostr?.signEvent === "undefined" || typeof window?.nostr?.getPublicKey === "undefined") {
       toastr.error("NIP-07 Extension not found");
       throw new Error("NIP-07 Extension not found");
     }
@@ -119,11 +119,7 @@ jQuery(function ($) {
       return;
     }
     // Get user relays from cache, or request them from user
-    if (typeof window?.nostr?.getPublicKey === "undefined") {
-      toastr.error("NIP-07 Extension not found");
-      throw new Error("NIP-07 Extension not found");
-    }
-    const pubkey = await window.nostr.getPublicKey();
+    const pubkey = await window?.nostr?.getPublicKey();
     let userRelays = await getUserRelays(pubkey);
     await Promise.any(pool.publish(userRelays, delreq));
     console.log("published delete request to at least one relay!");
@@ -340,7 +336,7 @@ jQuery(function ($) {
 
     // Informal tag used by apps like Damus
     // They should display zap as anonymous
-    if (!canUseNip07Signer(window) || anon) {
+    if (typeof window?.nostr?.signEvent === "undefined" || anon) {
       zapEvent.tags.push(["anon"]);
     }
 
@@ -352,13 +348,10 @@ jQuery(function ($) {
     zapEvent: EventTemplate,
     anon: boolean,
   ): Promise<Event> => {
-    if (canUseNip07Signer(window) && !anon) {
+    if (!anon) {
       try {
-        const sign = window?.nostr?.signEvent;
-        const signed = sign && (await sign(zapEvent));
-        if (signed) {
-          return signed;
-        }
+        const signed = await window.nostr?.signEvent?.(zapEvent);
+        if (signed) return signed;
       } catch (_e) {
         // fail silently and sign event as an anonymous user
       }
@@ -366,10 +359,6 @@ jQuery(function ($) {
     isAnon = true;
     return finalizeEvent(zapEvent, generateSecretKey());
   };
-
-  // Check for Nostr Extension
-  const canUseNip07Signer = (w: Window): w is Window & { nostr: Nostr } =>
-    typeof w !== "undefined" && !!w.nostr;
 
   // Helper function
   function toHexString(bytes: Uint8Array) {
