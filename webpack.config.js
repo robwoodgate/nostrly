@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 export default {
   entry: {
-    "nostrly-login": "./src/js/nostrly-login.js",
+    "nostrly-login": "./src/js/nostrly-login.ts",
     "nostrly-register": "./src/js/nostrly-register.js",
     "nostrly-tools": "./src/js/nostrly-tools.ts",
     "nostrly-cashu-redeem": "./src/js/nostrly-cashu-redeem.ts",

@@ -1,4 +1,12 @@
-import { SimplePool } from "nostr-tools";
+import { SimplePool, Event } from "nostr-tools";
+import toastr from "toastr";
+import { getErrorMessage } from "./utils";
+
+declare const nostrly_ajax: {
+  relays: string[];
+  ajax_url: string;
+  nonce: string;
+};
 
 // Create pool and set relays
 const pool = new SimplePool();
@@ -8,13 +16,13 @@ const relays = nostrly_ajax.relays;
 jQuery(function ($) {
   // Login button click
   $("#use_nostr_extension").on("click", doNostrLogin);
-  async function doNostrLogin(e) {
+  async function doNostrLogin(e: JQuery.ClickEvent) {
     e.preventDefault();
     try {
       // Check for extension
-      if (typeof window.nostr === "undefined") {
-        console.error("Nostr extension not found:", error);
-        alert("Nostr extension not found. Please install a Nostr extension.");
+      if (typeof window?.nostr?.signEvent === "undefined") {
+        toastr.error("NIP-07 Extension not found");
+        throw new Error("NIP-07 Extension not found");
       }
 
       // Create signed authtoken event
@@ -40,6 +48,10 @@ jQuery(function ($) {
       // Fetch profile for authtoken's pubkey
       $("#use_nostr_extension").text("Logging in...");
       let usermeta = await getProfileFromPubkey(authToken.pubkey); // JSON string
+      if (!usermeta) {
+        toastr.error("Could not get Nostr User Data");
+        throw new Error("Could not get Nostr User Data");
+      }
       console.log("User metadata:", JSON.parse(usermeta.content));
 
       // Send login request to WordPress
@@ -62,7 +74,7 @@ jQuery(function ($) {
         error: function () {
           alert("An error occurred. Please try again.");
           $("#use_nostr_extension").text(
-            $("#use_nostr_extension").attr("data-orig"),
+            $("#use_nostr_extension").attr("data-orig") as string,
           );
         },
       });
@@ -72,8 +84,13 @@ jQuery(function ($) {
     }
   }
 
-  async function handleNostrSync(e) {
+  async function handleNostrSync(e: JQuery.ClickEvent) {
     e.preventDefault();
+    // Check for extension
+    if (typeof window?.nostr?.getPublicKey === "undefined") {
+      toastr.error("NIP-07 Extension not found");
+      throw new Error("NIP-07 Extension not found");
+    }
     const $feedback = $("#nostr-connect-feedback");
     const $button = $(e.target);
     const synctype = $button.attr("id");
@@ -92,7 +109,8 @@ jQuery(function ($) {
       $feedback.html("Fetching Nostr profile...");
 
       // Fetch profile with explicit error handling
-      let usermeta = await getProfileFromPubkey(pubkey);
+      let usermeta: Event | { content: string } | null =
+        await getProfileFromPubkey(pubkey);
       if (typeof usermeta?.content === "undefined") {
         console.warn("No profile data found, proceeding with public key only");
         usermeta = { content: JSON.stringify({ pubkey: pubkey }) };
@@ -141,12 +159,13 @@ jQuery(function ($) {
       } else {
         throw new Error(response.data.message || "Failed to update profile");
       }
-    } catch (error) {
-      console.error("Sync error:", error);
+    } catch (e) {
+      const msg = getErrorMessage(e);
+      console.error("Sync error:", e);
       $feedback
         .removeClass("notice-info")
         .addClass("notice-error")
-        .html(`Error: ${error.message}`)
+        .html(`Error: ${msg}`)
         .delay(3000)
         .fadeOut("slow");
     } finally {
@@ -154,8 +173,16 @@ jQuery(function ($) {
     }
   }
 
-  async function handleUpdateNip05(e) {
+  async function handleUpdateNip05(e: JQuery.ClickEvent) {
     e.preventDefault();
+    // Check for extension
+    if (
+      typeof window?.nostr?.getPublicKey === "undefined" ||
+      typeof window?.nostr?.signEvent === "undefined"
+    ) {
+      toastr.error("NIP-07 Extension not found");
+      throw new Error("NIP-07 Extension not found");
+    }
     const $feedback = $("#nostr-connect-feedback");
     const $button = $(e.target);
     const nip05 = e.target.getAttribute("data-nip05") || "";
@@ -231,12 +258,13 @@ jQuery(function ($) {
       } else {
         throw new Error(response.data.message || "Failed to update profile");
       }
-    } catch (error) {
-      console.error("Update NIP-05 error:", error);
+    } catch (e) {
+      const msg = getErrorMessage(e);
+      console.error("Update NIP-05 error:", e);
       $feedback
         .removeClass("notice-info")
         .addClass("notice-error")
-        .html(`Error: ${error.message}`)
+        .html(`Error: ${msg}`)
         .delay(3000)
         .fadeOut("slow");
     } finally {
@@ -244,7 +272,7 @@ jQuery(function ($) {
     }
   }
 
-  async function handleNostrDisconnect(e) {
+  async function handleNostrDisconnect(e: JQuery.ClickEvent) {
     e.preventDefault();
     const $feedback = $("#nostr-connect-feedback");
     const $button = $(e.target);
@@ -290,12 +318,13 @@ jQuery(function ($) {
             "Failed to disconnect Nostr. Please try again.",
         );
       }
-    } catch (error) {
-      console.error("Disconnect error:", error);
+    } catch (e) {
+      const msg = getErrorMessage(e);
+      console.error("Disconnect error:", e);
       $feedback
         .removeClass("notice-info")
         .addClass("notice-error")
-        .html(`Error: ${error.message}`)
+        .html(`Error: ${msg}`)
         .delay(3000)
         .fadeOut("slow");
     } finally {
@@ -304,7 +333,7 @@ jQuery(function ($) {
   }
 
   // Query for the profile event (kind:0)
-  async function getProfileFromPubkey(pubkey) {
+  async function getProfileFromPubkey(pubkey: string) {
     try {
       // Query for the profile event (kind:0)
       return await pool.get(relays, {
