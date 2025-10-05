@@ -24,6 +24,7 @@ jQuery(function ($) {
         toastr.error("NIP-07 Extension not found");
         throw new Error("NIP-07 Extension not found");
       }
+      toastr.success("Authenticating via Nostr.");
 
       // Create signed authtoken event
       let authToken; // scope outside try/catch
@@ -46,6 +47,7 @@ jQuery(function ($) {
       }
 
       // Fetch profile for authtoken's pubkey
+      toastr.info("Authenticated! Now Logging in...");
       $("#use_nostr_extension").text("Logging in...");
       let usermeta = await getProfileFromPubkey(authToken.pubkey); // JSON string
       if (!usermeta) {
