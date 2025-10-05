@@ -60,6 +60,7 @@ export interface Nostr {
 declare global {
   interface Window {
     nostr?: Nostr;
+    nostrlyInitialized: boolean;
   }
 }
 

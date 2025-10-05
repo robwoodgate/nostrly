@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
+    "@types/jquery": "^3.5.33",
     "@types/toastr": "^2.1.43",
     "eslint": "^9.22.0",
     "eslint-config-prettier": "^10.1.1",
