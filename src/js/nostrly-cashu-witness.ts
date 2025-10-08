@@ -33,6 +33,7 @@ import {
 import { getContactDetails, convertP2PKToNpub } from "./nostr";
 import toastr from "toastr";
 import { handleCashuDonation } from "./cashu-donate";
+import { unblindedLookupForProof } from "./nut11";
 
 declare const nostrly_ajax: {
   relays: string[];
@@ -208,7 +209,9 @@ jQuery(function ($) {
       } else {
         html += `<li>No valid pubkeys found.</li>`;
       }
-      const hasP2BK = proofs.some((p) => p?.p2pk_r != null && p.p2pk_r !== "");
+      const hasP2BK = proofs.some(
+        (p) => p?.p2pk_r != null && p.p2pk_r.length > 0,
+      );
       if (hasP2BK) {
         html += `<li>Token is P2BK encoded (unlock token below to convert).</li>`;
         $unlockDiv.show();
@@ -259,8 +262,9 @@ jQuery(function ($) {
         }
       });
     };
+    const lookup = unblindedLookupForProof(proofs[0]);
     for (const pub of pubkeys) {
-      const npub = convertP2PKToNpub(pub);
+      const npub = convertP2PKToNpub(lookup.get(pub) ?? pub);
       const isSigned = signedPubkeys.includes(pub);
       const keyholder = `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
       html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${

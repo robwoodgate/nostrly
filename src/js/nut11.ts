@@ -1,5 +1,12 @@
 import { bytesToHex } from "@noble/hashes/utils";
 import { sha256 } from "@noble/hashes/sha256";
+import {
+  getP2PKWitnessPubkeys,
+  getP2PKWitnessRefundkeys,
+  parseP2PKSecret,
+  Proof,
+  unblindPubkey,
+} from "@cashu/cashu-ts";
 
 interface MintRead {
   id: number;
@@ -74,3 +81,30 @@ export const isPublicKeyValidP2PK = (key: string): boolean => {
 export const sha256Hex = (input: string): string => {
   return bytesToHex(sha256(input));
 };
+
+/**
+ * Build a lookup of blinded -> unblinded pubkeys for a P2PK proof
+ */
+export function unblindedLookupForProof(proof: Proof): Map<string, string> {
+  const rs: string[] = proof?.p2pk_r ?? [];
+  const secret = parseP2PKSecret(proof.secret);
+  const pubs: string[] = [
+    ...getP2PKWitnessPubkeys(secret),
+    ...getP2PKWitnessRefundkeys(secret),
+  ];
+  if (rs.length && rs.length !== pubs.length) {
+    throw new Error(
+      `p2pk_r length ${rs.length} does not match expected pubkey count ${pubs.length}`,
+    );
+  }
+  const map = new Map<string, string>();
+  if (!rs.length) {
+    // No blinding factors, treat as identity
+    pubs.forEach((pub) => map.set(pub, pub));
+    return map;
+  }
+  pubs.forEach((pub, i) => {
+    map.set(pub, unblindPubkey(pub, rs[i]));
+  });
+  return map;
+}

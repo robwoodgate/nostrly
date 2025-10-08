@@ -30,6 +30,7 @@ import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder";
 import { handleCashuDonation } from "./cashu-donate";
 import { bytesToHex } from "@noble/hashes/utils";
+import { unblindedLookupForProof } from "./nut11";
 
 declare const nostrly_ajax: {
   relays: string[];
@@ -205,7 +206,7 @@ jQuery(function ($) {
       let locktime;
       if (lockedProofs.length) {
         // they are... so lookup the npubs currently able to unlock
-        // This can vary dependingo on the P2PK locktime
+        // This can vary depending on the P2PK locktime
         console.log("P2PK locked proofs found:>>", lockedProofs);
         pubkeys = getP2PKExpectedKWitnessPubkeys(lockedProofs[0].secret);
         n_sigs = getP2PKNSigs(lockedProofs[0].secret);
@@ -233,8 +234,9 @@ jQuery(function ($) {
         };
         // Token is currently locked to these npubs...
         let keyholders = [];
+        const lookup = unblindedLookupForProof(lockedProofs[0]);
         for (const pub of pubkeys) {
-          const npub = convertP2PKToNpub(pub);
+          const npub = convertP2PKToNpub(lookup.get(pub) ?? pub);
           keyholders.push(
             `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
           );
