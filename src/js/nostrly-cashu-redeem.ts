@@ -199,7 +199,7 @@ jQuery(function ($) {
       tokenAmount = getTokenAmount(proofs);
       // Check if proofs are P2PK locked
       const lockedProofs = proofs.filter(function (k) {
-        return k.secret.includes("P2PK") || k.secret.includes("P2BK");
+        return k.secret.includes("P2PK");
       });
       let n_sigs = 0;
       let locktime;
@@ -300,9 +300,7 @@ jQuery(function ($) {
 
   // Sign proofs if any are locked
   const signProofs = async (proofs: Proof[]) => {
-    const lockedProofs = proofs.some(
-      (p) => p.secret.includes("P2PK") || p.secret.includes("P2BK"),
-    );
+    const lockedProofs = proofs.some((p) => p.secret.includes("P2PK"));
     if (!lockedProofs) return proofs; // nothing to do
     $lightningStatus.text(`Signing locked proofs...`);
     // Sign P2PK proofs using NIP-60 wallet keys
@@ -422,7 +420,7 @@ jQuery(function ($) {
       if (amountToSend > tokenAmount) {
         throw `Not enough to pay the invoice: needs ${formatAmount(meltQuote.amount, unit)} + ${formatAmount(meltQuote.fee_reserve, unit)}`;
       }
-      // Sign P2PK/P2BK proofs if needed
+      // Sign P2PK proofs if needed
       proofs = await signProofs(proofs);
 
       $lightningStatus.text(

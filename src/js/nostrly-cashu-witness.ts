@@ -164,9 +164,7 @@ jQuery(function ($) {
       }
       mintUrl = token.mint;
       unit = token.unit || "sat";
-      proofs = token.proofs.filter(
-        (p) => p.secret.includes("P2PK") || p.secret.includes("P2BK"),
-      );
+      proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
       if (!proofs.length) {
         toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
         return;
@@ -210,7 +208,7 @@ jQuery(function ($) {
       } else {
         html += `<li>No valid pubkeys found.</li>`;
       }
-      const hasP2BK = proofs.some((p) => p.secret.includes("P2BK"));
+      const hasP2BK = proofs.some((p) => p?.p2pk_r != null && p.p2pk_r !== "");
       if (hasP2BK) {
         html += `<li>Token is P2BK encoded (unlock token below to convert).</li>`;
         $unlockDiv.show();
