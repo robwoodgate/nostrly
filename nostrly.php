@@ -4,7 +4,7 @@
 Plugin Name: Nostrly SaaS
 Plugin URI: https://www.nostrly.com/
 Description: Adds Admin screens for Nostrly App
-Version: 14.5.1
+Version: 14.5.2
 Author: Rob Woodgate
 Author URI: https://www.cogmentis.com
 License: (c) 2025 All rights reserved
@@ -26,7 +26,7 @@ define('NOSTRLY_PATH', plugin_dir_path(__FILE__));
 define('NOSTRLY_URL', plugin_dir_url(__FILE__));
 define('NOSTRLY_SLUG', plugin_basename(__DIR__));
 define('NOSTRLY_FILE', plugin_basename(__FILE__));
-define('NOSTRLY_VERSION', '14.5.1-v3-hackday-5ad467a');
+define('NOSTRLY_VERSION', '14.5.2-v3-hackday-5ad467a');
 
 // * Instantiate main plugin
 require_once NOSTRLY_PATH.'lib/class-nostrly.php';

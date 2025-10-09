@@ -204,6 +204,7 @@ jQuery(function ($) {
       });
       let n_sigs = 0;
       let locktime;
+      const hasP2BK = proofs.some((p) => p?.p2pk_r && p.p2pk_r.length > 0);
       if (lockedProofs.length) {
         // they are... so lookup the npubs currently able to unlock
         // This can vary depending on the P2PK locktime
@@ -223,11 +224,20 @@ jQuery(function ($) {
       }
       // Fetch Nostr names for locking pubkeys if possible
       if (pubkeys.length > 0) {
-        const updateContactName = (npub: string, relays: string[]) => {
-          getContactDetails(npub, relays).then(({ name }) => {
+        const updateContactName = (
+          npub: string,
+          p2pkey: string,
+          relays: string[],
+        ) => {
+          getContactDetails(npub, relays).then(({ name, hexpub }) => {
             if (name) {
+              const nip61 = hasP2BK
+                ? "(P2BK)"
+                : hexpub != p2pkey.slice(2)
+                  ? "(NIP-61)"
+                  : "(NPUB)";
               $(`#${npub}`).replaceWith(
-                `<a href="https://njump.me/${npub}" target="_blank">${name}</a>`,
+                `<a href="https://njump.me/${npub}" target="_blank">${name}</a> ${nip61}`,
               );
             }
           });
@@ -240,7 +250,7 @@ jQuery(function ($) {
           keyholders.push(
             `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
           );
-          updateContactName(npub, nostrly_ajax.relays);
+          updateContactName(npub, pub, nostrly_ajax.relays);
         }
         let msg = `Token is P2PK locked to ${keyholders.join(", ")}`;
         const now = Math.floor(new Date().getTime() / 1000);

@@ -201,6 +201,7 @@ jQuery(function ($) {
     }
     const now = Math.floor(Date.now() / 1000);
     const locktime = getP2PKLocktime(proofs[0].secret);
+    const hasP2BK = proofs.some((p) => p?.p2pk_r && p.p2pk_r.length > 0);
     if (!p2pkParams.pubkeys.length) {
       let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
       html += "<strong>Witness Requirements:</strong><ul>";
@@ -209,9 +210,6 @@ jQuery(function ($) {
       } else {
         html += `<li>No valid pubkeys found.</li>`;
       }
-      const hasP2BK = proofs.some(
-        (p) => p?.p2pk_r != null && p.p2pk_r.length > 0,
-      );
       if (hasP2BK) {
         html += `<li>Token is P2BK encoded (unlock token below to convert).</li>`;
         $unlockDiv.show();
@@ -255,7 +253,11 @@ jQuery(function ($) {
     ) => {
       getContactDetails(npub, relays).then(({ name, hexpub }) => {
         if (name) {
-          const nip61 = hexpub != p2pkey.slice(2) ? "(NIP-61)" : "(NPUB)";
+          const nip61 = hasP2BK
+            ? "(P2BK)"
+            : hexpub != p2pkey.slice(2)
+              ? "(NIP-61)"
+              : "(NPUB)";
           $(`#${npub}`).replaceWith(
             `<a href="https://njump.me/${npub}" target="_blank">${name}</a> ${nip61}`,
           );
