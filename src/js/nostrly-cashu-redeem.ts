@@ -265,15 +265,22 @@ jQuery(function ($) {
 
         // If no compatible extension detected, we'll have to ask for an nsec/private key :(
         if (
-          typeof window?.nostr?.signSchnorr === "undefined" &&
-          typeof window?.nostr?.signString === "undefined" &&
-          typeof window?.nostr?.nip60?.signSecret === "undefined"
+          hasP2BK ||
+          (typeof window?.nostr?.signSchnorr === "undefined" &&
+            typeof window?.nostr?.signString === "undefined" &&
+            typeof window?.nostr?.nip60?.signSecret === "undefined")
         ) {
           $pkeyWrapper.show();
-          if (!$pkey.val() as boolean) {
+          if (hasP2BK) {
+            $tokenStatus.html(
+              "Enter your private key to unlock P2BK proofs</a>.",
+            );
+          } else {
             $tokenStatus.html(
               "Enter your private key or enable a <em>nip60</em> compatible Nostr Extension</a>.",
             );
+          }
+          if (!$pkey.val() as boolean) {
             return;
           }
         }

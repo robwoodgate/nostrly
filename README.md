@@ -33,11 +33,12 @@ Contributions are welcome! Please open issues or submit pull requests.
 This project is built against a development branch of @cashu/cashu-ts. To replicate the development environment, follow these steps:
 
 1. Clone the fork locally, for example: `git clone https://github.com/robwoodgate/cashu-ts.git`
-2. Checkout the desired branch (e.g., `development`): `git checkout development`
-3. Install cashu-ts dependencies: `npm install`
-4. Compile cashu-ts: `npm run compile`
-5. Update Nostrly package.json to use your local copy by changing the line to: `"@cashu/cashu-ts": "file:./path-to-your/cashu-ts"`
-6. Run `./build.sh` in the nostrly directory to confirm it builds successfully
+2. Get the current cashu-ts branch from the `NOSTRLY_VERSION` constant, eg: `1.0.0-development-8426cd1` uses cashu-ts `development` branch, at commit `8426cd1`
+3. Checkout the correct branch (e.g., `development`): `git checkout development`
+4. Install cashu-ts dependencies: `npm install`
+5. Compile cashu-ts: `npm run compile`
+6. Update Nostrly package.json to use your local copy by changing the line to: `"@cashu/cashu-ts": "file:./path-to-your/cashu-ts"`
+7. Run `./build.sh` in the nostrly directory to confirm it builds successfully
 
 ## DISCLAIMER
 
