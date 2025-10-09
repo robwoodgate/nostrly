@@ -9,6 +9,7 @@ import {
   Wallet,
   Proof,
   signP2PKProofs,
+  unblindedLookupForProof,
 } from "@cashu/cashu-ts";
 import {
   debounce,
@@ -30,7 +31,6 @@ import bech32 from "bech32";
 import { decode as emojiDecode } from "./emoji-encoder";
 import { handleCashuDonation } from "./cashu-donate";
 import { bytesToHex } from "@noble/hashes/utils";
-import { unblindedLookupForProof } from "./nut11";
 
 declare const nostrly_ajax: {
   relays: string[];

@@ -13,6 +13,7 @@ import {
   Wallet,
   Token,
   ConsoleLogger,
+  unblindedLookupForProof,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import {
@@ -33,7 +34,6 @@ import {
 import { getContactDetails, convertP2PKToNpub } from "./nostr";
 import toastr from "toastr";
 import { handleCashuDonation } from "./cashu-donate";
-import { unblindedLookupForProof } from "./nut11";
 
 declare const nostrly_ajax: {
   relays: string[];
