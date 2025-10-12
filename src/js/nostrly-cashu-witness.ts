@@ -13,7 +13,6 @@ import {
   Wallet,
   Token,
   ConsoleLogger,
-  unblindedLookupForProof,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import {
@@ -201,7 +200,7 @@ jQuery(function ($) {
     }
     const now = Math.floor(Date.now() / 1000);
     const locktime = getP2PKLocktime(proofs[0].secret);
-    const hasP2BK = proofs.some((p) => p?.p2pk_r && p.p2pk_r.length > 0);
+    const hasP2BK = proofs.some((p) => p?.p2pk_e);
     if (!p2pkParams.pubkeys.length) {
       let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
       html += "<strong>Witness Requirements:</strong><ul>";
@@ -253,20 +252,17 @@ jQuery(function ($) {
     ) => {
       getContactDetails(npub, relays).then(({ name, hexpub }) => {
         if (name) {
-          const nip61 = hasP2BK
-            ? "(P2BK)"
-            : hexpub != p2pkey.slice(2)
-              ? "(NIP-61)"
-              : "(NPUB)";
+          const nip61 = hexpub != p2pkey.slice(2) ? "(NIP-61)" : "(NPUB)";
           $(`#${npub}`).replaceWith(
             `<a href="https://njump.me/${npub}" target="_blank">${name}</a> ${nip61}`,
           );
+        } else if (hasP2BK) {
+          $(`#${npub}`).append(" (P2BK)");
         }
       });
     };
-    const lookup = unblindedLookupForProof(proofs[0]);
     for (const pub of pubkeys) {
-      const npub = convertP2PKToNpub(lookup.get(pub) ?? pub);
+      const npub = convertP2PKToNpub(pub);
       const isSigned = signedPubkeys.includes(pub);
       const keyholder = `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
       html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${

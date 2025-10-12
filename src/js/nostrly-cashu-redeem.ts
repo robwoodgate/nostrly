@@ -9,7 +9,6 @@ import {
   Wallet,
   Proof,
   signP2PKProofs,
-  unblindedLookupForProof,
 } from "@cashu/cashu-ts";
 import {
   debounce,
@@ -204,7 +203,7 @@ jQuery(function ($) {
       });
       let n_sigs = 0;
       let locktime;
-      const hasP2BK = proofs.some((p) => p?.p2pk_r && p.p2pk_r.length > 0);
+      const hasP2BK = proofs.some((p) => p?.p2pk_e);
       if (lockedProofs.length) {
         // they are... so lookup the npubs currently able to unlock
         // This can vary depending on the P2PK locktime
@@ -231,22 +230,19 @@ jQuery(function ($) {
         ) => {
           getContactDetails(npub, relays).then(({ name, hexpub }) => {
             if (name) {
-              const nip61 = hasP2BK
-                ? "(P2BK)"
-                : hexpub != p2pkey.slice(2)
-                  ? "(NIP-61)"
-                  : "(NPUB)";
+              const nip61 = hexpub != p2pkey.slice(2) ? "(NIP-61)" : "(NPUB)";
               $(`#${npub}`).replaceWith(
                 `<a href="https://njump.me/${npub}" target="_blank">${name}</a> ${nip61}`,
               );
+            } else if (hasP2BK) {
+              $(`#${npub}`).append(" (P2BK)");
             }
           });
         };
         // Token is currently locked to these npubs...
         let keyholders = [];
-        const lookup = unblindedLookupForProof(lockedProofs[0]);
         for (const pub of pubkeys) {
-          const npub = convertP2PKToNpub(lookup.get(pub) ?? pub);
+          const npub = convertP2PKToNpub(pub);
           keyholders.push(
             `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
           );

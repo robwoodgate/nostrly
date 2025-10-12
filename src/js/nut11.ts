@@ -1,12 +1,5 @@
 import { bytesToHex } from "@noble/hashes/utils";
 import { sha256 } from "@noble/hashes/sha256";
-import {
-  getP2PKWitnessPubkeys,
-  getP2PKWitnessRefundkeys,
-  parseP2PKSecret,
-  Proof,
-  unblindPubkey,
-} from "@cashu/cashu-ts";
 
 interface MintRead {
   id: number;
