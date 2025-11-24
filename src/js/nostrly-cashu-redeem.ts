@@ -365,9 +365,9 @@ jQuery(function ($) {
       let meltQuote = null;
       if (isLnurl(address)) {
         try {
-          // Set LN invoice/fee estimates to NutShell defaults: 1%, 2 sat min
+          // Set LN invoice/fee estimates to NutShell defaults: 2%, 2 sat min
           // @see: https://github.com/cashubtc/nutshell/blob/main/.env.example#L114
-          let estFeeSats = Math.ceil(Math.max(2, tokenAmount * 0.01));
+          let estFeeSats = Math.ceil(Math.max(2, tokenAmount * 0.02));
           let estInvSats: number = tokenAmount - estFeeSats;
 
           // LN invoices are in sats, so if our token is not, we need to find
@@ -380,14 +380,17 @@ jQuery(function ($) {
             const mintQuote = await wallet.createMintQuoteBolt11(tokenAmount);
             console.log("Mint Quote :>>", mintQuote);
             const sats = getSatsAmount(mintQuote.request);
-            estFeeSats = Math.ceil(Math.max(2, sats * 0.01)); // NutShell default
+            estFeeSats = Math.ceil(Math.max(2, sats * 0.02)); // NutShell default
             estInvSats = sats - estFeeSats;
             console.log("Mint estInvSats :>>", estInvSats);
           }
 
+          // Reduce token amount by Mint fees
+          estInvSats -= wallet.getFeesForProofs(proofs);
+
           // Check fees haven't eaten token
           if (estInvSats <= 0) {
-            throw new Error("Token amount too low to cover estimated fee");
+            throw new Error("Token amount too low to cover estimated fees");
           }
 
           // Get invoice and melt quote
