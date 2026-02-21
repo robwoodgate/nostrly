@@ -14,7 +14,7 @@ import { bytesToHex } from "@noble/hashes/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
 import {
-  getP2PKExpectedKWitnessPubkeys,
+  getP2PKExpectedWitnessPubkeys,
   getP2PKWitnessSignatures,
   hasP2PKSignedProof,
   Proof,
@@ -577,7 +577,7 @@ export async function signWithNip07(proofs: Proof[]) {
   const signedProofs = proofs.map((proof) => ({ ...proof }));
   for (const [index, proof] of signedProofs.entries()) {
     if (!proof.secret.includes("P2PK")) continue;
-    const pubkeys = getP2PKExpectedKWitnessPubkeys(proof.secret);
+    const pubkeys = getP2PKExpectedWitnessPubkeys(proof.secret);
     console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
     if (!pubkeys.length) continue;
     let signatures = getP2PKWitnessSignatures(proof.witness);
