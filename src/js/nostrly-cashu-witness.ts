@@ -255,19 +255,11 @@ jQuery(function ($) {
 
     const refundPathActive =
       lockState === "EXPIRED" && refundPubkeys.length > 0;
-    if (refundPubkeys.length) {
-      if (refundPathActive) {
-        const refundRemaining = Math.max(
-          refundRequiredSigners - refundSignedPubkeys.length,
-          0,
-        );
-        const refundSpendable =
-          refundRequiredSigners === 0 || refundRemaining === 0;
-        html += `<li>Refund pathway: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)${refundSpendable ? " - spendable" : ""}</li>`;
-      } else {
-        html += `<li>Refund pathway: configured, becomes active after locktime expiry</li>`;
-      }
-    } else if (lockState === "EXPIRED" && mainRequiredSigners === 0) {
+    if (
+      !refundPubkeys.length &&
+      lockState === "EXPIRED" &&
+      mainRequiredSigners === 0
+    ) {
       html += `<li>Unlocked: locktime expired and no refund keys (anyone can spend)</li>`;
     }
 
@@ -308,6 +300,17 @@ jQuery(function ($) {
     }
 
     if (refundPubkeys.length) {
+      if (refundPathActive) {
+        const refundRemaining = Math.max(
+          refundRequiredSigners - refundSignedPubkeys.length,
+          0,
+        );
+        const refundSpendable =
+          refundRequiredSigners === 0 || refundRemaining === 0;
+        html += `<li>Refund pathway: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)${refundSpendable ? " - spendable" : ""}</li>`;
+      } else {
+        html += `<li>Refund pathway: configured, becomes active after locktime expiry</li>`;
+      }
       html += `<li>Refund pubkeys:</li><ul>`;
       for (const pub of refundPubkeys) {
         const npub = convertP2PKToNpub(pub);
