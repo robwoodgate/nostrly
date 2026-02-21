@@ -2,13 +2,18 @@
 import {
   getDecodedToken,
   getEncodedTokenV4,
-  getP2PKExpectedKWitnessPubkeys,
+  getP2PKLockState,
+  getP2PKExpectedWitnessPubkeys,
   getP2PKNSigs,
+  getP2PKNSigsRefund,
   getP2PKSigFlag,
   getP2PKWitnessSignatures,
   getP2PKLocktime,
+  getP2PKWitnessPubkeys,
+  getP2PKWitnessRefundkeys,
   signP2PKProofs,
   hasP2PKSignedProof,
+  verifyP2PKSpendingConditions,
   Proof,
   Wallet,
   Token,
@@ -51,6 +56,7 @@ jQuery(function ($) {
     pubkeys: [],
     n_sigs: 0,
   };
+  let spendAuthorised = false;
   let signedPubkeys: string[] = [];
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   const logger = new ConsoleLogger("debug");
@@ -95,6 +101,7 @@ jQuery(function ($) {
     tokenAmount = 0;
     privkey = "";
     p2pkParams = { pubkeys: [], n_sigs: 0 };
+    spendAuthorised = false;
     signedPubkeys = [];
     $witnessInfo.hide().empty();
   };
@@ -175,7 +182,7 @@ jQuery(function ($) {
         }
       });
       tokenAmount = getTokenAmount(proofs);
-      p2pkParams.pubkeys = getP2PKExpectedKWitnessPubkeys(proofs[0].secret);
+      p2pkParams.pubkeys = getP2PKExpectedWitnessPubkeys(proofs[0].secret);
       p2pkParams.n_sigs = getP2PKNSigs(proofs[0].secret);
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
@@ -189,8 +196,8 @@ jQuery(function ($) {
       console.error("processToken error:", e);
       resetVars();
     }
-    checkNip07ButtonState();
     displayWitnessInfo();
+    checkNip07ButtonState();
   }
 
   // Display witness requirements
@@ -198,54 +205,78 @@ jQuery(function ($) {
     if (!proofs[0]?.secret) {
       return;
     }
-    const now = Math.floor(Date.now() / 1000);
-    const locktime = getP2PKLocktime(proofs[0].secret);
+    const proof = proofs[0];
+    const locktime = getP2PKLocktime(proof.secret);
+    const lockState = getP2PKLockState(proof.secret);
+    const mainPubkeys = getP2PKWitnessPubkeys(proof.secret);
+    const refundPubkeys = getP2PKWitnessRefundkeys(proof.secret);
+    const mainRequiredSigners = getP2PKNSigs(proof.secret);
+    const refundRequiredSigners = getP2PKNSigsRefund(proof.secret);
+    const verification = verifyP2PKSpendingConditions(proof, logger);
     const hasP2BK = proofs.some((p) => p?.p2pk_e);
-    if (!p2pkParams.pubkeys.length) {
-      let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
-      html += "<strong>Witness Requirements:</strong><ul>";
-      if (!locktime || locktime <= now) {
-        html += `<li>Token is unlocked (no signatures required).</li>`;
-      } else {
-        html += `<li>No valid pubkeys found.</li>`;
-      }
-      if (hasP2BK) {
-        html += `<li>Token is P2BK encoded (unlock token below to convert).</li>`;
-        $unlockDiv.show();
-      }
-      html += `</ul>`;
-      $witnessInfo.show().html(html);
-      return;
-    }
-    const { pubkeys, n_sigs } = p2pkParams;
-    pubkeys.forEach((pub) => {
-      try {
-        if (hasP2PKSignedProof(pub, proofs[0])) {
-          signedPubkeys.push(pub);
+
+    const getSignedKeys = (pubkeys: string[]): string[] => {
+      const keys: string[] = [];
+      pubkeys.forEach((pub) => {
+        try {
+          if (hasP2PKSignedProof(pub, proof)) {
+            keys.push(pub);
+          }
+        } catch (e) {
+          console.error("Verification error:", e);
         }
-      } catch (e) {
-        console.error("Verification error:", e);
-      }
-    });
-    signedPubkeys = [...new Set(signedPubkeys)];
-    console.log("signedPubkeys:>>", signedPubkeys);
+      });
+      return [...new Set(keys)];
+    };
+
+    const mainSignedPubkeys = getSignedKeys(mainPubkeys);
+    const refundSignedPubkeys = getSignedKeys(refundPubkeys);
+    signedPubkeys = [
+      ...new Set([...mainSignedPubkeys, ...refundSignedPubkeys]),
+    ];
+    spendAuthorised = verification.success;
+
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
     html += "<strong>Witness Requirements:</strong><ul>";
-    if (locktime == Infinity) {
-      html += `<li>Permanently Locked</li>`;
-    } else if (locktime > now) {
-      html += `<li>Locked until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
+    if (lockState === "PERMANENT") {
+      html += `<li>Main locktime: permanently locked (no expiry)</li>`;
+    } else if (lockState === "ACTIVE") {
+      html += `<li>Main locktime: active until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
+    } else {
+      html += `<li>Main locktime: expired</li>`;
     }
-    if (n_sigs > 1 && locktime) {
-      html += `<li>Multisig: ${n_sigs} of ${pubkeys.length} signatures required</li>`;
-    } else if (locktime > now) {
-      html += `<li>Single signature required</li>`;
+
+    const mainRemaining = Math.max(
+      mainRequiredSigners - mainSignedPubkeys.length,
+      0,
+    );
+    const mainSpendable = mainRequiredSigners === 0 || mainRemaining === 0;
+    html += `<li>Main pathway: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)${mainSpendable ? " - spendable" : ""}</li>`;
+
+    const refundPathActive =
+      lockState === "EXPIRED" && refundPubkeys.length > 0;
+    if (refundPubkeys.length) {
+      if (refundPathActive) {
+        const refundRemaining = Math.max(
+          refundRequiredSigners - refundSignedPubkeys.length,
+          0,
+        );
+        const refundSpendable =
+          refundRequiredSigners === 0 || refundRemaining === 0;
+        html += `<li>Refund pathway: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)${refundSpendable ? " - spendable" : ""}</li>`;
+      } else {
+        html += `<li>Refund pathway: configured, becomes active after locktime expiry</li>`;
+      }
+    } else if (lockState === "EXPIRED" && mainRequiredSigners === 0) {
+      html += `<li>Unlocked: locktime expired and no refund keys (anyone can spend)</li>`;
     }
-    if (pubkeys.length) {
-      html += `<li>Expected Public Keys:</li><ul>`;
+
+    if (mainPubkeys.length) {
+      html += `<li>Main pubkeys:</li><ul>`;
     }
-    // Define a function to handle the async update
+
     const updateContactName = (
+      id: string,
       npub: string,
       p2pkey: string,
       relays: string[],
@@ -253,35 +284,75 @@ jQuery(function ($) {
       getContactDetails(npub, relays).then(({ name, hexpub }) => {
         if (name) {
           const nip61 = hexpub != p2pkey.slice(2) ? "(NIP-61)" : "(NPUB)";
-          $(`#${npub}`).replaceWith(
+          $(`#${id}`).replaceWith(
             `<a href="https://njump.me/${npub}" target="_blank">${name}</a> ${nip61}`,
           );
         } else if (hasP2BK) {
-          $(`#${npub}`).append(" (P2BK)");
+          $(`#${id}`).append(" (P2BK)");
         }
       });
     };
-    for (const pub of pubkeys) {
+
+    for (const pub of mainPubkeys) {
       const npub = convertP2PKToNpub(pub);
-      const isSigned = signedPubkeys.includes(pub);
-      const keyholder = `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
+      const isSigned = mainSignedPubkeys.includes(pub);
+      const keyId = `main-${npub}`;
+      const keyholder = `<span id="${keyId}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
       html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${
         isSigned ? "Signed" : "Pending"
       }</li>`;
-      updateContactName(npub, pub, nostrly_ajax.relays);
+      updateContactName(keyId, npub, pub, nostrly_ajax.relays);
     }
-    html += `</ul>`;
-    const remainingSigs = n_sigs - signedPubkeys.length;
-    if (remainingSigs > 0) {
-      html += `<p class="summary">Need ${remainingSigs} more signature${
-        remainingSigs > 1 ? "s" : ""
-      }.</p>`;
-    } else {
-      html += `<p class="summary">All required signatures (${n_sigs}) collected!</p>`;
-      $signersDiv.hide();
-      console.log("All signed!");
+    if (mainPubkeys.length) {
+      html += `</ul>`;
+    }
+
+    if (refundPubkeys.length) {
+      html += `<li>Refund pubkeys:</li><ul>`;
+      for (const pub of refundPubkeys) {
+        const npub = convertP2PKToNpub(pub);
+        const isSigned = refundSignedPubkeys.includes(pub);
+        const keyId = `refund-${npub}`;
+        const keyholder = `<span id="${keyId}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
+        html += `<li class="${isSigned ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}: ${
+          isSigned ? "Signed" : "Pending"
+        }</li>`;
+        updateContactName(keyId, npub, pub, nostrly_ajax.relays);
+      }
+      html += `</ul>`;
+    }
+
+    if (verification.success) {
+      if (refundPathActive && mainSpendable) {
+        html += `<p class="summary">Spendable now. Main pathway is valid, and refund pathway is also available.</p>`;
+      } else {
+        html += `<p class="summary">Spendable now via ${verification.path.toLowerCase()} pathway.</p>`;
+      }
       $unlockDiv.show();
+    } else {
+      const refundRemaining = Math.max(
+        refundRequiredSigners - refundSignedPubkeys.length,
+        0,
+      );
+      const reminders = [
+        mainRemaining > 0 ? `${mainRemaining} more for main` : null,
+        refundPathActive && refundRemaining > 0
+          ? `${refundRemaining} more for refund`
+          : null,
+      ].filter(Boolean);
+      if (reminders.length) {
+        html += `<p class="summary">Need ${reminders.join("; ")}.</p>`;
+      }
+      $unlockDiv.hide();
     }
+
+    if (hasP2BK) {
+      html += `<p class="summary">Token is P2BK encoded (unlock token below to convert).</p>`;
+      if (verification.success) {
+        $unlockDiv.show();
+      }
+    }
+
     html += `</ul>`;
     $witnessInfo.show().html(html);
   }
@@ -291,6 +362,11 @@ jQuery(function ($) {
     console.log("hasNip07", hasNip07);
     console.log("tokenAmount", tokenAmount);
     console.log("proofs length", proofs.length);
+    if (spendAuthorised) {
+      $signersDiv.hide();
+      $useNip07.prop("disabled", true);
+      return;
+    }
     const isLocked = p2pkParams.pubkeys.length > 0;
     if (isLocked && tokenAmount > 0 && proofs.length) {
       $signersDiv.show();
@@ -363,12 +439,13 @@ jQuery(function ($) {
         unit: unit,
       });
       $witnessedToken.val(witnessedToken);
-      const totalSigs = signedPubkeys.length + 1; // To account for this signing
-      const remainingSigs = p2pkParams.n_sigs - totalSigs;
-      let status =
-        remainingSigs > 0
-          ? `Partially signed: ${totalSigs}/${p2pkParams.n_sigs}`
-          : `Fully Signed`;
+      const verification = verifyP2PKSpendingConditions(
+        signedProofs[0],
+        logger,
+      );
+      let status = verification.success
+        ? `Spendable (${verification.path})`
+        : `Partially signed: ${verification.receivedSigners.length}/${verification.requiredSigners}`;
       storeWitnessHistory(witnessedToken, tokenAmount, status);
       showSuccess();
       toastr.success(

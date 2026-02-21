@@ -2,9 +2,14 @@
 import {
   getDecodedToken,
   getEncodedTokenV4,
-  getP2PKExpectedKWitnessPubkeys,
+  getP2PKLockState,
   getP2PKLocktime,
   getP2PKNSigs,
+  getP2PKNSigsRefund,
+  getP2PKWitnessPubkeys,
+  getP2PKWitnessRefundkeys,
+  hasP2PKSignedProof,
+  verifyP2PKSpendingConditions,
   verifyP2PKSig,
   Wallet,
   Proof,
@@ -43,7 +48,6 @@ jQuery(function ($) {
   let unit: string = "sat";
   let proofs: Proof[];
   let tokenAmount: number;
-  let pubkeys: string[];
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
 
@@ -78,7 +82,6 @@ jQuery(function ($) {
     unit = "sat";
     proofs = [];
     tokenAmount = 0;
-    pubkeys = [];
     $tokenStatus.text("");
     $lightningStatus.text("");
     $tokenRemover.addClass("hidden");
@@ -201,29 +204,38 @@ jQuery(function ($) {
       const lockedProofs = proofs.filter(function (k) {
         return k.secret.includes("P2PK");
       });
-      let n_sigs = 0;
-      let locktime;
       const hasP2BK = proofs.some((p) => p?.p2pk_e);
       if (lockedProofs.length) {
-        // they are... so lookup the npubs currently able to unlock
-        // This can vary depending on the P2PK locktime
+        // they are... so inspect all spending pathways
         console.log("P2PK locked proofs found:>>", lockedProofs);
-        pubkeys = getP2PKExpectedKWitnessPubkeys(lockedProofs[0].secret);
-        n_sigs = getP2PKNSigs(lockedProofs[0].secret);
-        locktime = getP2PKLocktime(lockedProofs[0].secret); // unix timestamp
-        console.log("P2PK Pubkeys, NSigs:>>", pubkeys, n_sigs);
-        if (n_sigs > 1) {
-          if (locktime > Math.floor(new Date().getTime() / 1000)) {
-            throw `This is a MultiSig token until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait until the lock expires`;
-          } else {
-            throw "This is a MultiSig token. Please use Cashu Witness to unlock";
-          }
-        }
-        console.log("locktime:>>", locktime);
-      }
-      // Fetch Nostr names for locking pubkeys if possible
-      if (pubkeys.length > 0) {
+        const proof = lockedProofs[0];
+        const locktime = getP2PKLocktime(proof.secret);
+        const lockState = getP2PKLockState(proof.secret);
+        const mainPubkeys = getP2PKWitnessPubkeys(proof.secret);
+        const refundPubkeys = getP2PKWitnessRefundkeys(proof.secret);
+        const mainRequiredSigners = getP2PKNSigs(proof.secret);
+        const refundRequiredSigners = getP2PKNSigsRefund(proof.secret);
+        const verification = verifyP2PKSpendingConditions(proof);
+        const refundPathActive =
+          lockState === "EXPIRED" && refundPubkeys.length > 0;
+
+        const getSignedKeys = (keys: string[]): string[] => {
+          return keys.filter((pubkey) => hasP2PKSignedProof(pubkey, proof));
+        };
+
+        const mainSignedPubkeys = getSignedKeys(mainPubkeys);
+        const refundSignedPubkeys = getSignedKeys(refundPubkeys);
+        const mainRemaining = Math.max(
+          mainRequiredSigners - mainSignedPubkeys.length,
+          0,
+        );
+        const refundRemaining = Math.max(
+          refundRequiredSigners - refundSignedPubkeys.length,
+          0,
+        );
+
         const updateContactName = (
+          id: string,
           npub: string,
           p2pkey: string,
           relays: string[],
@@ -231,33 +243,107 @@ jQuery(function ($) {
           getContactDetails(npub, relays).then(({ name, hexpub }) => {
             if (name) {
               const nip61 = hexpub != p2pkey.slice(2) ? "(NIP-61)" : "(NPUB)";
-              $(`#${npub}`).replaceWith(
+              $(`#${id}`).replaceWith(
                 `<a href="https://njump.me/${npub}" target="_blank">${name}</a> ${nip61}`,
               );
             } else if (hasP2BK) {
-              $(`#${npub}`).append(" (P2BK)");
+              $(`#${id}`).append(" (P2BK)");
             }
           });
         };
-        // Token is currently locked to these npubs...
-        let keyholders = [];
-        for (const pub of pubkeys) {
+
+        const mainKeyholders: string[] = [];
+        for (const pub of mainPubkeys) {
           const npub = convertP2PKToNpub(pub);
-          keyholders.push(
-            `<span id="${npub}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
+          const keyId = `main-${npub}`;
+          mainKeyholders.push(
+            `<span id="${keyId}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
           );
-          updateContactName(npub, pub, nostrly_ajax.relays);
+          updateContactName(keyId, npub, pub, nostrly_ajax.relays);
         }
-        let msg = `Token is P2PK locked to ${keyholders.join(", ")}`;
-        const now = Math.floor(new Date().getTime() / 1000);
-        if (locktime && locktime > now) {
-          msg +=
-            locktime == Infinity
-              ? " permanently"
-              : " until " +
-                new Date(locktime * 1000).toLocaleString().slice(0, -3);
+
+        const refundKeyholders: string[] = [];
+        for (const pub of refundPubkeys) {
+          const npub = convertP2PKToNpub(pub);
+          const keyId = `refund-${npub}`;
+          refundKeyholders.push(
+            `<span id="${keyId}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`,
+          );
+          updateContactName(keyId, npub, pub, nostrly_ajax.relays);
         }
-        $lightningStatus.html(msg);
+
+        const lines: string[] = [];
+        lines.push(`Token is P2PK locked`);
+        lines.push(
+          `Main pathway: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)`,
+        );
+
+        if (lockState === "PERMANENT") {
+          lines.push("Main locktime: permanently locked (no expiry)");
+        } else if (lockState === "ACTIVE") {
+          lines.push(
+            `Main locktime: active until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}`,
+          );
+        } else {
+          lines.push("Main locktime: expired");
+        }
+
+        if (mainKeyholders.length) {
+          lines.push(`Main pubkeys: ${mainKeyholders.join(", ")}`);
+        }
+
+        if (refundPubkeys.length) {
+          if (refundPathActive) {
+            lines.push(
+              `Refund pathway: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)`,
+            );
+          } else {
+            lines.push(
+              "Refund pathway: configured, becomes active after locktime expiry",
+            );
+          }
+          lines.push(`Refund pubkeys: ${refundKeyholders.join(", ")}`);
+        } else if (lockState === "EXPIRED" && mainRequiredSigners === 0) {
+          lines.push(
+            "Unlocked: locktime expired and no refund keys (anyone can spend)",
+          );
+        }
+
+        if (verification.success) {
+          if (refundPathActive && mainRemaining === 0) {
+            lines.push(
+              "Spendable now. Main pathway is valid, and refund pathway is also available.",
+            );
+          } else {
+            lines.push(
+              `Spendable now via ${verification.path.toLowerCase()} pathway.`,
+            );
+          }
+        } else {
+          const reminders = [
+            mainRemaining > 0 ? `${mainRemaining} more for main` : null,
+            refundPathActive && refundRemaining > 0
+              ? `${refundRemaining} more for refund`
+              : null,
+          ].filter(Boolean);
+          if (reminders.length) {
+            lines.push(`Need ${reminders.join("; ")}.`);
+          }
+        }
+
+        $lightningStatus.html(lines.join("<br>"));
+
+        const activePathThresholds = [mainRequiredSigners];
+        if (refundPathActive) {
+          activePathThresholds.push(refundRequiredSigners);
+        }
+        const minActiveThreshold = Math.min(...activePathThresholds);
+        if (!verification.success && minActiveThreshold > 1) {
+          if (lockState === "ACTIVE" && Number.isFinite(locktime)) {
+            throw `This token needs multisig until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait for lock expiry.`;
+          }
+          throw "This token needs multisig signatures. Please use Cashu Witness to unlock.";
+        }
 
         // If no compatible extension detected, we'll have to ask for an nsec/private key :(
         if (
