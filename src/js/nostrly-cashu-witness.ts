@@ -239,11 +239,11 @@ jQuery(function ($) {
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
     html += "<strong>Witness Requirements:</strong><ul>";
     if (lockState === "PERMANENT") {
-      html += `<li>Main locktime: permanently locked (no expiry)</li>`;
+      html += `<li>Locktime: permanently locked (no expiry)</li>`;
     } else if (lockState === "ACTIVE") {
-      html += `<li>Main locktime: active until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
+      html += `<li>Locktime: active until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
     } else {
-      html += `<li>Main locktime: expired</li>`;
+      html += `<li>Locktime: expired</li>`;
     }
 
     const mainRemaining = Math.max(
@@ -251,7 +251,7 @@ jQuery(function ($) {
       0,
     );
     const mainSpendable = mainRequiredSigners === 0 || mainRemaining === 0;
-    html += `<li>Main pathway: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)${mainSpendable ? " - spendable" : ""}</li>`;
+    html += `<li>Locktime MultiSig: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)${mainSpendable ? " - spendable" : ""}</li>`;
 
     const refundPathActive =
       lockState === "EXPIRED" && refundPubkeys.length > 0;
@@ -263,9 +263,10 @@ jQuery(function ($) {
       html += `<li>Unlocked: locktime expired and no refund keys (anyone can spend)</li>`;
     }
 
-    if (mainPubkeys.length) {
-      html += `<li>Main pubkeys:</li><ul>`;
-    }
+    // if (mainPubkeys.length) {
+    //   html += `<li>Locktime Pubkeys:</li>`;
+    // }
+    html += `<ul>`;
 
     const updateContactName = (
       id: string,
@@ -307,11 +308,12 @@ jQuery(function ($) {
         );
         const refundSpendable =
           refundRequiredSigners === 0 || refundRemaining === 0;
-        html += `<li>Refund pathway: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)${refundSpendable ? " - spendable" : ""}</li>`;
+        html += `<li>Refund MultiSig: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)${refundSpendable ? " - spendable" : ""}</li>`;
       } else {
-        html += `<li>Refund pathway: configured, becomes active after locktime expiry</li>`;
+        html += `<li>Refund MultiSig: configured, becomes active after locktime expiry</li>`;
       }
-      html += `<li>Refund pubkeys:</li><ul>`;
+      // html += `<li>Refund Pubkeys:</li>`;
+      html += `<ul>`;
       for (const pub of refundPubkeys) {
         const npub = convertP2PKToNpub(pub);
         const isSigned = refundSignedPubkeys.includes(pub);
@@ -327,7 +329,7 @@ jQuery(function ($) {
 
     if (verification.success) {
       if (refundPathActive && mainSpendable) {
-        html += `<p class="summary">Spendable now. Main pathway is valid, and refund pathway is also available.</p>`;
+        html += `<p class="summary">Spendable now. Locktime MultiSig is valid, and Refund MultiSig is also available.</p>`;
       } else {
         html += `<p class="summary">Spendable now via ${verification.path.toLowerCase()} pathway.</p>`;
       }

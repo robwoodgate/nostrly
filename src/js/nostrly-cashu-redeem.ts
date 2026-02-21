@@ -275,34 +275,34 @@ jQuery(function ($) {
         const lines: string[] = [];
         lines.push(`Token is P2PK locked`);
         lines.push(
-          `Main pathway: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)`,
+          `Locktime MultiSig: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)`,
         );
 
         if (lockState === "PERMANENT") {
-          lines.push("Main locktime: permanently locked (no expiry)");
+          lines.push("Locktime: permanently locked (no expiry)");
         } else if (lockState === "ACTIVE") {
           lines.push(
-            `Main locktime: active until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}`,
+            `Locktime: active until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}`,
           );
         } else {
-          lines.push("Main locktime: expired");
+          lines.push("Locktime: expired");
         }
 
         if (mainKeyholders.length) {
-          lines.push(`Main pubkeys: ${mainKeyholders.join(", ")}`);
+          lines.push(`Locktime Pubkeys: ${mainKeyholders.join(", ")}`);
         }
 
         if (refundPubkeys.length) {
           if (refundPathActive) {
             lines.push(
-              `Refund pathway: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)`,
+              `Refund MultiSig: active (${refundSignedPubkeys.length}/${refundRequiredSigners} signatures, ${refundPubkeys.length} eligible)`,
             );
           } else {
             lines.push(
-              "Refund pathway: configured, becomes active after locktime expiry",
+              "Refund MultiSig: configured, becomes active after locktime expiry",
             );
           }
-          lines.push(`Refund pubkeys: ${refundKeyholders.join(", ")}`);
+          lines.push(`Refund Pubkeys: ${refundKeyholders.join(", ")}`);
         } else if (lockState === "EXPIRED" && mainRequiredSigners === 0) {
           lines.push(
             "Unlocked: locktime expired and no refund keys (anyone can spend)",
@@ -312,7 +312,7 @@ jQuery(function ($) {
         if (verification.success) {
           if (refundPathActive && mainRemaining === 0) {
             lines.push(
-              "Spendable now. Main pathway is valid, and refund pathway is also available.",
+              "Spendable now. Locktime MultiSig is valid, and Refund MultiSig is also available.",
             );
           } else {
             lines.push(
