@@ -10,7 +10,7 @@ import {
   getP2PKWitnessRefundkeys,
   hasP2PKSignedProof,
   verifyP2PKSpendingConditions,
-  verifyP2PKSig,
+  isP2PKSpendAuthorised,
   Wallet,
   Proof,
   signP2PKProofs,
@@ -425,7 +425,7 @@ jQuery(function ($) {
     // Double check the signatures to make sure proofs are fully signed
     for (const proof of proofs) {
       try {
-        if (!verifyP2PKSig(proof)) {
+        if (!isP2PKSpendAuthorised(proof)) {
           console.warn("Proof is not signed properly!", proof);
         }
       } catch (e) {

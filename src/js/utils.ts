@@ -1,8 +1,8 @@
 import {
   Wallet,
   ConsoleLogger,
-  type MintKeys,
-  type MintKeyset,
+  type GetInfoResponse,
+  type KeyChainCache,
   type Proof,
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
@@ -13,12 +13,31 @@ type CurrencyUnit = "btc" | "sat" | "msat" | string;
 const TOKEN_HISTORY_KEY = "cashu.lockedTokens";
 
 interface MintData {
-  keysets: MintKeyset[];
-  keys: MintKeys[];
+  keyChainCache: KeyChainCache;
+  mintInfo: GetInfoResponse;
   unit: string;
   mintUrl: string;
   lastUpdated: number;
 }
+
+const getMintCacheKey = (mintUrl: string, unit: CurrencyUnit): string => {
+  return `cashu.mint.${mintUrl}.${String(unit).toLowerCase()}`;
+};
+
+const isMintData = (value: unknown): value is MintData => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const data = value as Partial<MintData>;
+  return (
+    typeof data.mintUrl === "string" &&
+    typeof data.unit === "string" &&
+    typeof data.lastUpdated === "number" &&
+    !!data.mintInfo &&
+    !!data.keyChainCache &&
+    Array.isArray(data.keyChainCache.keysets)
+  );
+};
 
 interface NutLockEntry {
   date: string;
@@ -194,9 +213,12 @@ export const getWalletWithUnit = async (
   mintUrl: string,
   unit: CurrencyUnit = "sat",
 ): Promise<Wallet> => {
+  const cacheKey = getMintCacheKey(mintUrl, unit);
+
   // Load cached data
-  const stored: string | null = localStorage.getItem(`cashu.mint.${mintUrl}`);
-  const cache: MintData | null = stored ? JSON.parse(stored) : null;
+  const stored: string | null = localStorage.getItem(cacheKey);
+  const parsed: unknown = stored ? JSON.parse(stored) : null;
+  const cache: MintData | null = isMintData(parsed) ? parsed : null;
   const logger = new ConsoleLogger("debug");
   console.log("getWalletWithUnit:>> cache", cache);
 
@@ -205,24 +227,22 @@ export const getWalletWithUnit = async (
     const wallet = new Wallet(mintUrl, { unit, logger });
     await wallet.loadMint();
     // Cache the data
-    const cache = wallet.keyChain.getCache();
+    const keyChainCache = wallet.keyChain.cache;
     const freshData: MintData = {
-      ...cache,
+      mintUrl: wallet.mint.mintUrl,
+      unit: wallet.unit,
+      mintInfo: wallet.getMintInfo().cache,
+      keyChainCache,
       lastUpdated: Date.now(),
     };
-    localStorage.setItem(`cashu.mint.${mintUrl}`, JSON.stringify(freshData));
+    localStorage.setItem(cacheKey, JSON.stringify(freshData));
     console.log("getWalletWithUnit:>> using fresh data", freshData);
     return wallet;
   }
 
   // Use cached data
-  const wallet = new Wallet(cache.mintUrl, {
-    unit: cache.unit,
-    keysets: cache.keysets,
-    keys: cache.keys,
-    logger,
-  });
-  await wallet.loadMint();
+  const wallet = new Wallet(cache.mintUrl, { unit: cache.unit, logger });
+  wallet.loadMintFromCache(cache.mintInfo, cache.keyChainCache);
   console.log("getWalletWithUnit:>> using cached data", cache);
   return wallet;
 };
