@@ -274,10 +274,6 @@ jQuery(function ($) {
 
         const lines: string[] = [];
         lines.push(`Token is P2PK locked`);
-        lines.push(
-          `Locktime MultiSig: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)`,
-        );
-
         if (lockState === "PERMANENT") {
           lines.push("Locktime: permanently locked (no expiry)");
         } else if (lockState === "ACTIVE") {
@@ -287,6 +283,10 @@ jQuery(function ($) {
         } else {
           lines.push("Locktime: expired");
         }
+
+        lines.push(
+          `Locktime MultiSig: ${mainSignedPubkeys.length}/${mainRequiredSigners} signatures (${mainPubkeys.length} eligible)`,
+        );
 
         if (mainKeyholders.length) {
           lines.push(`Locktime Pubkeys: ${mainKeyholders.join(", ")}`);
