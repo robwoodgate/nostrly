@@ -1,7 +1,6 @@
 // Imports
 import {
-  getDecodedToken,
-  getEncodedTokenV4,
+  getEncodedToken,
   MintQuoteState,
   OutputData,
   P2PKBuilder,
@@ -473,6 +472,7 @@ jQuery(function ($) {
 
     // Deduplicate lockKeys and refundKeys while filtering falsy values
     lockKeys = [...new Set([lockP2PK, ...extraLockKeys].filter(Boolean))];
+    if (!lockKeys.length) return false;
     refundKeys = [...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean))];
     const hasValidRefunds = !$refundNpub.val() || refundKeys.length > 0;
     console.log("lockKeys:>", lockKeys);
@@ -480,19 +480,26 @@ jQuery(function ($) {
     // Check secret length is under MAX_SECRET characters as some mints have
     // this limit. To do this, let's create a 1 sat blinded message with p2pk
     // @see: https://github.com/cashubtc/nuts/pull/234
-    const keyset = wallet.keyChain.getKeyset();
-    const testBlindedMessage = OutputData.createSingleP2PKData(
-      {
-        pubkey: lockKeys,
-        locktime: expireTime,
-        refundKeys: refundKeys.length ? refundKeys : undefined,
-        requiredSignatures: nSigValue,
-        requiredRefundSignatures: rSigValue,
-      },
-      1, // for testing
-      keyset.id,
-    );
-    const secretDecode = new TextDecoder().decode(testBlindedMessage.secret);
+    let secretDecode = "";
+    try {
+      const keyset = wallet.keyChain.getKeyset();
+      const testBlindedMessage = OutputData.createSingleP2PKData(
+        {
+          pubkey: lockKeys,
+          locktime: expireTime,
+          refundKeys: refundKeys.length ? refundKeys : undefined,
+          requiredSignatures: nSigValue,
+          requiredRefundSignatures: refundKeys.length ? rSigValue : undefined,
+        },
+        1, // for testing
+        keyset.id,
+      );
+      secretDecode = new TextDecoder().decode(testBlindedMessage.secret);
+    } catch (e) {
+      const msg = getErrorMessage(e);
+      toastr.error(msg);
+      console.error(e);
+    }
     const secretLength = secretDecode.length;
     console.log("secret:>>", secretDecode);
     console.log("secret length:>>", secretDecode.length);
@@ -541,7 +548,7 @@ jQuery(function ($) {
       proofs = [...proofs, ...ps];
       storeMintProofs(mintUrl, proofs, true); // Store all for safety
       createLockedToken();
-    } else if (getTokenAmount(proofs) >= totalNeeded) {
+    } else if (getTokenAmount(proofs).greaterThanOrEqual(totalNeeded)) {
       // Paid by Cashu token, or saved lightning payment
       createLockedToken();
     } else {
@@ -562,7 +569,7 @@ jQuery(function ($) {
         if (!token.startsWith("cashu")) {
           token = emojiDecode(token);
         }
-        token = getDecodedToken(token);
+        token = wallet.decodeToken(token);
         // Check this token is from same mint as wallet
         if (token.mint != mintUrl) {
           throw new Error("Token is not from " + mintUrl);
@@ -575,7 +582,7 @@ jQuery(function ($) {
         }
         // Check token was big enough
         const totalNeeded = tokenAmount + feeAmount + donationAmount;
-        if (getTokenAmount(token.proofs) < totalNeeded) {
+        if (getTokenAmount(token.proofs).lessThan(totalNeeded)) {
           throw new Error(
             `Token is ${formatAmount(getTokenAmount(token.proofs))}.<br>Expected at least ${formatAmount(totalNeeded)}. `,
           );
@@ -614,8 +621,10 @@ jQuery(function ($) {
         .addLockPubkey(lockKeys)
         .lockUntil(expireTime)
         .addRefundPubkey(refundKeys)
-        .requireLockSignatures(nSigValue)
-        .requireRefundSignatures(rSigValue);
+        .requireLockSignatures(nSigValue);
+      if (refundKeys.length) {
+        p2pk.requireRefundSignatures(rSigValue);
+      }
       if ($useP2BK.is(":checked")) {
         p2pk.blindKeys();
       }
@@ -629,14 +638,14 @@ jQuery(function ($) {
       console.log("donationProofs:>>", donationProofs);
 
       if (donationProofs.length) {
-        const donationToken = getEncodedTokenV4({
+        const donationToken = getEncodedToken({
           mint: mintUrl,
           proofs: donationProofs,
         });
         handleCashuDonation(donationToken, "Cashu NutLock Donation");
       }
 
-      const lockedToken = getEncodedTokenV4({
+      const lockedToken = getEncodedToken({
         mint: mintUrl,
         proofs: p2pkProofs,
       });

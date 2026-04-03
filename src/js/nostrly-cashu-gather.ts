@@ -1,7 +1,7 @@
 import {
-  getEncodedTokenV4,
-  getDecodedToken,
-  getP2PKNSigs,
+  getEncodedToken,
+  getTokenMetadata,
+  verifyP2PKSpendingConditions,
   signP2PKProofs,
   Proof,
   CheckStateEnum,
@@ -10,7 +10,6 @@ import {
   copyTextToClipboard,
   delay,
   getWalletWithUnit,
-  getTokenAmount,
   formatAmount,
 } from "./utils";
 import {
@@ -102,7 +101,7 @@ jQuery(function ($) {
     validEntries: ProofEntry[],
   ) {
     const validSignedProofs = validEntries.map((entry) => entry.proof);
-    const token = getEncodedTokenV4({
+    const token = getEncodedToken({
       mint: mintUrl,
       proofs: validSignedProofs,
       unit,
@@ -110,7 +109,7 @@ jQuery(function ($) {
     try {
       const wallet = await getWalletWithUnit(mintUrl, unit);
       const newProofs = await wallet.receive(token);
-      return getEncodedTokenV4({
+      return getEncodedToken({
         mint: mintUrl,
         proofs: newProofs,
         unit,
@@ -185,7 +184,7 @@ jQuery(function ($) {
         }
         // P2PK proofs should be signed and require one signature + witness
         // or require zero signatures (locktime has expired, no refund keys)
-        const n_sigs = getP2PKNSigs(proof.secret);
+        const n_sigs = verifyP2PKSpendingConditions(proof).main.requiredSigners;
         if (!n_sigs || (n_sigs == 1 && proof.witness)) {
           console.log("Signed NutZap proof", proof);
           validEntries.push({ proof, eventId });
@@ -223,8 +222,8 @@ jQuery(function ($) {
 
   /** Helper function to create a token list item with copy buttons. */
   function createTokenListItem(data: TokenData) {
-    const decodedToken = getDecodedToken(data.token);
-    const amount = formatAmount(getTokenAmount(decodedToken.proofs), data.unit);
+    const metadata = getTokenMetadata(data.token);
+    const amount = formatAmount(metadata.amount, data.unit);
     const li = document.createElement("li");
     li.className = data.timestamp ? "history-item" : "";
     li.innerHTML = `

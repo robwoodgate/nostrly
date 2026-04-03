@@ -1,19 +1,14 @@
 // Imports
 import {
-  getDecodedToken,
-  getEncodedTokenV4,
-  getP2PKLockState,
+  getEncodedToken,
+  getTokenMetadata,
   getP2PKExpectedWitnessPubkeys,
-  getP2PKNSigs,
-  getP2PKNSigsRefund,
   getP2PKSigFlag,
   getP2PKWitnessSignatures,
-  getP2PKLocktime,
-  getP2PKWitnessPubkeys,
-  getP2PKWitnessRefundkeys,
   signP2PKProofs,
   hasP2PKSignedProof,
   verifyP2PKSpendingConditions,
+  Amount,
   Proof,
   Wallet,
   Token,
@@ -50,7 +45,7 @@ jQuery(function ($) {
   let mintUrl: string;
   let unit: string;
   let proofs: Proof[];
-  let tokenAmount: number;
+  let tokenAmount: Amount;
   let privkey: string;
   let p2pkParams: { pubkeys: string[]; n_sigs: number } = {
     pubkeys: [],
@@ -98,7 +93,7 @@ jQuery(function ($) {
     mintUrl = "";
     unit = "sat";
     proofs = [];
-    tokenAmount = 0;
+    tokenAmount = Amount.zero();
     privkey = "";
     p2pkParams = { pubkeys: [], n_sigs: 0 };
     spendAuthorised = false;
@@ -165,12 +160,14 @@ jQuery(function ($) {
           $token.val(decoded);
         }
       }
-      const token: Token = getDecodedToken(tokenEncoded);
-      if (!token.proofs.length || !token.mint.length) {
+      const metadata = getTokenMetadata(tokenEncoded);
+      if (!metadata.mint || !metadata.incompleteProofs.length) {
         throw new Error("Invalid token format");
       }
-      mintUrl = token.mint;
-      unit = token.unit || "sat";
+      mintUrl = metadata.mint;
+      unit = metadata.unit;
+      wallet = await getWalletWithUnit(mintUrl, unit);
+      const token: Token = wallet.decodeToken(tokenEncoded);
       proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
       if (!proofs.length) {
         toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
@@ -183,7 +180,9 @@ jQuery(function ($) {
       });
       tokenAmount = getTokenAmount(proofs);
       p2pkParams.pubkeys = getP2PKExpectedWitnessPubkeys(proofs[0].secret);
-      p2pkParams.n_sigs = getP2PKNSigs(proofs[0].secret);
+      p2pkParams.n_sigs = verifyP2PKSpendingConditions(
+        proofs[0],
+      ).main.requiredSigners;
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
@@ -206,13 +205,12 @@ jQuery(function ($) {
       return;
     }
     const proof = proofs[0];
-    const locktime = getP2PKLocktime(proof.secret);
-    const lockState = getP2PKLockState(proof.secret);
-    const mainPubkeys = getP2PKWitnessPubkeys(proof.secret);
-    const refundPubkeys = getP2PKWitnessRefundkeys(proof.secret);
-    const mainRequiredSigners = getP2PKNSigs(proof.secret);
-    const refundRequiredSigners = getP2PKNSigsRefund(proof.secret);
     const verification = verifyP2PKSpendingConditions(proof, logger);
+    const { lockState, locktime } = verification;
+    const mainPubkeys = verification.main.pubkeys;
+    const refundPubkeys = verification.refund.pubkeys;
+    const mainRequiredSigners = verification.main.requiredSigners;
+    const refundRequiredSigners = verification.refund.requiredSigners;
     const hasP2BK = proofs.some((p) => p?.p2pk_e);
 
     const getSignedKeys = (pubkeys: string[]): string[] => {
@@ -373,7 +371,7 @@ jQuery(function ($) {
       return;
     }
     const isLocked = p2pkParams.pubkeys.length > 0;
-    if (isLocked && tokenAmount > 0 && proofs.length) {
+    if (isLocked && !tokenAmount.isZero() && proofs.length) {
       $signersDiv.show();
       if (hasNip07) {
         $useNip07.prop("disabled", false);
@@ -438,7 +436,7 @@ jQuery(function ($) {
 
       console.log("signedProofs after:>>", signedProofs);
       console.log("Encoding token...");
-      const witnessedToken = getEncodedTokenV4({
+      const witnessedToken = getEncodedToken({
         mint: mintUrl,
         proofs: signedProofs,
         unit: unit,
@@ -450,7 +448,7 @@ jQuery(function ($) {
       );
       let status = verification.success
         ? `Spendable (${verification.path})`
-        : `Partially signed: ${verification.receivedSigners.length}/${verification.requiredSigners}`;
+        : `Partially signed: ${verification.main.receivedSigners.length}/${verification.main.requiredSigners}`;
       storeWitnessHistory(witnessedToken, tokenAmount, status);
       showSuccess();
       toastr.success(
@@ -469,7 +467,7 @@ jQuery(function ($) {
       console.log("unit:>>", unit);
       wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
       const unlockedProofs = await wallet.receive($token.val() as string);
-      const unlockedToken = getEncodedTokenV4({
+      const unlockedToken = getEncodedToken({
         mint: mintUrl,
         proofs: unlockedProofs,
         unit: unit,
@@ -490,7 +488,7 @@ jQuery(function ($) {
 
   interface WitnessHistoryItem {
     token: string;
-    amount: number;
+    amount: number | string; // Amount.toJSON() returns number | string
     date: string; // ISO string from Date.toISOString()
     status: string;
   }
@@ -498,13 +496,13 @@ jQuery(function ($) {
   // Store witness history
   function storeWitnessHistory(
     token: string,
-    amount: number,
+    amount: Amount,
     status: string,
   ): void {
     const history = getWitnessHistory();
     history.push({
       token,
-      amount,
+      amount: amount.toJSON(),
       date: new Date().toISOString(),
       status,
     });

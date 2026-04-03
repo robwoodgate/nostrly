@@ -1,6 +1,10 @@
 import {
   Wallet,
   ConsoleLogger,
+  Amount,
+  serializeProofs,
+  deserializeProofs,
+  type AmountLike,
   type GetInfoResponse,
   type KeyChainCache,
   type Proof,
@@ -43,7 +47,7 @@ interface NutLockEntry {
   date: string;
   name: string;
   token: string;
-  amount: number;
+  amount: number | string; // Amount.toJSON() returns number | string
 }
 
 /**
@@ -51,10 +55,8 @@ interface NutLockEntry {
  * @param proofs Array of proofs to sum
  * @return The token amount
  */
-export const getTokenAmount = (proofs: Array<Proof>): number => {
-  return proofs.reduce((acc, proof) => {
-    return acc + proof.amount;
-  }, 0);
+export const getTokenAmount = (proofs: Array<Proof>): Amount => {
+  return Amount.sum(proofs.map((p) => p.amount));
 };
 
 /**
@@ -69,10 +71,11 @@ export const getTokenAmount = (proofs: Array<Proof>): number => {
  * @throws Logs a warning and returns a fallback string for invalid units or locales.
  */
 export const formatAmount = (
-  amount: number,
+  amount: AmountLike,
   unit: CurrencyUnit = "sat",
   locale: string = "en-US",
 ): string => {
+  const a = Amount.from(amount);
   const upperUnit = unit.toUpperCase();
   const bitcoinUnits: Record<
     string,
@@ -103,16 +106,20 @@ export const formatAmount = (
     minorUnit = specialMinorUnits[upperUnit] ?? 2;
     options = { style: "currency", currency: upperUnit };
   }
-  // Adjust to major unit for display
-  const adjustedAmount = amount / 10 ** minorUnit;
   options.minimumFractionDigits = minorUnit;
   options.maximumFractionDigits = minorUnit;
   try {
     const formatter = new Intl.NumberFormat(locale, options);
+    if (minorUnit === 0) {
+      // Integer unit (sat, JPY, etc.) — pass bigint directly; Intl supports it natively
+      return prefix + formatter.format(a.toBigInt()) + suffix;
+    }
+    // Decimal unit (fiat, BTC) — these amounts won't realistically exceed safe integer range
+    const adjustedAmount = a.toNumber() / 10 ** minorUnit;
     return prefix + formatter.format(adjustedAmount) + suffix;
   } catch (error) {
     console.warn(`Invalid unit or locale: ${unit}, ${locale}`, error);
-    return `${amount} ${unit}`;
+    return `${a.toString()} ${unit}`;
   }
 };
 
@@ -142,7 +149,10 @@ export function storeMintProofs(
       new Map(combinedProofs.map((proof) => [proof.secret, proof])).values(),
     );
   }
-  localStorage.setItem(`cashu.proofs.${mintUrl}`, JSON.stringify(finalProofs));
+  localStorage.setItem(
+    `cashu.proofs.${mintUrl}`,
+    JSON.stringify(serializeProofs(finalProofs)),
+  );
 }
 
 /**
@@ -152,7 +162,8 @@ export function storeMintProofs(
  */
 export function getMintProofs(mintUrl: string): Array<Proof> {
   const stored: string | null = localStorage.getItem(`cashu.proofs.${mintUrl}`);
-  return stored ? JSON.parse(stored) : [];
+  if (!stored) return [];
+  return deserializeProofs(JSON.parse(stored));
 }
 
 /**
@@ -163,7 +174,7 @@ export function getMintProofs(mintUrl: string): Array<Proof> {
  */
 export function storeLockedToken(
   token: string,
-  amount: number,
+  amount: AmountLike,
   name: string,
 ): void {
   const stored = getLockedTokens();
@@ -171,7 +182,7 @@ export function storeLockedToken(
     date: new Date().toISOString(),
     name,
     token,
-    amount,
+    amount: Amount.from(amount).toJSON(),
   };
   const updated = [newEntry, ...stored];
   localStorage.setItem(TOKEN_HISTORY_KEY, JSON.stringify(updated));

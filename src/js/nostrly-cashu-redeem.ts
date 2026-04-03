@@ -1,16 +1,11 @@
 // Imports
 import {
-  getDecodedToken,
-  getEncodedTokenV4,
-  getP2PKLockState,
-  getP2PKLocktime,
-  getP2PKNSigs,
-  getP2PKNSigsRefund,
-  getP2PKWitnessPubkeys,
-  getP2PKWitnessRefundkeys,
+  getEncodedToken,
+  getTokenMetadata,
   hasP2PKSignedProof,
   verifyP2PKSpendingConditions,
   isP2PKSpendAuthorised,
+  Amount,
   Wallet,
   Proof,
   signP2PKProofs,
@@ -47,7 +42,7 @@ jQuery(function ($) {
   let mintUrl: string;
   let unit: string = "sat";
   let proofs: Proof[];
-  let tokenAmount: number;
+  let tokenAmount: Amount;
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
 
@@ -81,7 +76,7 @@ jQuery(function ($) {
     mintUrl = "";
     unit = "sat";
     proofs = [];
-    tokenAmount = 0;
+    tokenAmount = Amount.zero();
     $tokenStatus.text("");
     $lightningStatus.text("");
     $tokenRemover.addClass("hidden");
@@ -94,11 +89,17 @@ jQuery(function ($) {
   const isLnurl = (address: string) =>
     address.split("@").length === 2 ||
     address.toLowerCase().startsWith("lnurl1");
-  const getInvoiceFromLnurl = async (address = "", amount = 0) => {
+  const getInvoiceFromLnurl = async (
+    address = "",
+    amount: Amount | number = 0,
+  ) => {
     try {
       if (!address) throw "Error: address is required!";
-      if (!amount) throw "Error: amount is required!";
+      const sats = Amount.from(amount);
+      if (sats.isZero()) throw "Error: amount is required!";
       if (!isLnurl(address)) throw "Error: invalid address";
+      // LNURL minSendable/maxSendable are in millisats (integer)
+      const msats = sats.multiplyBy(1000);
       let data = {
         tag: "",
         minSendable: 0,
@@ -125,11 +126,10 @@ jQuery(function ($) {
       }
       if (
         data.tag == "payRequest" &&
-        data.minSendable <= amount * 1000 &&
-        amount * 1000 <= data.maxSendable
+        msats.inRange(data.minSendable, data.maxSendable)
       ) {
         const response = await fetch(
-          `${data.callback}?amount=${amount * 1000}`,
+          `${data.callback}?amount=${msats.toString()}`,
         );
         if (!response.ok) throw "Unable to reach host";
         const json = await response.json();
@@ -162,16 +162,17 @@ jQuery(function ($) {
         }
       }
       // Decode token
-      const token = getDecodedToken(tokenEncoded);
-      console.log("token :>> ", token);
-      if (!token.proofs.length || !token.mint.length) {
+      const metadata = getTokenMetadata(tokenEncoded);
+      if (!metadata.mint || !metadata.incompleteProofs.length) {
         throw "Token format invalid";
       }
       // Extract token data, open wallet
-      mintUrl = token.mint;
-      unit = token.unit ?? "sat";
+      mintUrl = metadata.mint;
+      unit = metadata.unit;
       wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
+      const token = wallet.decodeToken(tokenEncoded);
       proofs = token.proofs ?? [];
+      console.log("token :>> ", token);
       console.log("proofs :>>", proofs);
       // Check proofs are not spent
       const { unspent } = await wallet.groupProofsByState(proofs);
@@ -188,7 +189,7 @@ jQuery(function ($) {
       // Token partially spent - so update token
       if (unspent.length != proofs.length) {
         $token.val(
-          getEncodedTokenV4({
+          getEncodedToken({
             mint: mintUrl,
             unit: unit,
             proofs: unspent,
@@ -209,13 +210,12 @@ jQuery(function ($) {
         // they are... so inspect all spending pathways
         console.log("P2PK locked proofs found:>>", lockedProofs);
         const proof = lockedProofs[0];
-        const locktime = getP2PKLocktime(proof.secret);
-        const lockState = getP2PKLockState(proof.secret);
-        const mainPubkeys = getP2PKWitnessPubkeys(proof.secret);
-        const refundPubkeys = getP2PKWitnessRefundkeys(proof.secret);
-        const mainRequiredSigners = getP2PKNSigs(proof.secret);
-        const refundRequiredSigners = getP2PKNSigsRefund(proof.secret);
         const verification = verifyP2PKSpendingConditions(proof);
+        const { lockState, locktime } = verification;
+        const mainPubkeys = verification.main.pubkeys;
+        const refundPubkeys = verification.refund.pubkeys;
+        const mainRequiredSigners = verification.main.requiredSigners;
+        const refundRequiredSigners = verification.refund.requiredSigners;
         const refundPathActive =
           lockState === "EXPIRED" && refundPubkeys.length > 0;
 
@@ -451,58 +451,54 @@ jQuery(function ($) {
       let meltQuote = null;
       if (isLnurl(address)) {
         try {
-          // Set LN invoice/fee estimates to NutShell defaults: 2%, 2 sat min
-          // @see: https://github.com/cashubtc/nutshell/blob/main/.env.example#L114
-          let estFeeSats = Math.ceil(Math.max(2, tokenAmount * 0.02));
-          let estInvSats: number = tokenAmount - estFeeSats;
-
           // LN invoices are in sats, so if our token is not, we need to find
           // out roughly how many sats the token is worth... we can estimate
           // this by asking the mint to give us a mint quote for tokenAmount
+          let estTokenAmount = tokenAmount; // in token's base unit (may not be sats)
           if ("sat" != unit) {
+            // LN invoices are in sats — ask the mint how many sats the token is worth
             console.log(
               `Token is in ${unit}. Estimating melt invoice value...`,
             );
             const mintQuote = await wallet.createMintQuoteBolt11(tokenAmount);
             console.log("Mint Quote :>>", mintQuote);
-            const sats = getSatsAmount(mintQuote.request);
-            estFeeSats = Math.ceil(Math.max(2, sats * 0.02)); // NutShell default
-            estInvSats = sats - estFeeSats;
-            console.log("Mint estInvSats :>>", estInvSats);
+            estTokenAmount = Amount.from(getSatsAmount(mintQuote.request));
+            console.log("Mint estTokenAmount :>>", estTokenAmount.toString());
           }
-
-          // Reduce token amount by Mint fees
-          estInvSats -= wallet.getFeesForProofs(proofs);
+          // Set LN invoice/fee estimates to NutShell defaults: 2%, 2 sat min
+          // @see: https://github.com/cashubtc/nutshell/blob/main/.env.example#L114
+          const estFee = estTokenAmount.ceilPercent(2).clamp(2, estTokenAmount);
+          const mintFees = wallet.getFeesForProofs(proofs);
 
           // Check fees haven't eaten token
-          if (estInvSats <= 0) {
+          if (estFee.add(mintFees).greaterThanOrEqual(estTokenAmount)) {
             throw new Error("Token amount too low to cover estimated fees");
           }
+          let estInvAmount = estTokenAmount.subtract(estFee).subtract(mintFees);
 
           // Get invoice and melt quote
-          invoice = await getInvoiceFromLnurl(address, estInvSats);
+          invoice = await getInvoiceFromLnurl(address, estInvAmount);
           meltQuote = await wallet.createMeltQuoteBolt11(invoice);
           console.log("meltQuote :>> ", meltQuote);
 
-          // If we overestimated invoice value, lets adjust it to fit. MeltQuote is in
-          // token's base unit, so scale estInvSats by same ratio (- 1 sat for safety)
-          const neededAmount = meltQuote.amount + meltQuote.fee_reserve;
-          if (neededAmount > tokenAmount) {
+          // If we overestimated invoice value, adjust it to fit.
+          const neededAmount = meltQuote.amount.add(meltQuote.fee_reserve);
+          if (tokenAmount.lessThan(neededAmount)) {
             console.log(
               `Melt invoice too high... token: ${tokenAmount}, quote: ${neededAmount}`,
             );
-            estInvSats = Math.round(
-              estInvSats * (tokenAmount / neededAmount) - 1,
-            );
-            if (estInvSats <= 0) {
+            // Proportional rescale using integer arithmetic; subtract 1 unit as safety margin
+            const rescaled = estInvAmount.scaledBy(tokenAmount, neededAmount);
+            if (rescaled.lessThanOrEqual(1)) {
               throw new Error("Token amount too low to cover fee reserve");
             }
-            invoice = await getInvoiceFromLnurl(address, estInvSats);
+            estInvAmount = rescaled.subtract(1);
+            invoice = await getInvoiceFromLnurl(address, estInvAmount);
             meltQuote = await wallet.createMeltQuoteBolt11(invoice);
             console.log("Adjusted meltQuote :>> ", meltQuote);
           }
 
-          console.log("Final estInvSats :>> ", estInvSats);
+          console.log("Final estInvAmount :>> ", estInvAmount.toString());
         } catch (e) {
           let msg = getErrorMessage(e);
           console.error("Error generating invoice:", msg);
@@ -516,12 +512,12 @@ jQuery(function ($) {
       }
       // wallet and tokenAmount let us know processToken succeeded
       // If so, check invoice can be covered by the tokenAmount
-      if (!wallet || !invoice || !tokenAmount) throw "OOPS!";
-      const amountToSend = meltQuote.amount + meltQuote.fee_reserve;
-      if (!amountToSend) {
+      if (!wallet || !invoice || tokenAmount.isZero()) throw "OOPS!";
+      const amountToSend = meltQuote.amount.add(meltQuote.fee_reserve);
+      if (amountToSend.isZero()) {
         throw "Invoice amount is too small to send";
       }
-      if (amountToSend > tokenAmount) {
+      if (tokenAmount.lessThan(amountToSend)) {
         throw `Not enough to pay the invoice: needs ${formatAmount(meltQuote.amount, unit)} + ${formatAmount(meltQuote.fee_reserve, unit)}`;
       }
       // Sign P2PK proofs if needed
@@ -541,7 +537,7 @@ jQuery(function ($) {
         // Tokenize our change (overpayment)
         if (meltResponse.change.length > 0) {
           $lightningStatus.text("Success! Preparing your change token...");
-          let newToken = getEncodedTokenV4({
+          let newToken = getEncodedToken({
             mint: mintUrl,
             unit: unit,
             proofs: meltResponse.change,

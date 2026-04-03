@@ -1,4 +1,4 @@
-import { getDecodedToken, getEncodedTokenV4 } from "@cashu/cashu-ts";
+import { getEncodedToken, getTokenMetadata } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import {
   NOSTRLY_PUBKEY,
@@ -42,13 +42,13 @@ export const handleCashuDonation = async (
     if (!token.startsWith("cashu")) {
       token = emojiDecode(token);
     }
-    const decoded = getDecodedToken(token);
-    if (!decoded) {
+    const metadata = getTokenMetadata(token);
+    if (!metadata.mint) {
       throw new Error("Could not process token");
     }
     // Create a wallet connected to same mint as token
-    const mintUrl = decoded.mint;
-    const unit = decoded.unit;
+    const mintUrl = metadata.mint;
+    const unit = metadata.unit;
     const wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
     let proofs; // scope
     if (pubkey && mints.includes(mintUrl)) {
@@ -64,7 +64,7 @@ export const handleCashuDonation = async (
     } else {
       // Receive the token to the wallet (creates new proofs) and send as Nostr DM
       proofs = await wallet.receive(token);
-      const newToken = getEncodedTokenV4({
+      const newToken = getEncodedToken({
         mint: mintUrl,
         proofs: proofs,
         unit: unit,

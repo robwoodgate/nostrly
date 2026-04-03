@@ -18,6 +18,7 @@ import {
   getP2PKWitnessSignatures,
   hasP2PKSignedProof,
   Proof,
+  serializeProofs,
   signP2PKProofs,
 } from "@cashu/cashu-ts";
 import { getErrorMessage } from "./utils";
@@ -121,7 +122,7 @@ export const sendNutZap = async (
 ) => {
   toPub = toPub || NOSTRLY_PUBKEY; // Fallback
   relays = relays || DEFAULT_RELAYS; // Fallback
-  const proofTags = proofs.map((p) => ["proof", JSON.stringify(p)]);
+  const proofTags = serializeProofs(proofs).map((s) => ["proof", s]);
   const eventTemplate: EventTemplate = {
     kind: 9321,
     content: message || "NutZap via Nostrly",

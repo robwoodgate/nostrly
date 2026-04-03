@@ -2,7 +2,7 @@
 Contributors: robwoodgate
 Tags: nostr
 Requires at least: 5.5
-Tested up to: 6.8.1
+Tested up to: 6.9.4
 Stable tag: trunk
 
 Adds Admin screens for Nostrly App
