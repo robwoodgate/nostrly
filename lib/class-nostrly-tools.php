@@ -567,7 +567,7 @@ class NostrlyTools
                         <label for="mint-select">Choose a Mint:</label>
                         <select id="mint-select" name="mint-select" required>
                             <option value="" disabled selected>Select a mint...</option>
-                            <option value="http://localhost:3338">http://localhost:3338 (TEST MINT)</option>
+                            <!-- <option value="http://localhost:3338">http://localhost:3338 (TEST MINT)</option> -->
                             <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
                             <option value="https://mint.103100.xyz">https://mint.103100.xyz</option>
                             <option value="https://mint.coinos.io">https://mint.coinos.io</option>
