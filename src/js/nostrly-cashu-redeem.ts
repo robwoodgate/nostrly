@@ -3,6 +3,7 @@ import {
   getEncodedToken,
   getTokenMetadata,
   hasP2PKSignedProof,
+  hasValidDleq,
   verifyP2PKSpendingConditions,
   isP2PKSpendAuthorised,
   Amount,
@@ -171,34 +172,68 @@ jQuery(function ($) {
       unit = metadata.unit;
       wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
       const token = wallet.decodeToken(tokenEncoded);
-      proofs = token.proofs ?? [];
+      const originalProofs = token.proofs ?? [];
       console.log("token :>> ", token);
-      console.log("proofs :>>", proofs);
-      // Check proofs are not spent
-      const { unspent } = await wallet.groupProofsByState(proofs);
+      console.log("proofs :>>", originalProofs);
+      // Filter proofs whose DLEQ doesn't verify against the mint's keys.
+      // Proofs without DLEQ data, or under unknown keysets, pass through and
+      // let the mint decide. A DLEQ failure here means the mint never signed
+      // the proof, so the value is unrecoverable.
+      const keysetById = new Map(
+        wallet.keyChain.getAllKeys().map((k) => [k.id, k]),
+      );
+      const dleqVerified = originalProofs.filter((p) => {
+        if (!p.dleq) return true;
+        const ks = keysetById.get(p.id);
+        if (!ks) return true;
+        try {
+          return hasValidDleq(p, ks);
+        } catch {
+          return true;
+        }
+      });
+      if (!dleqVerified.length) {
+        throw "Token cannot be verified — the mint did not sign these proofs";
+      }
+      // Check remaining proofs are not spent
+      const { unspent } = await wallet.groupProofsByState(dleqVerified);
       console.log("unspentProofs :>>", unspent);
       // All proofs spent?
       if (!unspent.length) {
         // Is this our saved token? If so, remove it
         const lstoken = localStorage.getItem("nostrly-cashu-token");
-        if (lstoken == ($token.val() as string)) {
+        if (lstoken == tokenEncoded) {
           localStorage.removeItem("nostrly-cashu-token");
         }
         throw "Token already spent";
       }
-      // Token partially spent - so update token
-      if (unspent.length != proofs.length) {
+      proofs = unspent;
+      // If either filter dropped proofs, rebuild the token and notify the user.
+      const dleqDropped = originalProofs.length - dleqVerified.length;
+      const spentDropped = dleqVerified.length - unspent.length;
+      if (dleqDropped || spentDropped) {
         $token.val(
           getEncodedToken({
             mint: mintUrl,
             unit: unit,
-            proofs: unspent,
+            proofs,
           }),
         );
-        proofs = unspent;
-        $lightningStatus.text(
-          "(Partially spent token detected - new token generated)",
-        );
+        const notices: string[] = [];
+        if (dleqDropped) {
+          const droppedAmount = getTokenAmount(originalProofs).subtract(
+            getTokenAmount(dleqVerified),
+          );
+          notices.push(
+            `${dleqDropped} proof${dleqDropped > 1 ? "s" : ""} (${droppedAmount} ${unit}) could not be verified by the mint — those funds are unrecoverable`,
+          );
+        }
+        if (spentDropped) {
+          notices.push(
+            `${spentDropped} proof${spentDropped > 1 ? "s" : ""} already spent`,
+          );
+        }
+        $lightningStatus.text(`(${notices.join("; ")} — new token generated)`);
       }
       tokenAmount = getTokenAmount(proofs);
       // Check if proofs are P2PK locked
