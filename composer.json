@@ -2,5 +2,8 @@
   "require": {
     "swentel/nostr-php": "^1.5",
     "firebase/php-jwt": "^7.1"
+  },
+  "config": {
+    "autoloader-suffix": "NostrlySaas"
   }
 }
