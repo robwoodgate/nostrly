@@ -89,7 +89,7 @@ Prefer existing repository conventions over external defaults.
 ### Formatting
 
 - Prettier defaults apply (no local `.prettierrc` found).
-- ESLint config is `.eslintrc.js` (`eslint:recommended` + `prettier`).
+- ESLint config is `eslint.config.js` (flat config: `eslint:recommended` + `prettier`, TS-aware unused-vars).
 - Prefer double quotes in TS/JS to match current code.
 - Do not hand-minify source files.
 

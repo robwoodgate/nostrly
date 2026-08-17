@@ -12,6 +12,7 @@ import {
   getTokenAmount,
   formatAmount,
   getErrorMessage,
+  withStaleRetry,
 } from "./utils";
 import { encode as emojiEncode, decode as emojiDecode } from "./emoji-encoder";
 
@@ -55,15 +56,16 @@ export const handleCashuDonation = async (
       // We have a NIP-61 pubkey and the mint is one of the approved ones
       // Receive the token to the wallet (creates new proofs)
       // locked to our p2pk pubkey, and send as NutZap to the NIP-61 relays
-      // proofs = await wallet.receive(token, { p2pk: { pubkey: "02" + pubkey } }); // v2
-      proofs = await wallet.ops
-        .receive(token)
-        .asP2PK({ pubkey: "02" + pubkey })
-        .run(); // v3
+      proofs = await withStaleRetry(() =>
+        wallet.ops
+          .receive(token)
+          .asP2PK({ kind: "P2PK", data: "02" + pubkey })
+          .run(),
+      );
       await sendNutZap(proofs, mintUrl, unit, message, toPub, nutzapRelays);
     } else {
       // Receive the token to the wallet (creates new proofs) and send as Nostr DM
-      proofs = await wallet.receive(token);
+      proofs = await withStaleRetry(() => wallet.receive(token));
       const newToken = getEncodedToken({
         mint: mintUrl,
         proofs: proofs,

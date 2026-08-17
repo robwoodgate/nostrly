@@ -4,6 +4,7 @@ import {
   Amount,
   serializeProofs,
   deserializeProofs,
+  StaleKeysetError,
   type AmountLike,
   type GetInfoResponse,
   type KeyChainCache,
@@ -234,7 +235,7 @@ export const getWalletWithUnit = async (
   console.log("getWalletWithUnit:>> cache", cache);
 
   // Cache expired (> 12 hours) - load fresh and save data
-  if (!cache || cache.lastUpdated < Date.now() - 12 * 3600) {
+  if (!cache || cache.lastUpdated < Date.now() - 12 * 3600 * 1000) {
     const wallet = new Wallet(mintUrl, { unit, logger });
     await wallet.loadMint();
     // Cache the data
@@ -257,6 +258,23 @@ export const getWalletWithUnit = async (
   console.log("getWalletWithUnit:>> using cached data", cache);
   return wallet;
 };
+
+/**
+ * Runs a wallet operation, retrying once after a repaired keyset snapshot
+ * @remarks Wallet ops throw StaleKeysetError (with the snapshot already
+ * refreshed) when the mint rotates keysets; builders are single use, so
+ * fn must build a fresh operation on each call.
+ */
+export async function withStaleRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof StaleKeysetError && e.repaired) {
+      return await fn();
+    }
+    throw e;
+  }
+}
 
 /**
  * Copies text to clipboard, with fallback for localhost operation

@@ -30,6 +30,7 @@ import {
   storeLockedToken,
   clearLockedTokens,
   getErrorMessage,
+  withStaleRetry,
 } from "./utils";
 import { handleCashuDonation } from "./cashu-donate";
 import toastr from "toastr";
@@ -459,6 +460,22 @@ jQuery(function ($) {
     }
   }
 
+  // Builds the P2PK lock options from the current form state
+  const buildP2pkOptions = () => {
+    const p2pk = new P2PKBuilder()
+      .addLockPubkey(lockKeys)
+      .lockUntil(expireTime)
+      .addRefundPubkey(refundKeys)
+      .requireLockSignatures(nSigValue);
+    if (refundKeys.length) {
+      p2pk.requireRefundSignatures(rSigValue);
+    }
+    if ($useP2BK.is(":checked")) {
+      p2pk.blindKeys();
+    }
+    return p2pk.toOptions();
+  };
+
   // Handles order button status
   const setOrderButtonState = debounce((isDisabled) => {
     $orderButton.prop("disabled", isDisabled);
@@ -484,13 +501,7 @@ jQuery(function ($) {
     try {
       const keyset = wallet.keyChain.getKeyset();
       const testBlindedMessage = OutputData.createSingleP2PKData(
-        {
-          pubkey: lockKeys,
-          locktime: expireTime,
-          refundKeys: refundKeys.length ? refundKeys : undefined,
-          requiredSignatures: nSigValue,
-          requiredRefundSignatures: refundKeys.length ? rSigValue : undefined,
-        },
+        buildP2pkOptions(),
         1, // for testing
         keyset.id,
       );
@@ -544,7 +555,9 @@ jQuery(function ($) {
     const newquote = await wallet.checkMintQuoteBolt11(quote);
     const totalNeeded = tokenAmount + feeAmount + donationAmount;
     if (newquote.state === MintQuoteState.PAID) {
-      const ps = await wallet.mintProofsBolt11(totalNeeded, quote);
+      const ps = await withStaleRetry(() =>
+        wallet.mintProofsBolt11(totalNeeded, quote),
+      );
       proofs = [...proofs, ...ps];
       storeMintProofs(mintUrl, proofs, true); // Store all for safety
       createLockedToken();
@@ -617,23 +630,11 @@ jQuery(function ($) {
       if (!wallet) {
         throw new Error("Wallet instance not found!");
       }
-      const p2pk = new P2PKBuilder()
-        .addLockPubkey(lockKeys)
-        .lockUntil(expireTime)
-        .addRefundPubkey(refundKeys)
-        .requireLockSignatures(nSigValue);
-      if (refundKeys.length) {
-        p2pk.requireRefundSignatures(rSigValue);
-      }
-      if ($useP2BK.is(":checked")) {
-        p2pk.blindKeys();
-      }
-      const p2pkOptions = p2pk.toOptions();
+      const p2pkOptions = buildP2pkOptions();
       console.log("p2pkOptions", p2pkOptions);
-      const { send: p2pkProofs, keep: donationProofs } = await wallet.ops
-        .send(tokenAmount, proofs)
-        .asP2PK(p2pkOptions)
-        .run();
+      const { send: p2pkProofs, keep: donationProofs } = await withStaleRetry(
+        () => wallet.ops.send(tokenAmount, proofs).asP2PK(p2pkOptions).run(),
+      );
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
 

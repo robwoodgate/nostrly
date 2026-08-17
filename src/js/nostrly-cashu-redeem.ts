@@ -7,6 +7,7 @@ import {
   verifyP2PKSpendingConditions,
   isP2PKSpendAuthorised,
   Amount,
+  MeltChangeError,
   Wallet,
   Proof,
   signP2PKProofs,
@@ -19,6 +20,7 @@ import {
   getSatsAmount,
   getTokenAmount,
   getErrorMessage,
+  withStaleRetry,
 } from "./utils";
 import {
   convertP2PKToNpub,
@@ -164,7 +166,7 @@ jQuery(function ($) {
       }
       // Decode token
       const metadata = getTokenMetadata(tokenEncoded);
-      if (!metadata.mint || !metadata.incompleteProofs.length) {
+      if (!metadata.mint || !metadata.proofAmounts.length) {
         throw "Token format invalid";
       }
       // Extract token data, open wallet
@@ -564,7 +566,23 @@ jQuery(function ($) {
 
       // Melt the token using the quote. We can send all proofs, as the balance
       // will be returned to us as change. This also saves a swap fee.
-      const meltResponse = await wallet.meltProofsBolt11(meltQuote, proofs);
+      let meltResponse;
+      const w = wallet; // narrowed reference for the retry closure
+      try {
+        meltResponse = await withStaleRetry(() =>
+          w.meltProofsBolt11(meltQuote, proofs),
+        );
+      } catch (e) {
+        if (!(e instanceof MeltChangeError)) throw e;
+        // The melt was paid but the change could not be built; rebuild it
+        // from the quote's signatures rather than losing the balance
+        const sigs = e.quote.change ?? [];
+        await wallet.ensureOperableKeysets(sigs.map((s) => s.id));
+        meltResponse = {
+          quote: e.quote,
+          change: wallet.createMeltChangeProofs(e.outputData, sigs),
+        };
+      }
       console.log("meltResponse :>> ", meltResponse);
       if (meltResponse.quote) {
         $lightningStatus.text("Payment successful!");

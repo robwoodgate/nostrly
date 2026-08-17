@@ -52,7 +52,6 @@ jQuery(function ($) {
     n_sigs: 0,
   };
   let spendAuthorised = false;
-  let signedPubkeys: string[] = [];
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   const logger = new ConsoleLogger("debug");
 
@@ -97,7 +96,6 @@ jQuery(function ($) {
     privkey = "";
     p2pkParams = { pubkeys: [], n_sigs: 0 };
     spendAuthorised = false;
-    signedPubkeys = [];
     $witnessInfo.hide().empty();
   };
 
@@ -161,7 +159,7 @@ jQuery(function ($) {
         }
       }
       const metadata = getTokenMetadata(tokenEncoded);
-      if (!metadata.mint || !metadata.incompleteProofs.length) {
+      if (!metadata.mint || !metadata.proofAmounts.length) {
         throw new Error("Invalid token format");
       }
       mintUrl = metadata.mint;
@@ -229,9 +227,6 @@ jQuery(function ($) {
 
     const mainSignedPubkeys = getSignedKeys(mainPubkeys);
     const refundSignedPubkeys = getSignedKeys(refundPubkeys);
-    signedPubkeys = [
-      ...new Set([...mainSignedPubkeys, ...refundSignedPubkeys]),
-    ];
     spendAuthorised = verification.success;
 
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;

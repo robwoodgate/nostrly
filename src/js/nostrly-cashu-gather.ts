@@ -11,6 +11,7 @@ import {
   delay,
   getWalletWithUnit,
   formatAmount,
+  withStaleRetry,
 } from "./utils";
 import {
   pool,
@@ -108,7 +109,7 @@ jQuery(function ($) {
     });
     try {
       const wallet = await getWalletWithUnit(mintUrl, unit);
-      const newProofs = await wallet.receive(token);
+      const newProofs = await withStaleRetry(() => wallet.receive(token));
       return getEncodedToken({
         mint: mintUrl,
         proofs: newProofs,
