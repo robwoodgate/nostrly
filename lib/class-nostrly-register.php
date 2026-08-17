@@ -148,7 +148,7 @@ class NostrlyRegister
      */
     public function enqueue_scripts(): void
     {
-        wp_register_script('nostrly-register', NOSTRLY_URL.'assets/js/nostrly-register.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-register', NOSTRLY_URL.'assets/js/nostrly-register.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_register_style('nostrly-register', NOSTRLY_URL.'assets/css/register.css', [], NOSTRLY_VERSION);
     }

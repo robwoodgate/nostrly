@@ -172,6 +172,10 @@ class Nostrly
         // Toastr - non-blocking notifications; https://github.com/CodeSeven/toastr
         // wp_enqueue_script('toastr', NOSTRLY_URL.'assets/js/toastr.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_style('toastr', NOSTRLY_URL.'assets/css/toastr.min.css', [], NOSTRLY_VERSION, false); // NB: head
+
+        // Shared webpack chunks: every nostrly-* bundle depends on nostrly-vendor
+        wp_register_script('nostrly-runtime', NOSTRLY_URL.'assets/js/nostrly-runtime.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-vendor', NOSTRLY_URL.'assets/js/nostrly-vendor.min.js', ['nostrly-runtime'], NOSTRLY_VERSION, false); // NB: head
     }
 
     /**

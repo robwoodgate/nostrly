@@ -23,6 +23,21 @@ export default {
   mode: "production",
   optimization: {
     minimizer: [new TerserPlugin()],
+    runtimeChunk: { name: "nostrly-runtime" },
+    splitChunks: {
+      chunks: "all",
+      cacheGroups: {
+        // Only split node_modules; shared src/ code stays in each entry so
+        // PHP only has to enqueue runtime + vendor + entry
+        default: false,
+        defaultVendors: false,
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: "nostrly-vendor",
+          chunks: "all",
+        },
+      },
+    },
   },
   resolve: {
     extensions: [".js", ".jsx", ".ts", ".tsx"],

@@ -1191,12 +1191,12 @@ class NostrlyTools
      */
     public function enqueue_scripts(): void
     {
-        wp_register_script('nostrly-cashu-redeem', NOSTRLY_URL.'assets/js/nostrly-cashu-redeem.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_register_script('nostrly-cashu-lock', NOSTRLY_URL.'assets/js/nostrly-cashu-lock.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_register_script('nostrly-cashu-cache', NOSTRLY_URL.'assets/js/nostrly-cashu-cache.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_register_script('nostrly-cashu-gather', NOSTRLY_URL.'assets/js/nostrly-cashu-gather.min.js', [], NOSTRLY_VERSION, false); // NB: head
-        wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', [], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-redeem', NOSTRLY_URL.'assets/js/nostrly-cashu-redeem.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-lock', NOSTRLY_URL.'assets/js/nostrly-cashu-lock.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-cache', NOSTRLY_URL.'assets/js/nostrly-cashu-cache.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-gather', NOSTRLY_URL.'assets/js/nostrly-cashu-gather.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
         $js = "window.wnjParams = {
