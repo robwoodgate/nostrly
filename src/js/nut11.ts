@@ -33,14 +33,12 @@ export const getNut11Mints = async (
     const mintList = (await response.json()) as Array<MintRead>;
     // console.log("MintList:>>", mintList);
     mintList.forEach((mint: MintRead) => {
-      // if ("OK" != mint.state) {
-      // console.log("Mint not OK:>>", mint);
-      // return;
-      // }
+      // NIP-61 wants NUT-11 (P2PK) and NUT-12 (DLEQ) support
       const info = JSON.parse(mint.info || "{}");
-      // console.log("MintInfo", info);
-      if (!info?.nuts[11]?.supported === true) {
-        // console.log("Nut11 not supported:>", mint.url, info);
+      if (
+        info?.nuts?.[11]?.supported !== true ||
+        info?.nuts?.[12]?.supported !== true
+      ) {
         return;
       }
       if (discoveredMints.indexOf(mint.url) === -1) {

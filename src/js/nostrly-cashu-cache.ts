@@ -270,7 +270,6 @@ jQuery(function ($) {
         ...privkeys.map((key) => ["privkey", key]),
         ...mints.map((mint) => ["mint", mint]),
       ]);
-      console.log(data);
       const enc_data = await window.nostr.nip44.encrypt(userPubkey, data);
 
       // Create NIP-60 wallet metadata event (kind 17375)
