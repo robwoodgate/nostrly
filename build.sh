@@ -14,5 +14,5 @@ npm run build
 # Create plugin
 rm ${pkg}
 echo "Creating zip file..."
-zip -rq ${pkg} . -x='.git/*' -x='.well-known/*' -x="src/*" -x="node_modules/*" -x="README.md" -x="webpack.config.js" -x="build.sh" -x="*.DS_Store"
+zip -rq ${pkg} . -x='.git/*' -x='*/.git/*' -x='vendor/*/tests/*' -x='vendor/*/test/*' -x='.well-known/*' -x="src/*" -x="node_modules/*" -x="README.md" -x="webpack.config.js" -x="build.sh" -x="eslint.config.js" -x="package-lock.json" -x="*.DS_Store"
 echo "Done"
