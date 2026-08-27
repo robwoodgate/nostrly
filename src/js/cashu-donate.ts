@@ -1,4 +1,5 @@
 import {
+  auditableLock,
   getEncodedToken,
   getTokenMetadata,
   isBlsKeyset,
@@ -61,16 +62,11 @@ export const handleCashuDonation = async (
       // We have a NIP-61 pubkey and the mint is one of the approved ones
       // Receive the token to the wallet (creates new proofs)
       // locked to our p2pk pubkey, and send as NutZap to the NIP-61 relays
-      // On a nutroot mint the zap is script-only: NUMS internal key plus one
-      // threshold leaf on the NIP-61 key, so the lock stays third-party
-      // verifiable like a NUT-11 zap. Ahead of NIP-61 spec: only
-      // nutroot-aware clients can claim it for now.
+      // On a nutroot mint the zap uses the canonical auditable lock (NUT-10),
+      // so it stays third-party verifiable like a NUT-11 zap. Ahead of NIP-61
+      // spec: only nutroot-aware clients can claim it for now.
       const lock = isNutroot
-        ? {
-            leaves: [
-              { type: "threshold" as const, n: 1, keys: ["02" + pubkey] },
-            ],
-          }
+        ? auditableLock("02" + pubkey)
         : { mainKeys: ["02" + pubkey] };
       proofs = await withStaleRetry(() =>
         wallet.ops.receive(token).asLocked(lock).run(),
