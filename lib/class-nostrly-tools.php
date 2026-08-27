@@ -129,13 +129,13 @@ class NostrlyTools
         wp_enqueue_script('confetti');
         // wp_enqueue_style('nostrly-tools');
 
-        $nlab = esc_attr('Note ID (nevent) or User Public Key (npub):', 'nostrly');
-        $alab = esc_attr('Amount (in sats):', 'nostrly');
-        $clab = esc_attr('Comment (optional):', 'nostrly');
-        $cancl = esc_html('Cancel', 'nostrly');
-        $copyl = esc_html('Copy Invoice', 'nostrly');
-        $payb = esc_html('Zap Now', 'nostrly');
-        $reset = esc_html('Reset fields', 'nostrly');
+        $nlab = esc_attr('Note ID (nevent) or User Public Key (npub):');
+        $alab = esc_attr('Amount (in sats):');
+        $clab = esc_attr('Comment (optional):');
+        $cancl = esc_html('Cancel');
+        $copyl = esc_html('Copy Invoice');
+        $payb = esc_html('Zap Now');
+        $reset = esc_html('Reset fields');
 
         return <<<EOL
                 <div class="form" id="zapevent">
@@ -205,9 +205,9 @@ class NostrlyTools
         wp_enqueue_script('nostrly-tools');
         wp_enqueue_script('confetti');
 
-        $nlab = esc_attr('Note ID (nevent):', 'nostrly');
-        $delb = esc_html('Request Delete', 'nostrly');
-        $reset = esc_html('Reset fields', 'nostrly');
+        $nlab = esc_attr('Note ID (nevent):');
+        $delb = esc_html('Request Delete');
+        $reset = esc_html('Reset fields');
         $delok = esc_attr('Delete request sent!');
 
         return <<<EOL
@@ -257,7 +257,7 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu-redeem');
         wp_enqueue_script('confetti');
 
-        $token_label = esc_attr('Cashu token (or emoji 🥜)', 'nostrly');
+        $token_label = esc_attr('Cashu token (or emoji 🥜)');
         $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
         $pkey_label = esc_html('Compatible Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
         $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$snip60%4$s compatible Nostr extension like %1$sAlby%4$s, %2$sAKA Profiles%4$s or %3$snos2X%4$s.', 'nostrly'),
@@ -567,13 +567,14 @@ class NostrlyTools
                         <label for="mint-select">Choose a Mint:</label>
                         <select id="mint-select" name="mint-select" required>
                             <option value="" disabled selected>Select a mint...</option>
-                            <!-- <option value="http://localhost:3338">http://localhost:3338 (TEST MINT)</option> -->
+                            <option value="http://localhost:3338">http://localhost:3338 (TEST MINT)</option>
                             <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
                             <option value="https://mint.103100.xyz">https://mint.103100.xyz</option>
                             <option value="https://mint.coinos.io">https://mint.coinos.io</option>
                             <option value="discover">Discover more mints...</option>
                         </select>
                         <div class="description">Choose the NUT-11 compliant mint you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://audit.8333.space" target="_blank">Cashu Auditor</a> (in which case, <a href="https://audit.8333.space" target="_blank">donating a token from that mint</a> will add it to the list)</div>
+                        <div id="v3-note" class="description hidden">🌰 This mint supports <strong>Nutroot</strong>: your lock is hidden inside the token secret, taproot-style, so the mint cannot see who it is locked to. A Refund Public Key is always required.</div>
                     </div>
                     <div>
                         <label for="lock-value">Token Value (sats):</label>
@@ -617,7 +618,7 @@ class NostrlyTools
                             <input type="text" id="refund-npub" name="refund-npub" placeholder="npub1... | 02...">
                             <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                         </div>
-                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br>Leave blank if you want the token to be redeemable by anyone after the lock expires.<br><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/">Cashu Redeem</a> do.</div>
+                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br><span id="refund-blank-note">Leave blank if you want the token to be redeemable by anyone after the lock expires.<br></span><span id="refund-v3-note" class="hidden">Required on this mint: Nutroot tokens cannot be left open to anyone after expiry. Your own key is a good choice; for a permanent lock, use the recipient's key.<br></span><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/">Cashu Redeem</a> do.</div>
                         <a href="#" id="add-refund-keys">+ Add More Refund Keys</a>
                         <div id="refund-keys-options" class="hidden">
                             <label for="extra-refund-keys">Additional Refund Pubkeys (one per line or CSV):</label>
@@ -625,6 +626,11 @@ class NostrlyTools
                             <label for="r-sigs">Signatures Required (n_sigs_refund):</label>
                             <input type="number" id="r-sigs" name="r-sigs" min="1" step="1" value="1" required>
                             <div class="description">Number of signatures needed to refund (e.g., 2 for 2-of-3 multisig).</div>
+                            <div id="v3-fallback" class="hidden">
+                                <label for="refund-fallback">Refund Fallback Date (v3 mints, optional):</label>
+                                <input type="datetime-local" id="refund-fallback" name="refund-fallback">
+                                <div class="description">Safety net for refund multisig: after this date, ANY ONE refund key can reclaim the token on its own, even if the other refund signers are gone. Added as an extra leaf in the token's nutroot tree. Only applies when refund signatures required is more than 1. Must be later than the lock expiry.</div>
+                            </div>
                         </div>
                     </div>
                     <div class="center">
@@ -826,7 +832,7 @@ class NostrlyTools
                     <div>
                         <label for="privkey">Private Key (NSEC or Hex):</label>
                         <input type="text" id="privkey" name="privkey" placeholder="nsec1... | hex">
-                        <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank" rel="noopener"><em>nip60</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener">NOS2X</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name may not appear above in this case.</div>
+                        <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. <span id="witness-sig-legacy">For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank" rel="noopener"><em>nip60</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener">NOS2X</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name may not appear above in this case.</span><span id="witness-sig-v3" class="hidden">Unlocking a Nutroot token signs the whole unlock transaction, which browser signers (NIP-07) cannot do yet, so the key itself is needed here.</span></div>
                     </div>
                     <div class="center">
                         <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>

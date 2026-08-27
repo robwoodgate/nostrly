@@ -4,10 +4,13 @@ import {
   Amount,
   serializeProofs,
   deserializeProofs,
+  isBlsKeyset,
+  parseNutrootLeafHex,
   StaleKeysetError,
   type AmountLike,
   type GetInfoResponse,
   type KeyChainCache,
+  type NutrootLeaf,
   type Proof,
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
@@ -49,6 +52,72 @@ interface NutLockEntry {
   name: string;
   token: string;
   amount: number | string; // Amount.toJSON() returns number | string
+}
+
+/**
+ * Is this proof on a v3 (nutroot) keyset?
+ */
+export function isV3Proof(proof: Proof): boolean {
+  return isBlsKeyset(proof.id);
+}
+
+/**
+ * How a v3 proof's key path travels, and what that means for the holder.
+ * @remarks kind: bearer (k rides the token), receiver (needs the receiver's
+ * static privkey), script-only (leaf spends only), none (no key material).
+ */
+export function describeV3KeyPath(proof: Proof): {
+  kind: "bearer" | "receiver" | "script-only" | "none";
+  text: string;
+} {
+  const si = proof.spend_info;
+  if (si?.k) {
+    return {
+      kind: "bearer",
+      text: "Unlocked: the spending key travels with the token, so anyone holding it can spend or sweep it.",
+    };
+  }
+  if (si?.E) {
+    return {
+      kind: "receiver",
+      text: "A blinded recipient key: paste a private key to check if it unlocks.",
+    };
+  }
+  if (si?.K) {
+    return {
+      kind: "script-only",
+      text: si.u
+        ? "No key path spend: the internal key is provably unspendable (NUMS), so only the script leaves below can spend it."
+        : "Script-path transfer: the key path key is held elsewhere; only the script leaves below can spend it here.",
+    };
+  }
+  return {
+    kind: "none",
+    text: "No spending info travels with this token: it cannot be spent from here (it may be the owner's own wallet proof).",
+  };
+}
+
+/**
+ * Parses the disclosed nutroot leaves riding a v3 proof's spend_info.
+ */
+export function getNutrootLeaves(proof: Proof): NutrootLeaf[] {
+  return (proof.spend_info?.tree ?? []).map(parseNutrootLeafHex);
+}
+
+/**
+ * One-line human description of a nutroot leaf's spending condition.
+ */
+export function describeNutrootLeaf(leaf: NutrootLeaf): string {
+  const m = leaf.keys.length;
+  const sigs = `${leaf.n} of ${m} signature${m > 1 ? "s" : ""}`;
+  switch (leaf.type) {
+    case "after":
+      return `Timelock: ${sigs} after ${new Date((leaf.time ?? 0) * 1000).toLocaleString().slice(0, -3)}`;
+    case "hashlock":
+      return `Hashlock: secret preimage (${leaf.hash?.slice(0, 8)}…) plus ${sigs}`;
+    default:
+      return `Multisig: ${sigs}`;
+  }
 }
 
 /**

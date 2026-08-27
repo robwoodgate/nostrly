@@ -13,6 +13,9 @@ import {
   Wallet,
   Token,
   ConsoleLogger,
+  type ReceiveConfig,
+  type ScriptPathPlan,
+  type SpendOptions,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import {
@@ -24,11 +27,14 @@ import {
 import {
   copyTextToClipboard,
   debounce,
+  describeNutrootLeaf,
+  describeV3KeyPath,
   doConfettiBomb,
   formatAmount,
   getErrorMessage,
   getTokenAmount,
   getWalletWithUnit,
+  isV3Proof,
 } from "./utils";
 import { getContactDetails, convertP2PKToNpub } from "./nostr";
 import toastr from "toastr";
@@ -45,6 +51,7 @@ jQuery(function ($) {
   let mintUrl: string;
   let unit: string;
   let proofs: Proof[];
+  let allProofs: Proof[] = []; // every live proof, including ones not displayed
   let tokenAmount: Amount;
   let privkey: string;
   let p2pkParams: { pubkeys: string[]; n_sigs: number } = {
@@ -52,6 +59,7 @@ jQuery(function ($) {
     n_sigs: 0,
   };
   let spendAuthorised = false;
+  let isV3 = false; // proofs are on a v3 (nutroot) keyset
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   const logger = new ConsoleLogger("debug");
 
@@ -92,10 +100,12 @@ jQuery(function ($) {
     mintUrl = "";
     unit = "sat";
     proofs = [];
+    allProofs = [];
     tokenAmount = Amount.zero();
     privkey = "";
     p2pkParams = { pubkeys: [], n_sigs: 0 };
     spendAuthorised = false;
+    isV3 = false;
     $witnessInfo.hide().empty();
   };
 
@@ -117,7 +127,11 @@ jQuery(function ($) {
       privkey = $privkey.val() as string;
       if (isPrivkeyValid(privkey)) {
         $privkey.attr("data-valid", "");
-        signAndWitnessToken(false);
+        if (isV3) {
+          displayV3Info(); // re-assess the tree with this key
+        } else {
+          signAndWitnessToken(false);
+        }
         $privkey.val("");
       } else {
         $privkey.attr("data-valid", "no");
@@ -166,21 +180,55 @@ jQuery(function ($) {
       unit = metadata.unit;
       wallet = await getWalletWithUnit(mintUrl, unit);
       const token: Token = wallet.decodeToken(tokenEncoded);
-      proofs = token.proofs.filter((p) => p.secret.includes("P2PK"));
-      if (!proofs.length) {
-        toastr.error("This is not a P2PK locked token. Go spend it anywhere!");
-        return;
+      // Drop spent proofs first: one spent input fails a whole unlock swap
+      const { unspent } = await wallet.groupProofsByState(token.proofs);
+      if (!unspent.length) {
+        throw new Error("Token already spent");
       }
-      proofs.forEach((proof) => {
-        if ("SIG_ALL" == getP2PKSigFlag(proof.secret)) {
-          throw new Error("Sorry, SIG_ALL tokens are not supported yet");
+      if (unspent.length < token.proofs.length) {
+        allProofs = unspent;
+        $token.val(
+          getEncodedToken({ mint: metadata.mint, unit, proofs: unspent }),
+        );
+        toastr.warning(
+          `${token.proofs.length - unspent.length} proof(s) already spent - token regenerated with the rest`,
+        );
+      } else {
+        allProofs = token.proofs;
+      }
+      proofs = allProofs.filter((p) => p.secret.includes("P2PK"));
+      if (!proofs.length) {
+        // Nutroot: every proof is locked to its point secret; spend_info
+        // says who can spend it, so witness X-rays them all
+        const v3 = allProofs.filter(isV3Proof);
+        if (!v3.length) {
+          toastr.error("This is not a locked token. Go spend it anywhere!");
+          return;
         }
-      });
+        isV3 = true;
+        proofs = v3;
+      }
+      if (proofs.length < allProofs.length) {
+        // Mixed token: the display covers one kind; unlock handles them all
+        const otherAmount = getTokenAmount(allProofs).subtract(
+          getTokenAmount(proofs),
+        );
+        toastr.info(
+          `Token also carries ${formatAmount(otherAmount, unit)} in other proofs (not shown). Unlocking includes them.`,
+        );
+      }
+      if (!isV3) {
+        proofs.forEach((proof) => {
+          if ("SIG_ALL" == getP2PKSigFlag(proof.secret)) {
+            throw new Error("Sorry, SIG_ALL tokens are not supported yet");
+          }
+        });
+        p2pkParams.pubkeys = getP2PKExpectedWitnessPubkeys(proofs[0].secret);
+        p2pkParams.n_sigs = verifyP2PKSpendingConditions(
+          proofs[0],
+        ).main.requiredSigners;
+      }
       tokenAmount = getTokenAmount(proofs);
-      p2pkParams.pubkeys = getP2PKExpectedWitnessPubkeys(proofs[0].secret);
-      p2pkParams.n_sigs = verifyP2PKSpendingConditions(
-        proofs[0],
-      ).main.requiredSigners;
       console.log("token:>>", token);
       console.log("proofs:>>", proofs);
       toastr.success(
@@ -193,7 +241,11 @@ jQuery(function ($) {
       console.error("processToken error:", e);
       resetVars();
     }
-    displayWitnessInfo();
+    if (isV3) {
+      await displayV3Info();
+    } else {
+      displayWitnessInfo();
+    }
     checkNip07ButtonState();
   }
 
@@ -355,6 +407,95 @@ jQuery(function ($) {
     $witnessInfo.show().html(html);
   }
 
+  // Display v3 (nutroot) spending conditions: the key path, then each
+  // disclosed tree leaf with this wallet's own satisfiability assessment
+  async function displayV3Info() {
+    const proof = proofs[0];
+    if (!proof || !wallet) {
+      return;
+    }
+    const privkeys = privkey ? [maybeConvertNsecToP2PK(privkey)] : [];
+    let spend: SpendOptions = { keyPath: false, script: [] };
+    try {
+      spend = await wallet.spendOptions(
+        proof,
+        privkeys.length ? { privkeys } : undefined,
+      );
+    } catch (e) {
+      console.error("spendOptions error:", e);
+      toastr.error(
+        getErrorMessage(e, "Could not read this token's spending conditions"),
+      );
+      return;
+    }
+    const keyPath = describeV3KeyPath(proof);
+    spendAuthorised = spend.keyPath || spend.script.some((o) => o.satisfiable);
+
+    const updateContactName = (id: string, npub: string) => {
+      getContactDetails(npub, nostrly_ajax.relays).then(({ name }) => {
+        if (name) {
+          $(`#${id}`).replaceWith(
+            `<a href="https://njump.me/${npub}" target="_blank">${name}</a>`,
+          );
+        }
+      });
+    };
+
+    let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
+    html += `<div><strong>Nutroot Token:</strong> the token secret is itself a public key, with any conditions hidden inside it, taproot-style. The mint cannot see the details below unless they are used.</div>`;
+    html += `<strong>Key Path:</strong><ul>`;
+    html += `<li>Locked to&nbsp;<span style="font-family:monospace">${proof.secret.slice(0, 12)}...${proof.secret.slice(-12)}</span></li>`;
+    const keyPathText =
+      keyPath.kind === "receiver" && spend.keyPath
+        ? "A blinded recipient key: your key unlocks it."
+        : keyPath.text;
+    html += `<li class="${spend.keyPath ? "signed" : "pending"}"><span class="status-icon"></span>${keyPathText}</li>`;
+    html += `</ul>`;
+
+    if (spend.script.length) {
+      html += `<strong>Script Leaves (any ONE unlocks the token):</strong><ul>`;
+      for (const opt of spend.script) {
+        let status = "";
+        if (opt.satisfiable) {
+          status = " - unlockable with your key";
+        } else if (opt.blockedBy === "locktime") {
+          status = " - not yet active"; // the leaf text already names the date
+        } else if (opt.blockedBy === "preimage") {
+          status = " - needs its secret preimage";
+        } else if (privkeys.length) {
+          status = " - your key does not unlock this leaf";
+        }
+        html += `<li class="${opt.satisfiable ? "signed" : "pending"}"><span class="status-icon"></span>Leaf ${opt.leafIndex + 1}: ${describeNutrootLeaf(opt.leaf)}${status}</li>`;
+        const held = new Set(opt.keys.map((k) => k.keyIndex));
+        html += `<ul>`;
+        opt.leaf.keys.forEach((pub, keyIndex) => {
+          const npub = convertP2PKToNpub(pub);
+          const keyId = `leaf-${opt.leafIndex}-${npub}`;
+          const keyholder = `<span id="${keyId}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
+          html += `<li class="${held.has(keyIndex) ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}${held.has(keyIndex) ? ": your key" : ""}</li>`;
+          updateContactName(keyId, npub);
+        });
+        html += `</ul>`;
+      }
+      html += `</ul>`;
+    }
+
+    if (spendAuthorised) {
+      html +=
+        keyPath.kind === "bearer" && !spend.script.length
+          ? `<p class="summary">Unlock below to sweep into a fresh token only you hold (invalidates this one).</p>`
+          : `<p class="summary">Unlock below to convert into a normal token, spendable in any Cashu wallet.</p>`;
+      $unlockDiv.show();
+    } else {
+      if (keyPath.kind === "receiver" || spend.script.length) {
+        html += `<p class="summary">Paste a private key below to check whether it can unlock this token.</p>`;
+      }
+      $unlockDiv.hide();
+    }
+    $witnessInfo.show().html(html);
+    checkNip07ButtonState();
+  }
+
   // Check NIP-07 button state and handle unlocked tokens
   function checkNip07ButtonState() {
     console.log("hasNip07", hasNip07);
@@ -365,6 +506,18 @@ jQuery(function ($) {
       $useNip07.prop("disabled", true);
       return;
     }
+    if (isV3) {
+      // Nutroot keys sign the unlock transaction itself, so only a pasted
+      // private key works here; hide the NIP-07 offer rather than tease it
+      $signersDiv.show();
+      $useNip07.hide();
+      $("#witness-sig-legacy").hide();
+      $("#witness-sig-v3").show();
+      return;
+    }
+    $useNip07.show();
+    $("#witness-sig-legacy").show();
+    $("#witness-sig-v3").hide();
     const isLocked = p2pkParams.pubkeys.length > 0;
     if (isLocked && !tokenAmount.isZero() && proofs.length) {
       $signersDiv.show();
@@ -431,9 +584,12 @@ jQuery(function ($) {
 
       console.log("signedProofs after:>>", signedProofs);
       console.log("Encoding token...");
+      // Re-encode every live proof: signed ones updated, the rest (eg
+      // nutroot proofs in a mixed token) pass through untouched
+      const bySecret = new Map(signedProofs.map((p) => [p.secret, p]));
       const witnessedToken = getEncodedToken({
         mint: mintUrl,
-        proofs: signedProofs,
+        proofs: allProofs.map((p) => bySecret.get(p.secret) ?? p),
         unit: unit,
       });
       $witnessedToken.val(witnessedToken);
@@ -461,7 +617,36 @@ jQuery(function ($) {
     try {
       console.log("unit:>>", unit);
       wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
-      const unlockedProofs = await wallet.receive($token.val() as string);
+      const config: ReceiveConfig = {};
+      // The key serves both encodings in a mixed token: NUT-11 proofs are
+      // signed with it, nutroot proofs sign the unlock transaction
+      const privkeys = privkey ? [maybeConvertNsecToP2PK(privkey)] : [];
+      if (privkeys.length) {
+        config.privkey = privkeys;
+      }
+      // Nutroot proofs the key path cannot spend go through their first
+      // satisfiable leaf as a script path plan
+      const plans: ScriptPathPlan[] = [];
+      for (const p of allProofs.filter(isV3Proof)) {
+        const spend = await wallet.spendOptions(
+          p,
+          privkeys.length ? { privkeys } : undefined,
+        );
+        if (spend.keyPath) {
+          continue;
+        }
+        const opt = spend.script.find((o) => o.satisfiable);
+        if (opt) {
+          plans.push({ secret: p.secret, leafIndex: opt.leafIndex });
+        }
+      }
+      if (plans.length) {
+        config.scriptPath = plans;
+      }
+      const unlockedProofs = await wallet.receive(
+        $token.val() as string,
+        config,
+      );
       const unlockedToken = getEncodedToken({
         mint: mintUrl,
         proofs: unlockedProofs,

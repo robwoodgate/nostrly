@@ -14,17 +14,22 @@ import {
 } from "@cashu/cashu-ts";
 import {
   debounce,
+  describeNutrootLeaf,
+  describeV3KeyPath,
   doConfettiBomb,
+  getNutrootLeaves,
   getWalletWithUnit,
   formatAmount,
   getSatsAmount,
   getTokenAmount,
   getErrorMessage,
+  isV3Proof,
   withStaleRetry,
 } from "./utils";
 import {
   convertP2PKToNpub,
   getContactDetails,
+  maybeConvertNsecToP2PK,
   signNip60Proofs,
   signWithNip07,
 } from "./nostr";
@@ -185,7 +190,9 @@ jQuery(function ($) {
         wallet.keyChain.getAllKeys().map((k) => [k.id, k]),
       );
       const dleqVerified = originalProofs.filter((p) => {
-        if (!p.dleq) return true;
+        // v3 proofs pairing-verify without DLEQ data; only pre-v3 proofs
+        // lacking a DLEQ pass through to the mint's judgement
+        if (!p.dleq && !isV3Proof(p)) return true;
         const ks = keysetById.get(p.id);
         if (!ks) return true;
         try {
@@ -404,6 +411,33 @@ jQuery(function ($) {
           }
         }
       }
+      // v3 (nutroot) proofs: the lock is a tree inside the point secret and
+      // any signature covers the whole melt, so keys are passed at melt time
+      const v3Proofs = proofs.filter(isV3Proof);
+      if (v3Proofs.length && !lockedProofs.length) {
+        const proof = v3Proofs[0];
+        const keyPath = describeV3KeyPath(proof);
+        const leaves = getNutrootLeaves(proof);
+        if (keyPath.kind !== "bearer" || leaves.length) {
+          const lines: string[] = [
+            "Nutroot token: the lock is hidden inside the token secret",
+          ];
+          lines.push(keyPath.text);
+          leaves.forEach((leaf, i) =>
+            lines.push(`Leaf ${i + 1}: ${describeNutrootLeaf(leaf)}`),
+          );
+          $lightningStatus.html(lines.join("<br>"));
+        }
+        if (keyPath.kind === "receiver") {
+          $pkeyWrapper.show();
+          $tokenStatus.html("Enter your private key to unlock this token.");
+          if (!$pkey.val() as boolean) {
+            return;
+          }
+        } else if (keyPath.kind === "script-only" || keyPath.kind === "none") {
+          throw "This token cannot be redeemed directly. Please use Cashu Witness to inspect and unlock it first.";
+        }
+      }
       let mintHost = new URL(mintUrl).hostname;
       $tokenStatus.text(
         `Token value ${formatAmount(tokenAmount, unit)} from the mint: ${mintHost}`,
@@ -497,7 +531,13 @@ jQuery(function ($) {
             console.log(
               `Token is in ${unit}. Estimating melt invoice value...`,
             );
-            const mintQuote = await wallet.createMintQuoteBolt11(tokenAmount);
+            // Quotes are now locked (NUT-20); this one is estimation-only and
+            // never paid, so a throwaway lock key is fine
+            const { pubkey: throwawayPub } = await wallet.createQuoteLockKey();
+            const mintQuote = await wallet.createMintQuoteBolt11(
+              tokenAmount,
+              throwawayPub,
+            );
             console.log("Mint Quote :>>", mintQuote);
             estTokenAmount = Amount.from(getSatsAmount(mintQuote.request));
             console.log("Mint estTokenAmount :>>", estTokenAmount.toString());
@@ -568,9 +608,18 @@ jQuery(function ($) {
       // will be returned to us as change. This also saves a swap fee.
       let meltResponse;
       const w = wallet; // narrowed reference for the retry closure
+      // v3 inputs sign the melt transaction itself, so the key goes in the
+      // melt config rather than onto the proofs
+      let meltConfig: { privkey: string } | undefined;
+      if (proofs.some(isV3Proof)) {
+        const pk = maybeConvertNsecToP2PK($pkey.val() as string);
+        if (pk) {
+          meltConfig = { privkey: pk };
+        }
+      }
       try {
         meltResponse = await withStaleRetry(() =>
-          w.meltProofsBolt11(meltQuote, proofs),
+          w.meltProofsBolt11(meltQuote, proofs, meltConfig),
         );
       } catch (e) {
         if (!(e instanceof MeltChangeError)) throw e;

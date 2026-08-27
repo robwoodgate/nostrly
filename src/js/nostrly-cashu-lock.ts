@@ -1,9 +1,11 @@
 // Imports
 import {
   getEncodedToken,
+  isBlsKeyset,
+  lockToP2PKOptions,
+  LockBuilder,
   MintQuoteState,
   OutputData,
-  P2PKBuilder,
   Proof,
   Token,
   Wallet,
@@ -63,6 +65,9 @@ jQuery(function ($) {
   let rSigValue: number = 1;
   let lockKeys: string[] = []; // sanitized keys
   let refundKeys: string[] = []; // sanitized keys
+  let isV3Mint = false; // active keyset is v3 (nutroot)
+  let fallbackTime: number | undefined; // v3 staged-reclaim leaf, unix TS
+  let quoteLockPrivkey: string; // NUT-20 lock key for the current mint quote
 
   // DOM elements
   const $divOrderFm = $("#cashu-lock-form");
@@ -98,6 +103,11 @@ jQuery(function ($) {
   const $addRefundKeys = $("#add-refund-keys");
   const $refundKeysOptions = $("#refund-keys-options");
   const $extraRefundKeys = $("#extra-refund-keys");
+  const $v3Note = $("#v3-note");
+  const $v3Fallback = $("#v3-fallback");
+  const $refundBlankNote = $("#refund-blank-note");
+  const $refundV3Note = $("#refund-v3-note");
+  const $refundFallback = $("#refund-fallback");
   const $minFee = $("#min_fee");
   $minFee.text(
     `Includes estimated Mint fees of ${PCT_FEE}% (min ${MIN_FEE} sats).`,
@@ -152,6 +162,11 @@ jQuery(function ($) {
       proofs = getMintProofs(mintUrl); // Load saved proofs
       console.log("proofs total:>>", getTokenAmount(proofs));
       console.log("proofs:>>", proofs);
+      isV3Mint = isBlsKeyset(wallet.keyChain.getKeyset().id);
+      $v3Note.toggle(isV3Mint);
+      $v3Fallback.toggle(isV3Mint);
+      $refundBlankNote.toggle(!isV3Mint);
+      $refundV3Note.toggle(isV3Mint);
       toastr.success(`Loaded Mint: ${mintUrl}`);
       $mintSelect.attr("data-valid", "");
     } catch (e) {
@@ -184,6 +199,20 @@ jQuery(function ($) {
       $lockExpiry.attr("data-valid", "");
     }
   }, 500);
+  // Re-reads the fallback field so a later expiry change re-judges it
+  const validateFallback = (quiet = false) => {
+    const val = $refundFallback.val() as string;
+    fallbackTime = val ? Math.floor(new Date(val).getTime() / 1000) : undefined;
+    $refundFallback.attr("data-valid", "");
+    if (fallbackTime && expireTime && fallbackTime <= expireTime) {
+      $refundFallback.attr("data-valid", "no");
+      if (!quiet) {
+        toastr.error("Fallback date must be after the lock expiry.");
+      }
+      fallbackTime = undefined;
+    }
+    console.log("fallbackTime:>>", fallbackTime);
+  };
   $lockExpiry.on("input", () => {
     expireTime = Math.floor(
       new Date($lockExpiry.val() as string).getTime() / 1000,
@@ -191,6 +220,11 @@ jQuery(function ($) {
     console.log("expireTime:>>", expireTime);
     // Check if expireTime is less than now
     checkMinDate(expireTime);
+    validateFallback(true); // expiry moves can invalidate (or revalidate) it
+    checkIsReadyToOrder();
+  });
+  $refundFallback.on("input", () => {
+    validateFallback();
     checkIsReadyToOrder();
   });
   $orderButton.on("click", async () => {
@@ -199,7 +233,10 @@ jQuery(function ($) {
       return;
     }
     const totalNeeded = tokenAmount + feeAmount + donationAmount;
-    const quote = await wallet.createMintQuoteBolt11(totalNeeded);
+    // Every v5 mint quote is locked (NUT-20); the key is ours to hold for minting
+    const { pubkey, privkey } = await wallet.createQuoteLockKey();
+    quoteLockPrivkey = privkey;
+    const quote = await wallet.createMintQuoteBolt11(totalNeeded, pubkey);
     console.log("quote:>>", quote);
     $amountToPay.text(formatAmount(totalNeeded));
     $mintUrl.text(mintUrl);
@@ -480,20 +517,30 @@ jQuery(function ($) {
     }
   }
 
-  // Builds the P2PK lock options from the current form state
-  const buildP2pkOptions = () => {
-    const p2pk = new P2PKBuilder()
-      .addLockPubkey(lockKeys)
+  // Builds the semantic lock options from the current form state; the wallet
+  // encodes them for the active keyset (NUT-11/14 tags pre-v3, nutroot on v3)
+  const buildLockOptions = () => {
+    const lock = new LockBuilder()
+      .addMainPubkey(lockKeys)
       .lockUntil(expireTime)
       .addRefundPubkey(refundKeys)
-      .requireLockSignatures(nSigValue);
+      .requireMainSignatures(nSigValue);
     if (refundKeys.length) {
-      p2pk.requireRefundSignatures(rSigValue);
+      lock.requireRefundSignatures(rSigValue);
     }
     if ($useP2BK.is(":checked")) {
-      p2pk.blindKeys();
+      lock.blindKeys();
     }
-    return p2pk.toOptions();
+    // v3 staged reclaim: a later window where any single refund key suffices
+    if (isV3Mint && fallbackTime && refundKeys.length && rSigValue > 1) {
+      lock.addLeaf({
+        type: "after",
+        n: 1,
+        keys: refundKeys,
+        time: fallbackTime,
+      });
+    }
+    return lock.toOptions();
   };
 
   // Handles order button status
@@ -514,30 +561,43 @@ jQuery(function ($) {
     const hasValidRefunds = !$refundNpub.val() || refundKeys.length > 0;
     console.log("lockKeys:>", lockKeys);
     console.log("refundKeys:>", refundKeys);
+    // v3 keysets refuse a locktime with no refund keys (anyone-after-locktime
+    // does not fit a nutroot tree): require a refund key instead
+    if (isV3Mint && expireTime && !refundKeys.length) {
+      toastr.error(
+        "This mint uses v3 (nutroot) keysets, which need a Refund Public Key with an expiry. Add one (your own is fine).",
+      );
+      setOrderButtonState(true);
+      return false;
+    }
     // Check secret length is under MAX_SECRET characters as some mints have
     // this limit. To do this, let's create a 1 sat blinded message with p2pk
     // @see: https://github.com/cashubtc/nuts/pull/234
-    let secretDecode = "";
-    try {
-      const keyset = wallet.keyChain.getKeyset();
-      const testBlindedMessage = OutputData.createSingleP2PKData(
-        buildP2pkOptions(),
-        1, // for testing
-        keyset.id,
-      );
-      secretDecode = new TextDecoder().decode(testBlindedMessage.secret);
-    } catch (e) {
-      const msg = getErrorMessage(e);
-      toastr.error(msg);
-      console.error(e);
-    }
-    const secretLength = secretDecode.length;
-    console.log("secret:>>", secretDecode);
-    console.log("secret length:>>", secretDecode.length);
-    if (secretLength > MAX_SECRET) {
-      toastr.error(
-        "Your token's secret will be too long. Please remove some Lock or Refund keys.",
-      );
+    // v3 secrets are fixed-size points, so only pre-v3 tag secrets need it
+    let secretLength = 0;
+    if (!isV3Mint) {
+      let secretDecode = "";
+      try {
+        const keyset = wallet.keyChain.getKeyset();
+        const testBlindedMessage = OutputData.createSingleP2PKData(
+          lockToP2PKOptions(buildLockOptions()),
+          1, // for testing
+          keyset.id,
+        );
+        secretDecode = new TextDecoder().decode(testBlindedMessage.secret);
+      } catch (e) {
+        const msg = getErrorMessage(e);
+        toastr.error(msg);
+        console.error(e);
+      }
+      secretLength = secretDecode.length;
+      console.log("secret:>>", secretDecode);
+      console.log("secret length:>>", secretLength);
+      if (secretLength > MAX_SECRET) {
+        toastr.error(
+          "Your token's secret will be too long. Please remove some Lock or Refund keys.",
+        );
+      }
     }
 
     if (
@@ -547,6 +607,7 @@ jQuery(function ($) {
       hasValidRefunds &&
       $extraLockKeys.attr("data-valid") !== "no" &&
       $extraRefundKeys.attr("data-valid") !== "no" &&
+      $refundFallback.attr("data-valid") !== "no" &&
       secretLength <= MAX_SECRET
     ) {
       setOrderButtonState(false);
@@ -575,8 +636,11 @@ jQuery(function ($) {
     const newquote = await wallet.checkMintQuoteBolt11(quote);
     const totalNeeded = tokenAmount + feeAmount + donationAmount;
     if (newquote.state === MintQuoteState.PAID) {
+      // v5 needs the full quote object (amount accounting), not the bare id
       const ps = await withStaleRetry(() =>
-        wallet.mintProofsBolt11(totalNeeded, quote),
+        wallet.mintProofsBolt11(totalNeeded, newquote, {
+          privkey: quoteLockPrivkey,
+        }),
       );
       proofs = [...proofs, ...ps];
       storeMintProofs(mintUrl, proofs, true); // Store all for safety
@@ -650,10 +714,10 @@ jQuery(function ($) {
       if (!wallet) {
         throw new Error("Wallet instance not found!");
       }
-      const p2pkOptions = buildP2pkOptions();
-      console.log("p2pkOptions", p2pkOptions);
+      const lockOptions = buildLockOptions();
+      console.log("lockOptions", lockOptions);
       const { send: p2pkProofs, keep: donationProofs } = await withStaleRetry(
-        () => wallet.ops.send(tokenAmount, proofs).asP2PK(p2pkOptions).run(),
+        () => wallet.ops.send(tokenAmount, proofs).asLocked(lockOptions).run(),
       );
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
