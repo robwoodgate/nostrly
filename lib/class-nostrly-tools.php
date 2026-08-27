@@ -40,10 +40,10 @@ class NostrlyTools
         wp_enqueue_script('nostrly-tools');
         // wp_enqueue_style('nostrly-tools');
 
-        $nlab = esc_attr('Nostr public key (npub):', 'nostrly');
-        $xlab = esc_attr('Nostr public key (hex):', 'nostrly');
-        $npub = esc_attr('Paste your npub here', 'nostrly');
-        $xpub = esc_attr('Paste your hex key here', 'nostrly');
+        $nlab = esc_attr__('Nostr public key (npub):', 'nostrly');
+        $xlab = esc_attr__('Nostr public key (hex):', 'nostrly');
+        $npub = esc_attr__('Paste your npub here', 'nostrly');
+        $xpub = esc_attr__('Paste your hex key here', 'nostrly');
         $reset = esc_html('Reset fields', 'nostrly');
 
         return <<<EOL
@@ -84,10 +84,10 @@ class NostrlyTools
         wp_enqueue_script('nostrly-tools');
         // wp_enqueue_style('nostrly-tools');
 
-        $nlab = esc_attr('NIP-19 entity:', 'nostrly');
-        $xlab = esc_attr('Decoded entity:', 'nostrly');
-        $entity = esc_attr('npub | nsec | nprofile | nevent | naddr | nrelay | note', 'nostrly');
-        $decode = esc_attr('The decoded entity will appear here', 'nostrly');
+        $nlab = esc_attr__('NIP-19 entity:', 'nostrly');
+        $xlab = esc_attr__('Decoded entity:', 'nostrly');
+        $entity = esc_attr__('npub | nsec | nprofile | nevent | naddr | nrelay | note', 'nostrly');
+        $decode = esc_attr__('The decoded entity will appear here', 'nostrly');
         $reset = esc_html('Reset fields', 'nostrly');
 
         return <<<EOL
@@ -258,7 +258,7 @@ class NostrlyTools
         wp_enqueue_script('confetti');
 
         $token_label = esc_attr('Cashu token (or emoji 🥜)');
-        $token = esc_attr('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
+        $token = esc_attr__('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
         $pkey_label = esc_html('Compatible Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
         $pkey_desc = sprintf(esc_html('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$snip60%4$s compatible Nostr extension like %1$sAlby%4$s, %2$sAKA Profiles%4$s or %3$snos2X%4$s.', 'nostrly'),
             '<a href="https://getalby.com/products/browser-extension" target="_blank">',
@@ -674,8 +674,8 @@ class NostrlyTools
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-cashu-witness');
 
-        $token_label = esc_attr('Locked Cashu token (or emoji 🥜)', 'nostrly');
-        $token = esc_attr('Paste a Locked Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
+        $token_label = esc_attr__('Locked Cashu token (or emoji 🥜)', 'nostrly');
+        $token = esc_attr__('Paste a Locked Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
         $copy_token = esc_html('Copy Token', 'nostrly');
         $copy_emoji = esc_html('Copy 🥜', 'nostrly');
         $cancel = esc_html('Cancel', 'nostrly');
