@@ -1,4 +1,8 @@
-import { getEncodedToken, getTokenMetadata } from "@cashu/cashu-ts";
+import {
+  getEncodedToken,
+  getTokenMetadata,
+  isBlsKeyset,
+} from "@cashu/cashu-ts";
 import toastr from "toastr";
 import {
   NOSTRLY_PUBKEY,
@@ -52,14 +56,17 @@ export const handleCashuDonation = async (
     const unit = metadata.unit;
     const wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
     let proofs; // scope
-    if (pubkey && mints.includes(mintUrl)) {
+    // NIP-61 specifies NUT-11 locks, so a nutroot lock would produce a zap
+    // other clients cannot claim: fall back to the DM path on those mints
+    const isNutroot = isBlsKeyset(wallet.keyChain.getKeyset().id);
+    if (pubkey && mints.includes(mintUrl) && !isNutroot) {
       // We have a NIP-61 pubkey and the mint is one of the approved ones
       // Receive the token to the wallet (creates new proofs)
       // locked to our p2pk pubkey, and send as NutZap to the NIP-61 relays
       proofs = await withStaleRetry(() =>
         wallet.ops
           .receive(token)
-          .asP2PK({ kind: "P2PK", data: "02" + pubkey })
+          .asLocked({ mainKeys: ["02" + pubkey] })
           .run(),
       );
       await sendNutZap(proofs, mintUrl, unit, message, toPub, nutzapRelays);
