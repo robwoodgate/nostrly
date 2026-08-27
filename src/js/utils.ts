@@ -85,6 +85,11 @@ export function describeV3KeyPath(proof: Proof): {
           ? "No key path spend: the internal key is provably unspendable (NUMS), so only the script leaves below can spend it."
           : "Script-path transfer: the key path key is held elsewhere; only the script leaves below can spend it here.",
       };
+    case "aggregated":
+      return {
+        kind,
+        text: "Locked to an aggregated key with no script leaves: only its co-holders can spend it.",
+      };
     default:
       return {
         kind,
