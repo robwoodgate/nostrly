@@ -23,7 +23,7 @@ import {
   getSatsAmount,
   getTokenAmount,
   getErrorMessage,
-  isV3Proof,
+  isBlsProof,
   withStaleRetry,
 } from "./utils";
 import {
@@ -192,7 +192,7 @@ jQuery(function ($) {
       const dleqVerified = originalProofs.filter((p) => {
         // v3 proofs pairing-verify without DLEQ data; only pre-v3 proofs
         // lacking a DLEQ pass through to the mint's judgement
-        if (!p.dleq && !isV3Proof(p)) return true;
+        if (!p.dleq && !isBlsProof(p)) return true;
         const ks = keysetById.get(p.id);
         if (!ks) return true;
         try {
@@ -413,7 +413,7 @@ jQuery(function ($) {
       }
       // v3 (nutroot) proofs: the lock is a tree inside the point secret and
       // any signature covers the whole melt, so keys are passed at melt time
-      const v3Proofs = proofs.filter(isV3Proof);
+      const v3Proofs = proofs.filter(isBlsProof);
       if (v3Proofs.length && !lockedProofs.length) {
         const proof = v3Proofs[0];
         const keyPath = describeV3KeyPath(proof);
@@ -532,8 +532,10 @@ jQuery(function ($) {
               `Token is in ${unit}. Estimating melt invoice value...`,
             );
             // Quotes are now locked (NUT-20); this one is estimation-only and
-            // never paid, so a throwaway lock key is fine
-            const { pubkey: throwawayPub } = await wallet.createQuoteLockKey();
+            // never paid, so force a throwaway key that costs no counter
+            const { pubkey: throwawayPub } = await wallet.createQuoteLockKey({
+              random: true,
+            });
             const mintQuote = await wallet.createMintQuoteBolt11(
               tokenAmount,
               throwawayPub,
@@ -611,7 +613,7 @@ jQuery(function ($) {
       // v3 inputs sign the melt transaction itself, so the key goes in the
       // melt config rather than onto the proofs
       let meltConfig: { privkey: string } | undefined;
-      if (proofs.some(isV3Proof)) {
+      if (proofs.some(isBlsProof)) {
         const pk = maybeConvertNsecToP2PK($pkey.val() as string);
         if (pk) {
           meltConfig = { privkey: pk };

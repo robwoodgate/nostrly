@@ -11,7 +11,7 @@ import {
   delay,
   getWalletWithUnit,
   formatAmount,
-  isV3Proof,
+  isBlsProof,
   withStaleRetry,
 } from "./utils";
 import {
@@ -182,7 +182,7 @@ jQuery(function ($) {
       const invalidEventIds = [];
       for (const [i, proof] of signedProofs.entries()) {
         const eventId = unspentEntries[i].eventId;
-        if (isV3Proof(proof)) {
+        if (isBlsProof(proof)) {
           // Nutroot: the lock lives in the point secret and any signature
           // covers the whole swap, so the keys go to receive, not the proof
           console.log("A nutroot NutZap proof", proof);

@@ -4,7 +4,7 @@ import {
   Amount,
   serializeProofs,
   deserializeProofs,
-  isBlsKeyset,
+  classifyNutrootKeyPath,
   parseNutrootLeafHex,
   StaleKeysetError,
   type AmountLike,
@@ -54,47 +54,43 @@ interface NutLockEntry {
   amount: number | string; // Amount.toJSON() returns number | string
 }
 
-/**
- * Is this proof on a v3 (nutroot) keyset?
- */
-export function isV3Proof(proof: Proof): boolean {
-  return isBlsKeyset(proof.id);
-}
+// Keyset dispatch every v3-aware tool needs; re-exported so tools import it
+// from one place alongside the helpers below
+export { isBlsProof } from "@cashu/cashu-ts";
 
 /**
  * How a v3 proof's key path travels, and what that means for the holder.
- * @remarks kind: bearer (k rides the token), receiver (needs the receiver's
- * static privkey), script-only (leaf spends only), none (no key material).
+ * @remarks Classification comes from cashu-ts; only the UI text lives here.
  */
 export function describeV3KeyPath(proof: Proof): {
-  kind: "bearer" | "receiver" | "script-only" | "none";
+  kind: ReturnType<typeof classifyNutrootKeyPath>;
   text: string;
 } {
-  const si = proof.spend_info;
-  if (si?.k) {
-    return {
-      kind: "bearer",
-      text: "Unlocked: the spending key travels with the token, so anyone holding it can spend or sweep it.",
-    };
+  const kind = classifyNutrootKeyPath(proof);
+  switch (kind) {
+    case "bearer":
+      return {
+        kind,
+        text: "Unlocked: the spending key travels with the token, so anyone holding it can spend or sweep it.",
+      };
+    case "receiver":
+      return {
+        kind,
+        text: "A blinded recipient key: paste a private key to check if it unlocks.",
+      };
+    case "script-only":
+      return {
+        kind,
+        text: proof.spend_info?.u
+          ? "No key path spend: the internal key is provably unspendable (NUMS), so only the script leaves below can spend it."
+          : "Script-path transfer: the key path key is held elsewhere; only the script leaves below can spend it here.",
+      };
+    default:
+      return {
+        kind,
+        text: "No spending info travels with this token: it cannot be spent from here (it may be the owner's own wallet proof).",
+      };
   }
-  if (si?.E) {
-    return {
-      kind: "receiver",
-      text: "A blinded recipient key: paste a private key to check if it unlocks.",
-    };
-  }
-  if (si?.K) {
-    return {
-      kind: "script-only",
-      text: si.u
-        ? "No key path spend: the internal key is provably unspendable (NUMS), so only the script leaves below can spend it."
-        : "Script-path transfer: the key path key is held elsewhere; only the script leaves below can spend it here.",
-    };
-  }
-  return {
-    kind: "none",
-    text: "No spending info travels with this token: it cannot be spent from here (it may be the owner's own wallet proof).",
-  };
 }
 
 /**

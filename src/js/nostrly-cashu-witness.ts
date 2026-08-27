@@ -34,7 +34,7 @@ import {
   getErrorMessage,
   getTokenAmount,
   getWalletWithUnit,
-  isV3Proof,
+  isBlsProof,
 } from "./utils";
 import { getContactDetails, convertP2PKToNpub } from "./nostr";
 import toastr from "toastr";
@@ -200,7 +200,7 @@ jQuery(function ($) {
       if (!proofs.length) {
         // Nutroot: every proof is locked to its point secret; spend_info
         // says who can spend it, so witness X-rays them all
-        const v3 = allProofs.filter(isV3Proof);
+        const v3 = allProofs.filter(isBlsProof);
         if (!v3.length) {
           toastr.error("This is not a locked token. Go spend it anywhere!");
           return;
@@ -627,7 +627,7 @@ jQuery(function ($) {
       // Nutroot proofs the key path cannot spend go through their first
       // satisfiable leaf as a script path plan
       const plans: ScriptPathPlan[] = [];
-      for (const p of allProofs.filter(isV3Proof)) {
+      for (const p of allProofs.filter(isBlsProof)) {
         const spend = await wallet.spendOptions(
           p,
           privkeys.length ? { privkeys } : undefined,

@@ -517,9 +517,9 @@ jQuery(function ($) {
     }
   }
 
-  // Builds the semantic lock options from the current form state; the wallet
-  // encodes them for the active keyset (NUT-11/14 tags pre-v3, nutroot on v3)
-  const buildLockOptions = () => {
+  // Builds the semantic lock from the current form state; the wallet
+  // encodes it for the active keyset (NUT-11/14 tags pre-v3, nutroot on v3)
+  const buildLock = () => {
     const lock = new LockBuilder()
       .addMainPubkey(lockKeys)
       .lockUntil(expireTime)
@@ -540,7 +540,7 @@ jQuery(function ($) {
         time: fallbackTime,
       });
     }
-    return lock.toOptions();
+    return lock;
   };
 
   // Handles order button status
@@ -561,14 +561,21 @@ jQuery(function ($) {
     const hasValidRefunds = !$refundNpub.val() || refundKeys.length > 0;
     console.log("lockKeys:>", lockKeys);
     console.log("refundKeys:>", refundKeys);
-    // v3 keysets refuse a locktime with no refund keys (anyone-after-locktime
-    // does not fit a nutroot tree): require a refund key instead
-    if (isV3Mint && expireTime && !refundKeys.length) {
-      toastr.error(
-        "This mint uses v3 (nutroot) keysets, which need a Refund Public Key with an expiry. Add one (your own is fine).",
-      );
-      setOrderButtonState(true);
-      return false;
+    // v3 pre-flight: surface anything the nutroot encoder would refuse (eg a
+    // locktime with no refund keys) before the order button goes live
+    if (isV3Mint && expireTime) {
+      try {
+        const issues = buildLock().validate("v3");
+        if (issues.length) {
+          toastr.error(issues[0].message);
+          setOrderButtonState(true);
+          return false;
+        }
+      } catch (e) {
+        toastr.error(getErrorMessage(e));
+        setOrderButtonState(true);
+        return false;
+      }
     }
     // Check secret length is under MAX_SECRET characters as some mints have
     // this limit. To do this, let's create a 1 sat blinded message with p2pk
@@ -580,7 +587,7 @@ jQuery(function ($) {
       try {
         const keyset = wallet.keyChain.getKeyset();
         const testBlindedMessage = OutputData.createSingleP2PKData(
-          lockToP2PKOptions(buildLockOptions()),
+          lockToP2PKOptions(buildLock().toOptions()),
           1, // for testing
           keyset.id,
         );
@@ -714,7 +721,7 @@ jQuery(function ($) {
       if (!wallet) {
         throw new Error("Wallet instance not found!");
       }
-      const lockOptions = buildLockOptions();
+      const lockOptions = buildLock().toOptions();
       console.log("lockOptions", lockOptions);
       const { send: p2pkProofs, keep: donationProofs } = await withStaleRetry(
         () => wallet.ops.send(tokenAmount, proofs).asLocked(lockOptions).run(),
