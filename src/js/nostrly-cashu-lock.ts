@@ -326,6 +326,7 @@ jQuery(function ($) {
     setKeyFn: Function,
     isTextarea: boolean = false,
     errorMsgPrefix: string = "Invalid",
+    excludeKey?: () => string | undefined,
   ) => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let isPasting = false;
@@ -338,16 +339,20 @@ jQuery(function ($) {
         isPasting = false;
       }, 200);
     });
-    // Block non-paste inputs with a warning
+    // Block non-paste inputs with a warning; an emptied field (cut/delete)
+    // must still process so the stored key is cleared with it
     $input.on("input", (_e) => {
-      if (!isPasting && $input.val()) {
-        clearTimeout(timeout);
-        timeout = setTimeout(async () => {
-          toastr.warning("Please paste only!");
-          await processInput();
-          isPasting = false;
-        }, 200);
+      if (isPasting) {
+        return;
       }
+      clearTimeout(timeout);
+      timeout = setTimeout(async () => {
+        if ($input.val()) {
+          toastr.warning("Please paste only!");
+        }
+        await processInput();
+        isPasting = false;
+      }, 200);
     });
     // Process the pasted input
     const processInput = async () => {
@@ -359,8 +364,19 @@ jQuery(function ($) {
         checkIsReadyToOrder();
         return;
       }
-      // Parse and validate keys
-      const keys = await parsePubkeys(text);
+      // Parse and validate keys, dropping any duplicate of the main key field
+      let keys = await parsePubkeys(text);
+      const mainKey = excludeKey?.();
+      if (mainKey && keys.includes(mainKey)) {
+        keys = keys.filter((k) => k !== mainKey);
+        toastr.info("Removed duplicate of the main key");
+        if (!keys.length) {
+          $input.val("");
+          setKeyFn([]);
+          checkIsReadyToOrder();
+          return;
+        }
+      }
       if (keys.length > 0) {
         if (isTextarea) {
           // Handle textarea (multi-key input)
@@ -408,11 +424,15 @@ jQuery(function ($) {
     $extraLockKeys,
     (keys: string[]) => (extraLockKeys = keys),
     true,
+    "Invalid",
+    () => lockP2PK,
   );
   handlePubkeyInput(
     $extraRefundKeys,
     (keys: string[]) => (extraRefundKeys = keys),
     true,
+    "Invalid",
+    () => refundP2PK,
   );
 
   // Handle n_sigs
