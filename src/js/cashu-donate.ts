@@ -56,18 +56,24 @@ export const handleCashuDonation = async (
     const unit = metadata.unit;
     const wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
     let proofs; // scope
-    // NIP-61 specifies NUT-11 locks, so a nutroot lock would produce a zap
-    // other clients cannot claim: fall back to the DM path on those mints
     const isNutroot = isBlsKeyset(wallet.keyChain.getKeyset().id);
-    if (pubkey && mints.includes(mintUrl) && !isNutroot) {
+    if (pubkey && mints.includes(mintUrl)) {
       // We have a NIP-61 pubkey and the mint is one of the approved ones
       // Receive the token to the wallet (creates new proofs)
       // locked to our p2pk pubkey, and send as NutZap to the NIP-61 relays
+      // On a nutroot mint the zap is script-only: NUMS internal key plus one
+      // threshold leaf on the NIP-61 key, so the lock stays third-party
+      // verifiable like a NUT-11 zap. Ahead of NIP-61 spec: only
+      // nutroot-aware clients can claim it for now.
+      const lock = isNutroot
+        ? {
+            leaves: [
+              { type: "threshold" as const, n: 1, keys: ["02" + pubkey] },
+            ],
+          }
+        : { mainKeys: ["02" + pubkey] };
       proofs = await withStaleRetry(() =>
-        wallet.ops
-          .receive(token)
-          .asLocked({ mainKeys: ["02" + pubkey] })
-          .run(),
+        wallet.ops.receive(token).asLocked(lock).run(),
       );
       await sendNutZap(proofs, mintUrl, unit, message, toPub, nutzapRelays);
     } else {

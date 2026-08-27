@@ -5,6 +5,7 @@ import {
   signP2PKProofs,
   Proof,
   CheckStateEnum,
+  type ReceiveConfig,
 } from "@cashu/cashu-ts";
 import {
   copyTextToClipboard,
@@ -112,8 +113,18 @@ jQuery(function ($) {
       const wallet = await getWalletWithUnit(mintUrl, unit);
       // The wallet keys unlock nutroot proofs at receive time; NUT-11 proofs
       // are already signed, so passing them is harmless
+      const config: ReceiveConfig = privkeys.length
+        ? { privkey: privkeys }
+        : {};
+      // Script-only zaps (NUMS + leaf on the NIP-61 key) have no key path:
+      // spend them through their first satisfiable leaf
+      const plans = await wallet.planScriptPaths(
+        validSignedProofs,
+        privkeys.length ? { privkeys } : undefined,
+      );
+      if (plans.length) config.scriptPath = plans;
       const newProofs = await withStaleRetry(() =>
-        wallet.receive(token, privkeys.length ? { privkey: privkeys } : {}),
+        wallet.receive(token, config),
       );
       return getEncodedToken({
         mint: mintUrl,

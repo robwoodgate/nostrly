@@ -14,7 +14,6 @@ import {
   Token,
   ConsoleLogger,
   type ReceiveConfig,
-  type ScriptPathPlan,
   type SpendOptions,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
@@ -626,20 +625,10 @@ jQuery(function ($) {
       }
       // Nutroot proofs the key path cannot spend go through their first
       // satisfiable leaf as a script path plan
-      const plans: ScriptPathPlan[] = [];
-      for (const p of allProofs.filter(isBlsProof)) {
-        const spend = await wallet.spendOptions(
-          p,
-          privkeys.length ? { privkeys } : undefined,
-        );
-        if (spend.keyPath) {
-          continue;
-        }
-        const opt = spend.script.find((o) => o.satisfiable);
-        if (opt) {
-          plans.push({ secret: p.secret, leafIndex: opt.leafIndex });
-        }
-      }
+      const plans = await wallet.planScriptPaths(
+        allProofs,
+        privkeys.length ? { privkeys } : undefined,
+      );
       if (plans.length) {
         config.scriptPath = plans;
       }
