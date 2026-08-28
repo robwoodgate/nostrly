@@ -5,7 +5,7 @@
   "main": "index.js",
   "author": "robwoodgate",
   "dependencies": {
-    "@cashu/cashu-ts": "file:../cts",
+    "@cashu/cashu-ts": "5.0.0-experimental.d4fd4e21",
     "@gandlaf21/bolt11-decode": "^3.1.1",
     "@noble/curves": "^1.8.1",
     "@noble/hashes": "^1.7.1",
