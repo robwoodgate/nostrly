@@ -1,5 +1,6 @@
 import {
   Wallet,
+  isBlsKeyset,
   ConsoleLogger,
   Amount,
   serializeProofs,
@@ -292,6 +293,28 @@ export function clearLockedTokens(): void {
 export const getWalletWithUnit = async (
   mintUrl: string,
   unit: CurrencyUnit = "sat",
+  opts?: { legacy?: boolean },
+): Promise<Wallet> => {
+  const wallet = await loadWalletWithUnit(mintUrl, unit);
+  if (!opts?.legacy) return wallet;
+  // Testing aid: bind to an active pre-v3 keyset so the same mint exercises
+  // the NUT-11 path; the wallet otherwise binds to the cheapest keyset
+  const legacy = wallet.keyChain
+    .getKeysets()
+    .find((k) => k.isActive && !isBlsKeyset(k.id));
+  if (!legacy) return wallet;
+  const bound = new Wallet(mintUrl, {
+    unit,
+    keysetId: legacy.id,
+    logger: new ConsoleLogger("debug"),
+  });
+  bound.loadMintFromCache(wallet.getMintInfo().cache, wallet.keyChain.cache);
+  return bound;
+};
+
+const loadWalletWithUnit = async (
+  mintUrl: string,
+  unit: CurrencyUnit,
 ): Promise<Wallet> => {
   const cacheKey = getMintCacheKey(mintUrl, unit);
 

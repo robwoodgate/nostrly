@@ -57,7 +57,7 @@ export const handleCashuDonation = async (
     const unit = metadata.unit;
     const wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
     let proofs; // scope
-    const isNutroot = isBlsKeyset(wallet.keyChain.getKeyset().id);
+    const isNutroot = isBlsKeyset(wallet.keysetId);
     if (pubkey && mints.includes(mintUrl)) {
       // We have a NIP-61 pubkey and the mint is one of the approved ones
       // Receive the token to the wallet (creates new proofs)

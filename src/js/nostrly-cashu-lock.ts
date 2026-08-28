@@ -170,11 +170,13 @@ jQuery(function ($) {
     // Lookup selected mint
     mintUrl = $mintSelect.val() as string;
     try {
-      wallet = await getWalletWithUnit(mintUrl); // Load wallet
+      // ?legacy=1 binds to the mint's pre-v3 keyset, for testing NUT-11 locks
+      const legacy = new URLSearchParams(location.search).has("legacy");
+      wallet = await getWalletWithUnit(mintUrl, "sat", { legacy });
       proofs = getMintProofs(mintUrl); // Load saved proofs
       console.log("proofs total:>>", getTokenAmount(proofs));
       console.log("proofs:>>", proofs);
-      isV3Mint = isBlsKeyset(wallet.keyChain.getKeyset().id);
+      isV3Mint = isBlsKeyset(wallet.keysetId);
       $v3Note.toggle(isV3Mint);
       applyFallbackVisibility();
       $refundBlankNote.toggle(!isV3Mint);
@@ -656,7 +658,7 @@ jQuery(function ($) {
     if (!isV3Mint) {
       let secretDecode = "";
       try {
-        const keyset = wallet.keyChain.getKeyset();
+        const keyset = wallet.keyChain.getKeyset(wallet.keysetId);
         const testBlindedMessage = OutputData.createSingleP2PKData(
           lockToP2PKOptions(buildLock().toOptions()),
           1, // for testing
