@@ -65,9 +65,7 @@ export const handleCashuDonation = async (
       // On a nutroot mint the zap uses the canonical auditable lock (NUT-10),
       // so it stays third-party verifiable like a NUT-11 zap. Ahead of NIP-61
       // spec: only nutroot-aware clients can claim it for now.
-      const lock = isNutroot
-        ? auditableLock("02" + pubkey)
-        : { mainKeys: ["02" + pubkey] };
+      const lock = isNutroot ? auditableLock(pubkey) : { mainKeys: [pubkey] };
       proofs = await withStaleRetry(() =>
         wallet.ops.receive(token).asLocked(lock).run(),
       );

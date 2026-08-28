@@ -293,7 +293,8 @@ export const getNip61Info = async (
       } else if (tag[0] === "relay") {
         nrelays.push(tag[1]);
       } else if (tag[0] === "pubkey") {
-        pubkey = tag[1];
+        // NIP-61 now specifies a 33-byte compressed key; older events carry x-only
+        pubkey = tag[1].length === 64 ? "02" + tag[1] : tag[1];
       }
     }
     return { pubkey, mints, relays: nrelays };

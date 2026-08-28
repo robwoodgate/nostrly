@@ -336,7 +336,7 @@ jQuery(function ($) {
     const { pubkey, mints } = await getNip61Info(sliced);
     console.log("NIP61:", pubkey, mints);
     if (pubkey) {
-      const nip61Key = "02" + pubkey;
+      const nip61Key = pubkey;
       toastr.info(
         `Using ${name}'s NIP-61 P2PK KEY for security: <code>${nip61Key}</code>`,
       );
