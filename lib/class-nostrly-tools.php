@@ -762,6 +762,7 @@ class NostrlyTools
                     margin-right: 8px;
                     border-radius: 50%;
                     display: inline-block;
+                    flex-shrink: 0;
                 }
                 #witness-info .signed .status-icon {
                     background-color: #0f0;

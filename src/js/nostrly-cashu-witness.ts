@@ -445,7 +445,7 @@ jQuery(function ($) {
     html += `<strong>Key Path:</strong><ul>`;
     html += `<li>Locked to&nbsp;<span style="font-family:monospace">${proof.secret.slice(0, 12)}...${proof.secret.slice(-12)}</span></li>`;
     const keyPathText =
-      keyPath.kind === "receiver" && spend.keyPath
+      keyPath.kind === "receiver-keyed" && spend.keyPath
         ? "A blinded recipient key: your key unlocks it."
         : keyPath.text;
     html += `<li class="${spend.keyPath ? "signed" : "pending"}"><span class="status-icon"></span>${keyPathText}</li>`;
@@ -486,7 +486,7 @@ jQuery(function ($) {
           : `<p class="summary">Unlock below to convert into a normal token, spendable in any Cashu wallet.</p>`;
       $unlockDiv.show();
     } else {
-      if (keyPath.kind === "receiver" || spend.script.length) {
+      if (keyPath.kind === "receiver-keyed" || spend.script.length) {
         html += `<p class="summary">Paste a private key below to check whether it can unlock this token.</p>`;
       }
       $unlockDiv.hide();

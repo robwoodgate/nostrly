@@ -428,13 +428,13 @@ jQuery(function ($) {
           );
           $lightningStatus.html(lines.join("<br>"));
         }
-        if (keyPath.kind === "receiver") {
+        if (keyPath.kind === "receiver-keyed") {
           $pkeyWrapper.show();
           $tokenStatus.html("Enter your private key to unlock this token.");
           if (!$pkey.val() as boolean) {
             return;
           }
-        } else if (keyPath.kind === "script-only" || keyPath.kind === "none") {
+        } else if (keyPath.kind !== "bearer") {
           throw "This token cannot be redeemed directly. Please use Cashu Witness to inspect and unlock it first.";
         }
       }

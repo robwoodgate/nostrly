@@ -4,7 +4,7 @@ import {
   Amount,
   serializeProofs,
   deserializeProofs,
-  classifyNutrootKeyPath,
+  classifyNutrootSpendInfo,
   parseNutrootLeafHex,
   StaleKeysetError,
   type AmountLike,
@@ -59,36 +59,34 @@ interface NutLockEntry {
 export { isBlsProof } from "@cashu/cashu-ts";
 
 /**
- * How a v3 proof's key path travels, and what that means for the holder.
+ * What a v3 proof's spend info says about who can spend it, for the holder.
  * @remarks Classification comes from cashu-ts; only the UI text lives here.
  */
 export function describeV3KeyPath(proof: Proof): {
-  kind: ReturnType<typeof classifyNutrootKeyPath>;
+  kind: ReturnType<typeof classifyNutrootSpendInfo>;
   text: string;
 } {
-  const kind = classifyNutrootKeyPath(proof);
+  const kind = classifyNutrootSpendInfo(proof);
   switch (kind) {
     case "bearer":
       return {
         kind,
         text: "Unlocked: the spending key travels with the token, so anyone holding it can spend or sweep it.",
       };
-    case "receiver":
+    case "script-only":
+      return {
+        kind,
+        text: "No key path: provably unspendable (NUMS), so only a script leaf can spend it.",
+      };
+    case "receiver-keyed":
       return {
         kind,
         text: "A blinded recipient key: paste a private key to check if it unlocks.",
       };
-    case "script-only":
+    case "disclosed":
       return {
         kind,
-        text: proof.spend_info?.u
-          ? "No key path spend: the internal key is provably unspendable (NUMS), so only the script leaves below can spend it."
-          : "Script-path transfer: the key path key is held elsewhere; only the script leaves below can spend it here.",
-      };
-    case "aggregated":
-      return {
-        kind,
-        text: "Locked to an aggregated key with no script leaves: only its co-holders can spend it.",
+        text: "Key held by someone else: only a script leaf can spend it here.",
       };
     default:
       return {
