@@ -368,10 +368,15 @@ class NostrlyTools
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
         $cancel = esc_html__('Cancel', 'nostrly');
-        // Local test mint, offered only on ?test=1 so the live selector is untouched
-        $testmint = isset($_GET['test'])
-            ? '<option value="http://localhost:3338">http://localhost:3338 (TEST MINT)</option>'
-            : '';
+        // Test mint, offered only on ?test=1 (localhost) or ?test=<mint url>, so the live
+        // selector is untouched
+        $testmint = '';
+        if (isset($_GET['test'])) {
+            $url = filter_var(wp_unslash($_GET['test']), FILTER_VALIDATE_URL)
+                ? esc_url(wp_unslash($_GET['test']), ['http', 'https'])
+                : 'http://localhost:3338';
+            $testmint = '<option value="' . $url . '">' . esc_html($url) . ' (TEST MINT)</option>';
+        }
 
         return <<<EOL
                 <style>
