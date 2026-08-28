@@ -143,7 +143,7 @@ jQuery(function ($) {
       if (isPrivkeyValid(privkey)) {
         $privkey.attr("data-valid", "");
         if (isV3) {
-          displayV3Info(); // re-assess the tree with this key
+          displayV3Info(true); // re-assess the tree with this key
         } else {
           signAndWitnessToken(false);
         }
@@ -426,7 +426,7 @@ jQuery(function ($) {
 
   // Display v3 (nutroot) spending conditions: the key path, then each
   // disclosed tree leaf with this wallet's own satisfiability assessment
-  async function displayV3Info() {
+  async function displayV3Info(attempted = false) {
     const proof = proofs[0];
     if (!proof || !wallet) {
       return;
@@ -448,6 +448,14 @@ jQuery(function ($) {
     const keyPath = describeV3KeyPath(proof);
     const canSpend = (o: SpendOption) => o.satisfiable || extensionCanSign(o);
     spendAuthorised = spend.keyPath || spend.script.some(canSpend);
+    // A silent re-render after a paste or NIP-07 click reads as a broken button
+    if (attempted) {
+      if (spendAuthorised) {
+        toastr.success("Your key unlocks this token");
+      } else {
+        toastr.warning("That key does not unlock the key path or any leaf");
+      }
+    }
 
     const updateContactName = (id: string, npub: string) => {
       getContactDetails(npub, nostrly_ajax.relays).then(({ name }) => {
@@ -579,7 +587,7 @@ jQuery(function ($) {
           "No NIP-60 wallet keys found, and this signer cannot sign a Nutroot leaf directly.",
         );
       }
-      await displayV3Info();
+      await displayV3Info(true);
     } catch (e) {
       toastr.error(getErrorMessage(e, "NIP-07 signer failed"));
       console.error(e);
