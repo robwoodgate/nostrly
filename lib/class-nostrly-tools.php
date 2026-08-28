@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
 
 class NostrlyTools
 {
-    protected $domain;
+    protected string $domain;
 
     public function init(): void
     {
@@ -402,6 +402,24 @@ class NostrlyTools
                         margin-right: 0.25rem;
                         width: 1rem;
                     }
+                    #lock-type > label:not(:first-child):not(.hidden) {
+                        display: inline-block;
+                        margin-right: 1rem;
+                        width: auto;
+                    }
+                    #lock-type input[type="radio"] {
+                        width: auto;
+                        margin-right: 0.25rem;
+                    }
+                    #lock-type .hidden {
+                        display: none;
+                    }
+                    #permanent-warning {
+                        margin-top: 0.5rem;
+                        padding: 0.5rem 0.75rem;
+                        border: 2px solid rgb(204, 55, 55);
+                        background-color: rgba(204, 55, 55, 0.15);
+                    }
                     /* Validation feedback */
                     #cashu-lock-form [data-valid="no"] {
                         border: 2px solid rgb(204, 55, 55);
@@ -574,11 +592,24 @@ class NostrlyTools
                             <option value="discover">Discover more mints...</option>
                         </select>
                         <div class="description">Choose the NUT-11 compliant mint you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://audit.8333.space" target="_blank">Cashu Auditor</a> (in which case, <a href="https://audit.8333.space" target="_blank">donating a token from that mint</a> will add it to the list)</div>
-                        <div id="v3-note" class="description hidden">🌰 This mint supports <strong>Nutroot</strong>: your lock is hidden inside the token secret, taproot-style, so the mint cannot see who it is locked to. A Refund Public Key is always required.</div>
+                        <div id="v3-note" class="description hidden">🌰 This mint supports <strong>Nutroot</strong>: your lock is hidden inside the token secret, taproot-style, so the mint cannot see who it is locked to. Locks never decay to anyone-can-spend: a Refundable lock needs a refund key, and the other types are permanent.</div>
                     </div>
                     <div>
                         <label for="lock-value">Token Value (sats):</label>
                         <input type="number" id="lock-value" name="lock-value" min="1" step="1" placeholder="1000" required>
+                    </div>
+                    <div id="lock-type">
+                        <label>Lock Type:</label>
+                        <label><input type="radio" name="lock-type" value="refundable" checked> Refundable</label>
+                        <label><input type="radio" name="lock-type" value="permanent"> Permanent</label>
+                        <label id="lock-type-auditable" class="hidden"><input type="radio" name="lock-type" value="auditable"> Auditable</label>
+                        <div class="description" data-lock-type="refundable">Locked to the recipient until the expiry, then to the refund key(s). The safe default: a wrong recipient key is recoverable once the lock expires.</div>
+                        <div class="description hidden" data-lock-type="permanent">Locked to the recipient key(s) forever, with no expiry and no refund path. On a Nutroot mint a single key gives a stealth lock: the mint cannot tell the token is locked, and only the key holder can prove it is theirs.</div>
+                        <div class="description hidden" data-lock-type="auditable">A public Nutroot lock to one key, nutzap-style: anyone holding the token can verify who it is locked to, and nobody else can spend it. Permanent; keys are not blinded.</div>
+                        <div id="permanent-warning" class="hidden">
+                            <strong>WARNING:</strong> this lock can never be reclaimed. If the public key is wrong, the sats are gone.<br>
+                            <label><input type="checkbox" id="confirm-permanent"> I have checked the key and understand this lock is permanent.</label>
+                        </div>
                     </div>
                     <div>
                         <label>
@@ -587,7 +618,7 @@ class NostrlyTools
                         </label>
                         <div class="description">Check this box if you want NutLock to replace Nostr NPUBs with the user's corresponding NIP-61 pubkey, if found. This adds security, but may make the token harder to redeem as not all Cashu wallets support NIP-61. <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support NIP-61.</div>
                     </div>
-                    <div>
+                    <div id="p2bk-option">
                         <label>
                             <input type="checkbox" id="use-p2bk">
                             Use Pay-to-Blinded-Key (P2BK)?
@@ -597,16 +628,17 @@ class NostrlyTools
                     <div>
                         <label for="lock-npub">Lock Token to Public Key (NPUB/P2PK):</label>
                         <input type="text" id="lock-npub" name="lock-npub" placeholder="npub1... | 02..." required>
-                        <div class="description">Token will be exclusively redeemable by the owner of this public key until the lock expires</div>
+                        <div class="description">Token will be exclusively redeemable by the owner of this public key<span id="lock-until-note"> until the lock expires</span>.</div>
                         <a href="#" id="add-multisig">+ Add Multisig</a>
                         <div id="multisig-options" class="hidden">
                             <label for="extra-lock-keys">Additional Locking Pubkeys (one per line or CSV):</label>
                             <textarea id="extra-lock-keys" name="extra-lock-keys" rows="3" placeholder="npub1...\n02..."></textarea>
-                            <label for="n-sigs">Signatures Required (n_sigs):</label>
+                            <label for="n-sigs">Signatures Required:</label>
                             <input type="number" id="n-sigs" name="n-sigs" min="1" step="1" value="1" required>
                             <div class="description">Number of signatures needed to unlock (e.g., 2 for 2-of-3 multisig).</div>
                         </div>
                     </div>
+                    <div id="refundable-options">
                     <div>
                         <label for="lock-expiry">Lock Expires (Local Time):</label>
                         <input type="datetime-local" id="lock-expiry" name="lock-expiry" required>
@@ -618,20 +650,21 @@ class NostrlyTools
                             <input type="text" id="refund-npub" name="refund-npub" placeholder="npub1... | 02...">
                             <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                         </div>
-                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br><span id="refund-blank-note">Leave blank if you want the token to be redeemable by anyone after the lock expires.<br></span><span id="refund-v3-note" class="hidden">Required on this mint: Nutroot tokens cannot be left open to anyone after expiry. Your own key is a good choice; for a permanent lock, use the recipient's key.<br></span><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/">Cashu Redeem</a> do.</div>
+                        <div class="description">Token will be exclusively redeemable by the owner of this public key after the lock expires.<br><span id="refund-blank-note">Leave blank if you want the token to be redeemable by anyone after the lock expires.<br></span><span id="refund-v3-note" class="hidden">Required on this mint: Nutroot tokens cannot be left open to anyone after expiry. Your own key is a good choice.<br></span><strong>WARNING:</strong> A refund lock never expires. Make sure the public key is correct!<br><strong>NOTE:</strong> Not all Cashu wallets support refund public keys yet. Both <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/">Cashu Redeem</a> do.</div>
                         <a href="#" id="add-refund-keys">+ Add More Refund Keys</a>
                         <div id="refund-keys-options" class="hidden">
                             <label for="extra-refund-keys">Additional Refund Pubkeys (one per line or CSV):</label>
                             <textarea id="extra-refund-keys" name="extra-refund-keys" rows="3" placeholder="npub1...\n02..."></textarea>
-                            <label for="r-sigs">Signatures Required (n_sigs_refund):</label>
+                            <label for="r-sigs">Refund Signatures Required:</label>
                             <input type="number" id="r-sigs" name="r-sigs" min="1" step="1" value="1" required>
                             <div class="description">Number of signatures needed to refund (e.g., 2 for 2-of-3 multisig).</div>
                             <div id="v3-fallback" class="hidden">
-                                <label for="refund-fallback">Refund Fallback Date (v3 mints, optional):</label>
+                                <label for="refund-fallback">Refund Fallback Date (optional):</label>
                                 <input type="datetime-local" id="refund-fallback" name="refund-fallback">
-                                <div class="description">Safety net for refund multisig: after this date, ANY ONE refund key can reclaim the token on its own, even if the other refund signers are gone. Added as an extra leaf in the token's nutroot tree. Only applies when refund signatures required is more than 1. Must be later than the lock expiry.</div>
+                                <div class="description">Safety net for refund multisig: after this date, ANY ONE refund key can reclaim the token on its own, even if the other refund signers are gone. Added as an extra leaf in the token's nutroot tree. Must be later than the lock expiry.</div>
                             </div>
                         </div>
+                    </div>
                     </div>
                     <div class="center">
                         <label for="add_donation" class="center">Do you want to add a donation for the NutLock developers?</label>
@@ -833,7 +866,7 @@ class NostrlyTools
                     <div>
                         <label for="privkey">Private Key (NSEC or Hex):</label>
                         <input type="text" id="privkey" name="privkey" placeholder="nsec1... | hex">
-                        <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. <span id="witness-sig-legacy">For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank" rel="noopener"><em>nip60</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener">NOS2X</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name may not appear above in this case.</span><span id="witness-sig-v3" class="hidden">Unlocking a Nutroot token signs the whole unlock transaction, which browser signers (NIP-07) cannot do yet, so the key itself is needed here.</span></div>
+                        <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. <span id="witness-sig-legacy">For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank" rel="noopener"><em>nip60</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener">NOS2X</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name may not appear above in this case.</span><span id="witness-sig-v3" class="hidden">Unlocking a Nutroot token signs the whole unlock transaction. A NIP-07 signer can help two ways: by unlocking your <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a> keys, or by signing directly when a leaf names your Nostr key unblinded (<a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a> supports this). Blinded keys and the stealth key path need the key itself.</span></div>
                     </div>
                     <div class="center">
                         <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>

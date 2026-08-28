@@ -4,6 +4,7 @@ import {
   isBlsKeyset,
   lockToP2PKOptions,
   LockBuilder,
+  auditableLock,
   MintQuoteState,
   OutputData,
   Proof,
@@ -42,6 +43,8 @@ declare const nostrly_ajax: {
 };
 
 // DOM ready
+type LockType = "refundable" | "permanent" | "auditable";
+
 jQuery(function ($) {
   // Init constants
   const relays = nostrly_ajax.relays;
@@ -66,6 +69,7 @@ jQuery(function ($) {
   let lockKeys: string[] = []; // sanitized keys
   let refundKeys: string[] = []; // sanitized keys
   let isV3Mint = false; // active keyset is v3 (nutroot)
+  let lockType: LockType = "refundable";
   let fallbackTime: number | undefined; // v3 staged-reclaim leaf, unix TS
   let quoteLockPrivkey: string; // NUT-20 lock key for the current mint quote
 
@@ -108,6 +112,14 @@ jQuery(function ($) {
   const $refundBlankNote = $("#refund-blank-note");
   const $refundV3Note = $("#refund-v3-note");
   const $refundFallback = $("#refund-fallback");
+  const $lockTypeRadios = $("input[name='lock-type']");
+  const $lockTypeAuditable = $("#lock-type-auditable");
+  const $lockTypeNotes = $("#lock-type [data-lock-type]");
+  const $refundableOptions = $("#refundable-options");
+  const $permanentWarning = $("#permanent-warning");
+  const $confirmPermanent = $("#confirm-permanent");
+  const $p2bkOption = $("#p2bk-option");
+  const $lockUntilNote = $("#lock-until-note");
   const $minFee = $("#min_fee");
   $minFee.text(
     `Includes estimated Mint fees of ${PCT_FEE}% (min ${MIN_FEE} sats).`,
@@ -164,9 +176,14 @@ jQuery(function ($) {
       console.log("proofs:>>", proofs);
       isV3Mint = isBlsKeyset(wallet.keyChain.getKeyset().id);
       $v3Note.toggle(isV3Mint);
-      $v3Fallback.toggle(isV3Mint);
+      applyFallbackVisibility();
       $refundBlankNote.toggle(!isV3Mint);
       $refundV3Note.toggle(isV3Mint);
+      $lockTypeAuditable.toggle(isV3Mint);
+      if (!isV3Mint && lockType === "auditable") {
+        $lockTypeRadios.filter("[value='refundable']").prop("checked", true);
+      }
+      applyLockType();
       toastr.success(`Loaded Mint: ${mintUrl}`);
       $mintSelect.attr("data-valid", "");
     } catch (e) {
@@ -263,6 +280,29 @@ jQuery(function ($) {
     e.preventDefault();
     $refundKeysOptions.slideToggle();
   });
+  // Lock type drives which fields apply; auditable is one unblinded key
+  const applyLockType = () => {
+    lockType =
+      ($lockTypeRadios.filter(":checked").val() as LockType) ?? "refundable";
+    const permanent = lockType !== "refundable";
+    $lockTypeNotes.each((_i, el) => {
+      $(el).toggle($(el).data("lock-type") === lockType);
+    });
+    $refundableOptions.toggle(!permanent);
+    $lockUntilNote.toggle(!permanent);
+    $permanentWarning.toggle(permanent);
+    if (!permanent) $confirmPermanent.prop("checked", false);
+    const auditable = lockType === "auditable";
+    $addMultisig.toggle(!auditable);
+    if (auditable) $multisigOptions.hide();
+    $p2bkOption.toggle(!auditable);
+    if (auditable) $useP2BK.prop("checked", false);
+  };
+  $lockTypeRadios.on("change", () => {
+    applyLockType();
+    checkIsReadyToOrder();
+  });
+  $confirmPermanent.on("change", () => checkIsReadyToOrder());
 
   /**
    * Checks if npub has a NIP-61 P2PK pubkey
@@ -472,7 +512,7 @@ jQuery(function ($) {
     () => refundP2PK,
   );
 
-  // Handle n_sigs
+  // Handle signatures required
   $nSigs.on("input", () => {
     nSigValue = parseInt($nSigs.val() as string, 10);
     if (nSigValue < 1) {
@@ -484,7 +524,17 @@ jQuery(function ($) {
     checkIsReadyToOrder();
   });
 
-  // Handle n_sigs_refund
+  // The fallback leaf only exists for a refund multisig on a v3 mint
+  const applyFallbackVisibility = () => {
+    const show = isV3Mint && rSigValue > 1;
+    $v3Fallback.toggle(show);
+    if (!show) {
+      $refundFallback.val("").attr("data-valid", "");
+      fallbackTime = undefined;
+    }
+  };
+
+  // Handle refund signatures required
   $rSigs.on("input", () => {
     rSigValue = parseInt($rSigs.val() as string, 10);
     if (rSigValue < 1) {
@@ -493,6 +543,7 @@ jQuery(function ($) {
       toastr.error("Signatures required must be at least 1");
     }
     console.log("n_sigs_refund:>>", rSigValue);
+    applyFallbackVisibility();
     checkIsReadyToOrder();
   });
 
@@ -520,16 +571,23 @@ jQuery(function ($) {
   // Builds the semantic lock from the current form state; the wallet
   // encodes it for the active keyset (NUT-11/14 tags pre-v3, nutroot on v3)
   const buildLock = () => {
+    // NUMS internal key plus one unblinded 1-of-1 leaf: verifiable by anyone
+    if (lockType === "auditable") {
+      return LockBuilder.fromOptions(auditableLock(lockP2PK));
+    }
     const lock = new LockBuilder()
       .addMainPubkey(lockKeys)
-      .lockUntil(expireTime)
-      .addRefundPubkey(refundKeys)
       .requireMainSignatures(nSigValue);
-    if (refundKeys.length) {
-      lock.requireRefundSignatures(rSigValue);
-    }
     if ($useP2BK.is(":checked")) {
       lock.blindKeys();
+    }
+    // Permanent: no locktime, so no refund leaf; a single key on v3 is a bare key path
+    if (lockType === "permanent") {
+      return lock;
+    }
+    lock.lockUntil(expireTime).addRefundPubkey(refundKeys);
+    if (refundKeys.length) {
+      lock.requireRefundSignatures(rSigValue);
     }
     // v3 staged reclaim: a later window where any single refund key suffices
     if (isV3Mint && fallbackTime && refundKeys.length && rSigValue > 1) {
@@ -555,15 +613,25 @@ jQuery(function ($) {
     }
 
     // Deduplicate lockKeys and refundKeys while filtering falsy values
-    lockKeys = [...new Set([lockP2PK, ...extraLockKeys].filter(Boolean))];
+    lockKeys = [
+      ...new Set(
+        [lockP2PK, ...(lockType === "auditable" ? [] : extraLockKeys)].filter(
+          Boolean,
+        ),
+      ),
+    ];
     if (!lockKeys.length) return false;
     refundKeys = [...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean))];
     const hasValidRefunds = !$refundNpub.val() || refundKeys.length > 0;
+    const permanent = lockType !== "refundable";
+    const typeReady = permanent
+      ? $confirmPermanent.is(":checked")
+      : Boolean(expireTime) && hasValidRefunds;
     console.log("lockKeys:>", lockKeys);
     console.log("refundKeys:>", refundKeys);
     // v3 pre-flight: surface anything the nutroot encoder would refuse (eg a
     // locktime with no refund keys) before the order button goes live
-    if (isV3Mint && expireTime) {
+    if (isV3Mint && (permanent || expireTime)) {
       try {
         const issues = buildLock().validate("v3");
         if (issues.length) {
@@ -609,9 +677,8 @@ jQuery(function ($) {
 
     if (
       tokenAmount > 0 &&
-      expireTime &&
+      typeReady &&
       lockP2PK &&
-      hasValidRefunds &&
       $extraLockKeys.attr("data-valid") !== "no" &&
       $extraRefundKeys.attr("data-valid") !== "no" &&
       $refundFallback.attr("data-valid") !== "no" &&

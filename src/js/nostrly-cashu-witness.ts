@@ -13,11 +13,14 @@ import {
   Wallet,
   Token,
   ConsoleLogger,
+  CashuNip07,
   type ReceiveConfig,
+  type SpendOption,
   type SpendOptions,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import {
+  getNip60Wallet,
   isPrivkeyValid,
   maybeConvertNsecToP2PK,
   signNip60Proofs,
@@ -60,6 +63,19 @@ jQuery(function ($) {
   let spendAuthorised = false;
   let isV3 = false; // proofs are on a v3 (nutroot) keyset
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
+  let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
+  let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
+
+  // Every key this page can sign with directly: pasted, plus NIP-60 via NIP-07
+  const signingKeys = () => [
+    ...(privkey ? [maybeConvertNsecToP2PK(privkey)] : []),
+    ...nip07Privkeys,
+  ];
+  // A leaf the extension can complete: read at call time, since extensions may
+  // inject window.nostr after this script runs
+  const extensionCanSign = (opt: SpendOption) =>
+    Boolean(nip07Pubkey && window.nostr && CashuNip07.canSign(window.nostr)) &&
+    CashuNip07.completes(opt, nip07Pubkey!);
   const logger = new ConsoleLogger("debug");
 
   // DOM elements
@@ -138,7 +154,9 @@ jQuery(function ($) {
       }
     }, 100); // Delay to ensure paste value is available
   });
-  $useNip07.on("click", () => signAndWitnessToken(true));
+  $useNip07.on("click", () =>
+    isV3 ? loadNip07ForV3() : signAndWitnessToken(true),
+  );
   $copyToken.on("click", () =>
     copyTextToClipboard($witnessedToken.val() as string),
   );
@@ -413,7 +431,7 @@ jQuery(function ($) {
     if (!proof || !wallet) {
       return;
     }
-    const privkeys = privkey ? [maybeConvertNsecToP2PK(privkey)] : [];
+    const privkeys = signingKeys();
     let spend: SpendOptions = { keyPath: false, script: [] };
     try {
       spend = await wallet.spendOptions(
@@ -428,7 +446,8 @@ jQuery(function ($) {
       return;
     }
     const keyPath = describeV3KeyPath(proof);
-    spendAuthorised = spend.keyPath || spend.script.some((o) => o.satisfiable);
+    const canSpend = (o: SpendOption) => o.satisfiable || extensionCanSign(o);
+    spendAuthorised = spend.keyPath || spend.script.some(canSpend);
 
     const updateContactName = (id: string, npub: string) => {
       getContactDetails(npub, nostrly_ajax.relays).then(({ name }) => {
@@ -455,8 +474,11 @@ jQuery(function ($) {
       html += `<strong>Script Leaves (any ONE unlocks the token):</strong><ul>`;
       for (const opt of spend.script) {
         let status = "";
+        const extSign = extensionCanSign(opt);
         if (opt.satisfiable) {
           status = " - unlockable with your key";
+        } else if (extSign) {
+          status = " - unlockable with your Nostr extension";
         } else if (opt.blockedBy === "locktime") {
           status = " - not yet active"; // the leaf text already names the date
         } else if (opt.blockedBy === "preimage") {
@@ -464,14 +486,19 @@ jQuery(function ($) {
         } else if (privkeys.length) {
           status = " - your key does not unlock this leaf";
         }
-        html += `<li class="${opt.satisfiable ? "signed" : "pending"}"><span class="status-icon"></span>Leaf ${opt.leafIndex + 1}: ${describeNutrootLeaf(opt.leaf)}${status}</li>`;
+        html += `<li class="${canSpend(opt) ? "signed" : "pending"}"><span class="status-icon"></span>Leaf ${opt.leafIndex + 1}: ${describeNutrootLeaf(opt.leaf)}${status}</li>`;
         const held = new Set(opt.keys.map((k) => k.keyIndex));
         html += `<ul>`;
         opt.leaf.keys.forEach((pub, keyIndex) => {
           const npub = convertP2PKToNpub(pub);
           const keyId = `leaf-${opt.leafIndex}-${npub}`;
           const keyholder = `<span id="${keyId}">${pub.slice(0, 12)}...${pub.slice(-12)}</span>`;
-          html += `<li class="${held.has(keyIndex) ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}${held.has(keyIndex) ? ": your key" : ""}</li>`;
+          const mine = held.has(keyIndex)
+            ? ": your key"
+            : extSign && pub === nip07Pubkey
+              ? ": your Nostr key"
+              : "";
+          html += `<li class="${mine ? "signed" : "pending"}"><span class="status-icon"></span>${keyholder}${mine}</li>`;
           updateContactName(keyId, npub);
         });
         html += `</ul>`;
@@ -487,7 +514,7 @@ jQuery(function ($) {
       $unlockDiv.show();
     } else {
       if (keyPath.kind === "receiver-keyed" || spend.script.length) {
-        html += `<p class="summary">Paste a private key below to check whether it can unlock this token.</p>`;
+        html += `<p class="summary">Paste a private key below, or use your NIP-07 signer, to check whether it can unlock this token.</p>`;
       }
       $unlockDiv.hide();
     }
@@ -506,10 +533,15 @@ jQuery(function ($) {
       return;
     }
     if (isV3) {
-      // Nutroot keys sign the unlock transaction itself, so only a pasted
-      // private key works here; hide the NIP-07 offer rather than tease it
+      // The extension helps a nutroot unlock two ways: NIP-60 wallet keys it
+      // decrypts, and signSchnorr for a leaf that lists the Nostr key verbatim
       $signersDiv.show();
-      $useNip07.hide();
+      $useNip07
+        .show()
+        .prop(
+          "disabled",
+          typeof window?.nostr?.getPublicKey === "undefined" || !proofs.length,
+        );
       $("#witness-sig-legacy").hide();
       $("#witness-sig-v3").show();
       return;
@@ -528,6 +560,29 @@ jQuery(function ($) {
     } else {
       $signersDiv.hide();
       $useNip07.prop("disabled", true);
+    }
+  }
+
+  // Ask the extension for its pubkey and any NIP-60 wallet keys, then re-assess the tree
+  async function loadNip07ForV3() {
+    try {
+      if (typeof window?.nostr?.getPublicKey === "undefined") {
+        throw new Error("NIP-07 signer not detected.");
+      }
+      const pubkey = await window.nostr.getPublicKey();
+      nip07Pubkey = await CashuNip07.pubkey(window.nostr);
+      if (typeof window.nostr.nip44?.decrypt !== "undefined") {
+        ({ privkeys: nip07Privkeys } = await getNip60Wallet(pubkey));
+      }
+      if (!nip07Privkeys.length && !CashuNip07.canSign(window.nostr)) {
+        toastr.warning(
+          "No NIP-60 wallet keys found, and this signer cannot sign a Nutroot leaf directly.",
+        );
+      }
+      await displayV3Info();
+    } catch (e) {
+      toastr.error(getErrorMessage(e, "NIP-07 signer failed"));
+      console.error(e);
     }
   }
 
@@ -619,7 +674,7 @@ jQuery(function ($) {
       const config: ReceiveConfig = {};
       // The key serves both encodings in a mixed token: NUT-11 proofs are
       // signed with it, nutroot proofs sign the unlock transaction
-      const privkeys = privkey ? [maybeConvertNsecToP2PK(privkey)] : [];
+      const privkeys = signingKeys();
       if (privkeys.length) {
         config.privkey = privkeys;
       }
@@ -629,6 +684,25 @@ jQuery(function ($) {
         allProofs,
         privkeys.length ? { privkeys } : undefined,
       );
+      // Leaves only the extension can complete get a cosign hook, which
+      // signSchnorr answers once the transaction digest is known
+      const planned = new Set(plans.map((p) => p.secret));
+      for (const proof of allProofs.filter(isBlsProof)) {
+        if (planned.has(proof.secret)) continue;
+        const spend = await wallet.spendOptions(
+          proof,
+          privkeys.length ? { privkeys } : undefined,
+        );
+        if (spend.keyPath) continue;
+        const opt = spend.script.find(extensionCanSign);
+        if (opt) {
+          plans.push({
+            secret: proof.secret,
+            leafIndex: opt.leafIndex,
+            cosign: CashuNip07.cosign(window.nostr!),
+          });
+        }
+      }
       if (plans.length) {
         config.scriptPath = plans;
       }

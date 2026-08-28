@@ -14,15 +14,12 @@ import { bytesToHex } from "@noble/hashes/utils";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
 import {
-  getP2PKExpectedWitnessPubkeys,
-  getP2PKWitnessSignatures,
-  hasP2PKSignedProof,
+  CashuNip07,
   Proof,
   serializeProofs,
   signP2PKProofs,
 } from "@cashu/cashu-ts";
 import { getErrorMessage } from "./utils";
-import { sha256Hex } from "./nut11";
 
 type Nip60Tag = [string, string];
 type NutZapInfo = {
@@ -55,6 +52,9 @@ export interface Nostr {
   nip60?: {
     signSecret?: (
       secret: string,
+    ) => Promise<{ hash: string; sig: string; pubkey: string }>;
+    signTransaction?: (
+      messageHex: string,
     ) => Promise<{ hash: string; sig: string; pubkey: string }>;
   };
 }
@@ -564,85 +564,21 @@ export async function getUnclaimedNutZaps(
   }
 }
 
-// Sign proofs with NIP-07, using whatever signing approach is present:
-// - nip60.signSecret() - the official Cashu signer
-// - nostr.signString() - per https://github.com/nostr-protocol/nips/pull/1842
-// - nostr.signSchnorr() - Alby implementation
-// NOTE: Does not support P2BK as NIP-07 signers don't understand blinded pubkeys
+// Sign NUT-11 proofs with the NIP-07 extension's own key, via whichever
+// method it offers (nip60.signSecret, signString, or Alby's signSchnorr).
+// Blinded (P2BK) keys cannot match the extension's key, so they are skipped.
 export async function signWithNip07(proofs: Proof[]) {
   if (typeof window?.nostr === "undefined") {
-    console.log("Nostr extension not found. Ignoing NIP-07 signing.");
+    console.log("Nostr extension not found. Ignoring NIP-07 signing.");
     return proofs;
   }
-  // Make a copy of each proof
-  const signedProofs = proofs.map((proof) => ({ ...proof }));
-  for (const [index, proof] of signedProofs.entries()) {
-    if (!proof.secret.includes("P2PK")) continue;
-    const pubkeys = getP2PKExpectedWitnessPubkeys(proof.secret);
-    console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
-    if (!pubkeys.length) continue;
-    let signatures = getP2PKWitnessSignatures(proof.witness);
-
-    const hash = sha256Hex(proof.secret);
-    let pubkey = "";
-    let sig = "";
-    let signedSig = "";
-    let signedHash = "";
-    try {
-      if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
-        ({
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
-        } = await window.nostr.nip60.signSecret(proof.secret));
-        console.log("signSecret result:", {
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
-        });
-      } else if (typeof window?.nostr?.signString !== "undefined") {
-        ({
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
-        } = await window.nostr.signString(proof.secret));
-        console.log("signString result:", {
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
-        });
-      } else if (
-        typeof window?.nostr?.signSchnorr !== "undefined" &&
-        typeof window?.nostr?.getPublicKey !== "undefined"
-      ) {
-        pubkey = await window.nostr.getPublicKey();
-        signedSig = await window.nostr.signSchnorr(hash);
-        signedHash = hash;
-        console.log("signSchnorr pubkey:", pubkey);
-        console.log("signSchnorr sig:", signedSig);
-      }
-      const normalizedPubkey = "02" + pubkey;
-      console.log("normalizedPubkey:", normalizedPubkey);
-      console.log("signedHash:", signedHash);
-      console.log("hash:", hash);
-      if (signedHash === hash && pubkeys.includes(normalizedPubkey)) {
-        sig = signedSig;
-        console.log("adding sig:", sig);
-      }
-    } catch (e) {
-      const message = getErrorMessage(e, "Failed to sign token");
-      toastr.warning(`Skipped signing proof ${index + 1}: ${message}`);
-      console.error("NIP-07 signing error:", e);
-      continue;
-    }
-    if (sig && !hasP2PKSignedProof(pubkey, proof)) {
-      signedProofs[index].witness = {
-        signatures: [...signatures, sig],
-      };
-      console.log("added sig!", sig);
-    }
+  try {
+    return await CashuNip07.signP2PK(window.nostr, proofs);
+  } catch (e) {
+    toastr.warning(getErrorMessage(e, "NIP-07 signing failed"));
+    console.error("NIP-07 signing error:", e);
+    return proofs;
   }
-  return signedProofs;
 }
 
 // Sign P2PK proofs using NIP-60 wallet keys
