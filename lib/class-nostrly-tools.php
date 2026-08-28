@@ -368,6 +368,10 @@ class NostrlyTools
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
         $cancel = esc_html__('Cancel', 'nostrly');
+        // Local test mint, offered only on ?test=1 so the live selector is untouched
+        $testmint = isset($_GET['test'])
+            ? '<option value="http://localhost:3338">http://localhost:3338 (TEST MINT)</option>'
+            : '';
 
         return <<<EOL
                 <style>
@@ -585,7 +589,7 @@ class NostrlyTools
                         <label for="mint-select">Choose a Mint:</label>
                         <select id="mint-select" name="mint-select" required>
                             <option value="" disabled selected>Select a mint...</option>
-                            <option value="http://localhost:3338">http://localhost:3338 (TEST MINT)</option>
+                            {$testmint}
                             <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
                             <option value="https://mint.103100.xyz">https://mint.103100.xyz</option>
                             <option value="https://mint.coinos.io">https://mint.coinos.io</option>
