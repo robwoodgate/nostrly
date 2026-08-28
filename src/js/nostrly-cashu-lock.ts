@@ -622,7 +622,10 @@ jQuery(function ($) {
     ];
     if (!lockKeys.length) return false;
     refundKeys = [...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean))];
-    const hasValidRefunds = !$refundNpub.val() || refundKeys.length > 0;
+    // v3 refundable locks need a refund key: nutroot has no anyone-after-expiry
+    const hasValidRefunds = isV3Mint
+      ? refundKeys.length > 0
+      : !$refundNpub.val() || refundKeys.length > 0;
     const permanent = lockType !== "refundable";
     const typeReady = permanent
       ? $confirmPermanent.is(":checked")
@@ -630,8 +633,8 @@ jQuery(function ($) {
     console.log("lockKeys:>", lockKeys);
     console.log("refundKeys:>", refundKeys);
     // v3 pre-flight: surface anything the nutroot encoder would refuse (eg a
-    // locktime with no refund keys) before the order button goes live
-    if (isV3Mint && (permanent || expireTime)) {
+    // threshold above the key count) once the form is otherwise complete
+    if (isV3Mint && typeReady) {
       try {
         const issues = buildLock().validate("v3");
         if (issues.length) {
