@@ -390,14 +390,13 @@ jQuery(function ($) {
           }
         }
 
-        $lightningStatus.html(lines.join("<br>"));
-
         const activePathThresholds = [mainRequiredSigners];
         if (refundPathActive) {
           activePathThresholds.push(refundRequiredSigners);
         }
         const minActiveThreshold = Math.min(...activePathThresholds);
         if (!verification.success && minActiveThreshold > 1) {
+          $lightningStatus.html(lines.join("<br>"));
           if (lockState === "ACTIVE" && Number.isFinite(locktime)) {
             throw `This token needs multisig until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait for lock expiry.`;
           }
@@ -410,11 +409,21 @@ jQuery(function ($) {
         const haveKeys = Boolean(pastedKey) || nip07Privkeys.length > 0;
         const extensionSigns = Boolean(nostr) && CashuNip07.canSignP2PK(nostr!);
         if (hasP2BK ? !haveKeys : !extensionSigns && !haveKeys) {
+          // The lock summary is a to-do list: only useful while something is
+          // still outstanding
+          $lightningStatus.html(lines.join("<br>"));
           // Offer the wallet rather than prompting it uninvited, as v3 does
           const canTryExtension =
             typeof nostr?.nip44?.decrypt !== "undefined" && !nip07Pubkey;
           $useNip07.toggleClass("hidden", !canTryExtension);
           $pkeyWrapper.show();
+          // The stock label assumes no extension; here one may be present and
+          // simply unable to sign for a blinded key
+          $pkeyLabel.text(
+            hasP2BK && nostr
+              ? "Blinded keys need a private key: enter it to unlock this token"
+              : "Enter the private key that unlocks this token",
+          );
           $tokenStatus.html(
             canTryExtension
               ? "Try your Nostr extension, or enter your private key."
