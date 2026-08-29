@@ -433,7 +433,26 @@ jQuery(function ($) {
         const proof = v3Proofs[0];
         const keyPath = describeV3KeyPath(proof);
         const leaves = getNutrootLeaves(proof);
-        if (keyPath.kind !== "bearer" || leaves.length) {
+        let spendable = true;
+        if (keyPath.kind !== "bearer") {
+          const keys = v3SpendKeys();
+          const spend = await wallet.spendOptions(
+            proof,
+            keys.length ? { privkeys: keys } : undefined,
+          );
+          spendable =
+            spend.keyPath ||
+            spend.script.some(
+              (o) =>
+                o.satisfiable ||
+                (!!nip07Pubkey && CashuNip07.completes(o, nip07Pubkey)),
+            );
+        }
+        if (spendable) {
+          // The lock details read as a to-do list, so once it is satisfied
+          // they only describe work that is already done
+          $useNip07.addClass("hidden");
+        } else {
           const lines: string[] = [
             "Nutroot token: the lock is hidden inside the token secret",
           ];
@@ -442,46 +461,28 @@ jQuery(function ($) {
             lines.push(`Leaf ${i + 1}: ${describeNutrootLeaf(leaf)}`),
           );
           $lightningStatus.html(lines.join("<br>"));
-        }
-        if (keyPath.kind !== "bearer") {
-          const keys = v3SpendKeys();
-          const spend = await wallet.spendOptions(
-            proof,
-            keys.length ? { privkeys: keys } : undefined,
+          // A stealth lock is indistinguishable, so we cannot tell whose it is:
+          // offer the extension rather than prompting it uninvited, since its
+          // NIP-60 wallet may hold the (NIP-61) key this derives from. Kept
+          // visible after a failed try, as the extension may have been locked.
+          const hasExtension =
+            typeof window?.nostr?.getPublicKey !== "undefined";
+          $useNip07.toggleClass("hidden", !hasExtension);
+          $pkeyWrapper.show();
+          $pkeyLabel.text(
+            nip07Pubkey
+              ? "Your Nostr extension cannot unlock this token: enter its private key"
+              : "Enter the private key that unlocks this token",
           );
-          const spendable =
-            spend.keyPath ||
-            spend.script.some(
-              (o) =>
-                o.satisfiable ||
-                (!!nip07Pubkey && CashuNip07.completes(o, nip07Pubkey)),
-            );
-          if (!spendable) {
-            // A stealth lock is indistinguishable, so we cannot tell whose it
-            // is: offer the extension rather than prompting it uninvited, since
-            // its NIP-60 wallet may hold the (NIP-61) key this derives from
-            const hasExtension =
-              typeof window?.nostr?.getPublicKey !== "undefined";
-            // Kept visible after a failed try: the extension may have been
-            // locked, and re-pasting the token to retry would be silly
-            $useNip07.toggleClass("hidden", !hasExtension);
-            $pkeyWrapper.show();
-            $pkeyLabel.text(
-              nip07Pubkey
-                ? "Your Nostr extension cannot unlock this token: enter its private key"
-                : "Enter the private key that unlocks this token",
-            );
-            $tokenStatus.html(
-              hasExtension && !nip07Pubkey
-                ? "Try your Nostr extension, or enter the private key that unlocks this token."
-                : "Enter your private key to unlock this token.",
-            );
-            if (!pastedKey) {
-              return;
-            }
-            throw "This token cannot be redeemed with that key. Please use Cashu Witness to inspect and unlock it first.";
+          $tokenStatus.html(
+            hasExtension && !nip07Pubkey
+              ? "Try your Nostr extension, or enter the private key that unlocks this token."
+              : "Enter your private key to unlock this token.",
+          );
+          if (!pastedKey) {
+            return;
           }
-          $useNip07.addClass("hidden");
+          throw "This token cannot be redeemed with that key. Please use Cashu Witness to inspect and unlock it first.";
         }
       }
       let mintHost = new URL(mintUrl).hostname;
