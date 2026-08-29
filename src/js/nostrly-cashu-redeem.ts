@@ -10,6 +10,8 @@ import {
   MeltChangeError,
   Wallet,
   Proof,
+  CashuNip07,
+  type MeltProofsConfig,
   signP2PKProofs,
 } from "@cashu/cashu-ts";
 import {
@@ -29,6 +31,8 @@ import {
 import {
   convertP2PKToNpub,
   getContactDetails,
+  getNostrExtensionKeys,
+  getV3SpendConfig,
   maybeConvertNsecToP2PK,
   signNip60Proofs,
   signWithNip07,
@@ -51,6 +55,8 @@ jQuery(function ($) {
   let unit: string = "sat";
   let proofs: Proof[];
   let tokenAmount: Amount;
+  let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
+  let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
 
@@ -428,14 +434,31 @@ jQuery(function ($) {
           );
           $lightningStatus.html(lines.join("<br>"));
         }
-        if (keyPath.kind === "receiver-keyed") {
-          $pkeyWrapper.show();
-          $tokenStatus.html("Enter your private key to unlock this token.");
-          if (!$pkey.val() as boolean) {
-            return;
+        if (keyPath.kind !== "bearer") {
+          // Try the Nostr extension first, as the pre-v3 path does: NIP-60
+          // wallet keys it decrypts, and its own key for a leaf that names it
+          ({ pubkey: nip07Pubkey, privkeys: nip07Privkeys } =
+            await getNostrExtensionKeys());
+          const keys = v3SpendKeys();
+          const spend = await wallet.spendOptions(
+            proof,
+            keys.length ? { privkeys: keys } : undefined,
+          );
+          const spendable =
+            spend.keyPath ||
+            spend.script.some(
+              (o) =>
+                o.satisfiable ||
+                (!!nip07Pubkey && CashuNip07.completes(o, nip07Pubkey)),
+            );
+          if (!spendable) {
+            $pkeyWrapper.show();
+            $tokenStatus.html("Enter your private key to unlock this token.");
+            if (!$pkey.val() as boolean) {
+              return;
+            }
+            throw "This token cannot be redeemed with that key. Please use Cashu Witness to inspect and unlock it first.";
           }
-        } else if (keyPath.kind !== "bearer") {
-          throw "This token cannot be redeemed directly. Please use Cashu Witness to inspect and unlock it first.";
         }
       }
       let mintHost = new URL(mintUrl).hostname;
@@ -468,6 +491,12 @@ jQuery(function ($) {
       }
       $tokenStatus.text(errMsg);
     }
+  };
+
+  // Every key a v3 spend can use here: pasted, plus NIP-60 via the extension
+  const v3SpendKeys = (): string[] => {
+    const pasted = maybeConvertNsecToP2PK($pkey.val() as string);
+    return [...(pasted ? [pasted] : []), ...nip07Privkeys];
   };
 
   // Sign proofs if any are locked
@@ -612,12 +641,14 @@ jQuery(function ($) {
       const w = wallet; // narrowed reference for the retry closure
       // v3 inputs sign the melt transaction itself, so the key goes in the
       // melt config rather than onto the proofs
-      let meltConfig: { privkey: string } | undefined;
+      let meltConfig: MeltProofsConfig | undefined;
       if (proofs.some(isBlsProof)) {
-        const pk = maybeConvertNsecToP2PK($pkey.val() as string);
-        if (pk) {
-          meltConfig = { privkey: pk };
-        }
+        meltConfig = await getV3SpendConfig(
+          wallet,
+          proofs,
+          v3SpendKeys(),
+          nip07Pubkey,
+        );
       }
       try {
         meltResponse = await withStaleRetry(() =>
@@ -685,6 +716,7 @@ jQuery(function ($) {
     $redeemButton.prop("disabled", true);
   });
   $token.on("input", processToken);
+  $pkey.on("input", processToken);
   $lnurl.on("input", () => {
     if ($lnurl.val() as string) {
       $lnurlRemover.removeClass("hidden");

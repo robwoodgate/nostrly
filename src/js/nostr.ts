@@ -16,6 +16,9 @@ import toastr from "toastr";
 import {
   CashuNip07,
   Proof,
+  ScriptPathPlan,
+  Wallet,
+  isBlsProof,
   serializeProofs,
   signP2PKProofs,
 } from "@cashu/cashu-ts";
@@ -580,6 +583,63 @@ export async function signWithNip07(proofs: Proof[]) {
     console.error("NIP-07 signing error:", e);
     return proofs;
   }
+}
+
+/**
+ * The Nostr extension's own key, plus any NIP-60 wallet keys it can decrypt.
+ * @remarks Empty when no extension is present; the caller decides what to do about that.
+ */
+export async function getNostrExtensionKeys(
+  relays?: string[],
+): Promise<{ pubkey?: string; privkeys: string[] }> {
+  if (typeof window?.nostr?.getPublicKey === "undefined") {
+    return { privkeys: [] };
+  }
+  const hexpub = await window.nostr.getPublicKey();
+  const pubkey = await CashuNip07.pubkey(window.nostr);
+  let privkeys: string[] = [];
+  if (typeof window.nostr.nip44?.decrypt !== "undefined") {
+    ({ privkeys } = await getNip60Wallet(hexpub, relays));
+  }
+  return { pubkey, privkeys };
+}
+
+/**
+ * Keys and script path plans for spending v3 proofs, letting the Nostr
+ * extension cosign any leaf that names its key unblinded.
+ * @remarks Shape suits both ReceiveConfig and MeltProofsConfig.
+ */
+export async function getV3SpendConfig(
+  wallet: Wallet,
+  proofs: Proof[],
+  privkeys: string[],
+  nip07Pubkey?: string,
+): Promise<{ privkey?: string[]; scriptPath?: ScriptPathPlan[] }> {
+  const opts = privkeys.length ? { privkeys } : undefined;
+  const plans = await wallet.planScriptPaths(proofs, opts);
+  const nostr = window?.nostr;
+  if (nostr && nip07Pubkey && CashuNip07.canSign(nostr)) {
+    const planned = new Set(plans.map((p) => p.secret));
+    for (const proof of proofs.filter(isBlsProof)) {
+      if (planned.has(proof.secret)) continue;
+      const spend = await wallet.spendOptions(proof, opts);
+      if (spend.keyPath) continue;
+      const leaf = spend.script.find((o) =>
+        CashuNip07.completes(o, nip07Pubkey),
+      );
+      if (leaf) {
+        plans.push({
+          secret: proof.secret,
+          leafIndex: leaf.leafIndex,
+          cosign: CashuNip07.cosign(nostr),
+        });
+      }
+    }
+  }
+  return {
+    ...(privkeys.length && { privkey: privkeys }),
+    ...(plans.length && { scriptPath: plans }),
+  };
 }
 
 // Sign P2PK proofs using NIP-60 wallet keys

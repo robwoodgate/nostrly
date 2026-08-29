@@ -20,7 +20,8 @@ import {
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import {
-  getNip60Wallet,
+  getNostrExtensionKeys,
+  getV3SpendConfig,
   isPrivkeyValid,
   maybeConvertNsecToP2PK,
   signNip60Proofs,
@@ -575,13 +576,10 @@ jQuery(function ($) {
   async function loadNip07ForV3() {
     try {
       if (typeof window?.nostr?.getPublicKey === "undefined") {
-        throw new Error("NIP-07 signer not detected.");
+        throw new Error("Nostr extension not detected.");
       }
-      const pubkey = await window.nostr.getPublicKey();
-      nip07Pubkey = await CashuNip07.pubkey(window.nostr);
-      if (typeof window.nostr.nip44?.decrypt !== "undefined") {
-        ({ privkeys: nip07Privkeys } = await getNip60Wallet(pubkey));
-      }
+      ({ pubkey: nip07Pubkey, privkeys: nip07Privkeys } =
+        await getNostrExtensionKeys());
       if (!nip07Privkeys.length && !CashuNip07.canSign(window.nostr)) {
         toastr.warning(
           "No NIP-60 wallet keys found, and this signer cannot sign a Nutroot leaf directly.",
@@ -589,7 +587,7 @@ jQuery(function ($) {
       }
       await displayV3Info(true);
     } catch (e) {
-      toastr.error(getErrorMessage(e, "NIP-07 signer failed"));
+      toastr.error(getErrorMessage(e, "Nostr extension failed"));
       console.error(e);
     }
   }
@@ -679,41 +677,14 @@ jQuery(function ($) {
     try {
       console.log("unit:>>", unit);
       wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
-      const config: ReceiveConfig = {};
       // The key serves both encodings in a mixed token: NUT-11 proofs are
       // signed with it, nutroot proofs sign the unlock transaction
-      const privkeys = signingKeys();
-      if (privkeys.length) {
-        config.privkey = privkeys;
-      }
-      // Nutroot proofs the key path cannot spend go through their first
-      // satisfiable leaf as a script path plan
-      const plans = await wallet.planScriptPaths(
+      const config: ReceiveConfig = await getV3SpendConfig(
+        wallet,
         allProofs,
-        privkeys.length ? { privkeys } : undefined,
+        signingKeys(),
+        nip07Pubkey,
       );
-      // Leaves only the extension can complete get a cosign hook, which
-      // signSchnorr answers once the transaction digest is known
-      const planned = new Set(plans.map((p) => p.secret));
-      for (const proof of allProofs.filter(isBlsProof)) {
-        if (planned.has(proof.secret)) continue;
-        const spend = await wallet.spendOptions(
-          proof,
-          privkeys.length ? { privkeys } : undefined,
-        );
-        if (spend.keyPath) continue;
-        const opt = spend.script.find(extensionCanSign);
-        if (opt) {
-          plans.push({
-            secret: proof.secret,
-            leafIndex: opt.leafIndex,
-            cosign: CashuNip07.cosign(window.nostr!),
-          });
-        }
-      }
-      if (plans.length) {
-        config.scriptPath = plans;
-      }
       const unlockedProofs = await wallet.receive(
         $token.val() as string,
         config,

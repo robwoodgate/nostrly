@@ -771,10 +771,11 @@ class NostrlyTools
                     margin-top: 0.5rem;
                     color: #ccc;
                 }
-                /* NIP-07 button */
+                /* Nostr extension button */
                 #use-nip07 {
                     margin: 1em auto;
-                    max-width: 200px;
+                    max-width: 100%;
+                    width: fit-content;
                 }
                 #use-nip07:disabled {
                     opacity: 0.6;
