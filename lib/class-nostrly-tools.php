@@ -659,7 +659,7 @@ class NostrlyTools
                             <input type="checkbox" id="use-p2bk">
                             Use Pay-to-Blinded-Key (P2BK)?
                         </label>
-                        <div class="description">Check this box if you want NutLock to blind all public keys and create a <a href="https://github.com/cashubtc/nuts/blob/main/28.md" target="_blank">P2BK secret</a>. This adds privacy, but requires a PRIVATE KEY, or a NIP-60 wallet (for NIP-61 pubkeys), to redeem. You CANNOT sign P2BK tokens with NIP-07. <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support P2BK.</div>
+                        <div class="description">Check this box if you want NutLock to blind all public keys and create a <a href="https://github.com/cashubtc/nuts/blob/main/28.md" target="_blank">P2BK secret</a>. This adds privacy, but a blinded key can only be derived from a PRIVATE KEY: a Nostr extension cannot sign for one by itself, though it can unlock your NIP-60 wallet keys (for NIP-61 pubkeys), which can. <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support P2BK.</div>
                     </div>
                     <div>
                         <label for="lock-npub">Lock Token to Public Key (NPUB/P2PK):</label>

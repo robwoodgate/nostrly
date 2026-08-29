@@ -404,27 +404,27 @@ jQuery(function ($) {
           throw "This token needs multisig signatures. Please use Cashu Witness to unlock.";
         }
 
-        // If no compatible extension detected, we'll have to ask for an nsec/private key :(
-        if (
-          hasP2BK ||
-          (typeof window?.nostr?.signSchnorr === "undefined" &&
-            typeof window?.nostr?.signString === "undefined" &&
-            typeof window?.nostr?.nip60?.signSecret === "undefined")
-        ) {
+        // A blinded (P2BK) key can only be derived from a private key: the
+        // extension cannot sign for one itself, but its NIP-60 wallet keys can
+        const nostr = window?.nostr;
+        const haveKeys = Boolean(pastedKey) || nip07Privkeys.length > 0;
+        const extensionSigns = Boolean(nostr) && CashuNip07.canSignP2PK(nostr!);
+        if (hasP2BK ? !haveKeys : !extensionSigns && !haveKeys) {
+          // Offer the wallet rather than prompting it uninvited, as v3 does
+          const canTryExtension =
+            typeof nostr?.nip44?.decrypt !== "undefined" && !nip07Pubkey;
+          $useNip07.toggleClass("hidden", !canTryExtension);
           $pkeyWrapper.show();
-          if (hasP2BK) {
-            $tokenStatus.html(
-              "Enter your private key to unlock P2BK proofs</a>.",
-            );
-          } else {
-            $tokenStatus.html(
-              "Enter your private key or enable a <em>nip60</em> compatible Nostr Extension</a>.",
-            );
-          }
-          if (!pastedKey) {
-            return;
-          }
+          $tokenStatus.html(
+            canTryExtension
+              ? "Try your Nostr extension, or enter your private key."
+              : hasP2BK
+                ? "Enter your private key to unlock P2BK proofs."
+                : "Enter your private key or enable a <em>nip60</em> compatible Nostr Extension.",
+          );
+          return;
         }
+        $useNip07.addClass("hidden");
       }
       // v3 (nutroot) proofs: the lock is a tree inside the point secret and
       // any signature covers the whole melt, so keys are passed at melt time
