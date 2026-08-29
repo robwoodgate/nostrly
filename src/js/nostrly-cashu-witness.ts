@@ -522,7 +522,7 @@ jQuery(function ($) {
       $unlockDiv.show();
     } else {
       if (keyPath.kind === "receiver-keyed" || spend.script.length) {
-        html += `<p class="summary">Paste a private key below, or use your NIP-07 signer, to check whether it can unlock this token.</p>`;
+        html += `<p class="summary">Paste a private key below, or use your Nostr extension, to check whether it can unlock this token.</p>`;
       }
       $unlockDiv.hide();
     }

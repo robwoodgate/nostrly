@@ -721,6 +721,7 @@ class NostrlyTools
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
         $cancel = esc_html__('Cancel', 'nostrly');
+        $nxbutton = esc_html__('Use Nostr Extension', 'nostrly');
 
         return <<<EOL
             <style>
@@ -878,7 +879,7 @@ class NostrlyTools
                         <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. <span id="witness-sig-legacy">For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank" rel="noopener"><em>nip60</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener">NOS2X</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name may not appear above in this case.</span><span id="witness-sig-v3" class="hidden">Unlocking a Nutroot token signs the whole unlock transaction. A NIP-07 signer can help two ways: by unlocking your <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a> keys, or by signing directly when a leaf names your Nostr key unblinded (<a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a> supports this). Blinded keys and the stealth key path need the key itself.</span></div>
                     </div>
                     <div class="center">
-                        <button type="button" id="use-nip07" class="button" disabled>Use NIP-07 Signer</button>
+                        <button type="button" id="use-nip07" class="button" disabled>{$nxbutton}</button>
                     </div>
                 </div>
                 <div id="unlock" class="hidden center">
