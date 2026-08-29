@@ -69,7 +69,6 @@ jQuery(function ($) {
   const $pkey = $("#pkey");
   const $pkeyWrapper = $("#pkeyWrapper");
   const $pkeyLabel = $("#pkeyWrapper label");
-  const $nostrWrapper = $("#nostrWrapper");
   const $useNip07 = $("#use-nip07");
   const $tokenRemover = $("#tokenRemover");
   const $lnurlRemover = $("#lnurlRemover");
@@ -99,7 +98,7 @@ jQuery(function ($) {
     $lightningStatus.text("");
     $tokenRemover.addClass("hidden");
     $pkeyWrapper.hide();
-    $nostrWrapper.hide();
+    $useNip07.addClass("hidden");
     $pkey.val("");
     $redeemButton.prop("disabled", true);
   };
@@ -460,7 +459,7 @@ jQuery(function ($) {
               typeof window?.nostr?.getPublicKey !== "undefined";
             // Kept visible after a failed try: the extension may have been
             // locked, and re-pasting the token to retry would be silly
-            $nostrWrapper.toggle(hasExtension);
+            $useNip07.toggleClass("hidden", !hasExtension);
             $pkeyWrapper.show();
             $pkeyLabel.text(
               nip07Pubkey
@@ -477,7 +476,7 @@ jQuery(function ($) {
             }
             throw "This token cannot be redeemed with that key. Please use Cashu Witness to inspect and unlock it first.";
           }
-          $nostrWrapper.hide();
+          $useNip07.addClass("hidden");
         }
       }
       let mintHost = new URL(mintUrl).hostname;

@@ -302,6 +302,29 @@ class NostrlyTools
                       position: relative;
                       width: 100%;
                     }
+                    #pkey-container {
+                      display: flex;
+                    }
+                    #pkey-container #pkey {
+                      flex: 1;
+                      margin-right: 5px;
+                    }
+                    #use-nip07 {
+                      flex: 0 0 auto;
+                      width: 13rem;
+                    }
+                    @media (max-width: 600px) {
+                      #pkey-container {
+                        flex-direction: column;
+                      }
+                      #pkey-container #pkey {
+                        margin-bottom: 5px;
+                        margin-right: 0;
+                      }
+                      #use-nip07 {
+                        width: 100%;
+                      }
+                    }
                     .text-remover {
                       border-radius: 6px;
                       font-size: 20px;
@@ -332,13 +355,13 @@ class NostrlyTools
                     <textarea id="token" rows="4" cols="50" placeholder="{$token}"></textarea>
                     <button id="tokenRemover" class="text-remover hidden">&times;</button>
                   </div>
-                  <div id="nostrWrapper" class="center hidden">
-                    <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
-                  </div>
                   <div id="pkeyWrapper" class="text-wrapper hidden">
                     <label for="pkey">{$pkey_label}</label>
                     <div class="sublabel text-wrapper">$pkey_desc</div>
-                    <input type="text" placeholder="{$pkey}" value="" id="pkey">
+                    <div id="pkey-container">
+                      <input type="text" placeholder="{$pkey}" value="" id="pkey">
+                      <button type="button" id="use-nip07" class="button hidden">{$nxbutton}</button>
+                    </div>
                   </div>
                   <label for="lnurl">{$lnurl_label}</label>
                   <div id="lnurlWrapper" class="text-wrapper">
