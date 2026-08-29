@@ -259,6 +259,7 @@ class NostrlyTools
 
         $token_label = esc_attr('Cashu token (or emoji 🥜)');
         $token = esc_attr__('Paste the Cashu ecash token (or ecash emoji 🥜) to redeem...', 'nostrly');
+        $nxbutton = esc_html__('Use Nostr Extension', 'nostrly');
         $pkey_label = esc_html__('Compatible Extension Not Detected - Enter Private Key To Unlock Token', 'nostrly');
         $pkey_desc = sprintf(esc_html__('Your private key is NEVER sent to our server or the mint. For maximum security, however, we recommend using a %5$snip60%4$s compatible Nostr extension like %1$sAlby%4$s, %2$sAKA Profiles%4$s or %3$snos2X%4$s.', 'nostrly'),
             '<a href="https://getalby.com/products/browser-extension" target="_blank">',
@@ -330,6 +331,9 @@ class NostrlyTools
                   <div id="tokenWrapper" class="text-wrapper">
                     <textarea id="token" rows="4" cols="50" placeholder="{$token}"></textarea>
                     <button id="tokenRemover" class="text-remover hidden">&times;</button>
+                  </div>
+                  <div id="nostrWrapper" class="center hidden">
+                    <button type="button" id="use-nip07" class="button">{$nxbutton}</button>
                   </div>
                   <div id="pkeyWrapper" class="text-wrapper hidden">
                     <label for="pkey">{$pkey_label}</label>

@@ -39,6 +39,7 @@ import {
 } from "./nostr";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
+import toastr from "toastr";
 import { decode as emojiDecode } from "./emoji-encoder";
 import { handleCashuDonation } from "./cashu-donate";
 import { bytesToHex } from "@noble/hashes/utils";
@@ -67,6 +68,9 @@ jQuery(function ($) {
   const $lightningStatus = $("#lightningStatus");
   const $pkey = $("#pkey");
   const $pkeyWrapper = $("#pkeyWrapper");
+  const $pkeyLabel = $("#pkeyWrapper label");
+  const $nostrWrapper = $("#nostrWrapper");
+  const $useNip07 = $("#use-nip07");
   const $tokenRemover = $("#tokenRemover");
   const $lnurlRemover = $("#lnurlRemover");
   const $redeemButton = $("#redeem");
@@ -95,6 +99,7 @@ jQuery(function ($) {
     $lightningStatus.text("");
     $tokenRemover.addClass("hidden");
     $pkeyWrapper.hide();
+    $nostrWrapper.hide();
     $pkey.val("");
     $redeemButton.prop("disabled", true);
   };
@@ -435,10 +440,6 @@ jQuery(function ($) {
           $lightningStatus.html(lines.join("<br>"));
         }
         if (keyPath.kind !== "bearer") {
-          // Try the Nostr extension first, as the pre-v3 path does: NIP-60
-          // wallet keys it decrypts, and its own key for a leaf that names it
-          ({ pubkey: nip07Pubkey, privkeys: nip07Privkeys } =
-            await getNostrExtensionKeys());
           const keys = v3SpendKeys();
           const spend = await wallet.spendOptions(
             proof,
@@ -452,13 +453,31 @@ jQuery(function ($) {
                 (!!nip07Pubkey && CashuNip07.completes(o, nip07Pubkey)),
             );
           if (!spendable) {
+            // A stealth lock is indistinguishable, so we cannot tell whose it
+            // is: offer the extension rather than prompting it uninvited, since
+            // its NIP-60 wallet may hold the (NIP-61) key this derives from
+            const hasExtension =
+              typeof window?.nostr?.getPublicKey !== "undefined";
+            // Kept visible after a failed try: the extension may have been
+            // locked, and re-pasting the token to retry would be silly
+            $nostrWrapper.toggle(hasExtension);
             $pkeyWrapper.show();
-            $tokenStatus.html("Enter your private key to unlock this token.");
+            $pkeyLabel.text(
+              nip07Pubkey
+                ? "Your Nostr extension cannot unlock this token: enter its private key"
+                : "Enter the private key that unlocks this token",
+            );
+            $tokenStatus.html(
+              hasExtension && !nip07Pubkey
+                ? "Try your Nostr extension, or enter the private key that unlocks this token."
+                : "Enter your private key to unlock this token.",
+            );
             if (!$pkey.val() as boolean) {
               return;
             }
             throw "This token cannot be redeemed with that key. Please use Cashu Witness to inspect and unlock it first.";
           }
+          $nostrWrapper.hide();
         }
       }
       let mintHost = new URL(mintUrl).hostname;
@@ -717,6 +736,27 @@ jQuery(function ($) {
   });
   $token.on("input", processToken);
   $pkey.on("input", processToken);
+  $useNip07.on("click", async () => {
+    try {
+      $useNip07.prop("disabled", true);
+      const before = nip07Privkeys.length;
+      ({ pubkey: nip07Pubkey, privkeys: nip07Privkeys } =
+        await getNostrExtensionKeys());
+      if (!nip07Privkeys.length) {
+        toastr.warning(
+          before
+            ? "No further keys found in your NIP-60 wallet"
+            : "No NIP-60 wallet keys found for this extension",
+        );
+      }
+      await processToken();
+    } catch (e) {
+      toastr.error(getErrorMessage(e, "Nostr extension failed"));
+      console.error(e);
+    } finally {
+      $useNip07.prop("disabled", false);
+    }
+  });
   $lnurl.on("input", () => {
     if ($lnurl.val() as string) {
       $lnurlRemover.removeClass("hidden");

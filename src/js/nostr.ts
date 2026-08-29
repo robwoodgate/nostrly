@@ -596,7 +596,8 @@ export async function getNostrExtensionKeys(
     return { privkeys: [] };
   }
   const hexpub = await window.nostr.getPublicKey();
-  const pubkey = await CashuNip07.pubkey(window.nostr);
+  // Normalize through the adapter without asking the extension a second time
+  const pubkey = await CashuNip07.pubkey({ getPublicKey: async () => hexpub });
   let privkeys: string[] = [];
   if (typeof window.nostr.nip44?.decrypt !== "undefined") {
     ({ privkeys } = await getNip60Wallet(hexpub, relays));
