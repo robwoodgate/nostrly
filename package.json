@@ -41,5 +41,8 @@
   "overrides": {
     "@noble/curves": "$@noble/curves",
     "@noble/hashes": "$@noble/hashes"
+  },
+  "engines": {
+    "npm": ">=12"
   }
 }
