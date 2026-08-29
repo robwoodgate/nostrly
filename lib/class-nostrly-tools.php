@@ -616,7 +616,7 @@ class NostrlyTools
                         <div class="description hidden" data-lock-type="permanent">Locked to the recipient key(s) forever, with no expiry and no refund path. On a Nutroot mint a single key gives a stealth lock: the mint cannot tell the token is locked, and only the key holder can prove it is theirs.</div>
                         <div class="description hidden" data-lock-type="auditable">A public Nutroot lock to one key, nutzap-style: anyone holding the token can verify who it is locked to, and nobody else can spend it. Permanent; keys are not blinded.</div>
                         <div id="permanent-warning" class="hidden">
-                            <strong>WARNING:</strong> this lock can never be reclaimed. If the public key is wrong, the sats are gone.<br>
+                            <strong>WARNING:</strong> you will not be able to get these sats back. Only the holder of this key can ever spend them, so if the key is wrong they are lost for good.<br>
                             <label><input type="checkbox" id="confirm-permanent"> I have checked the key and understand this lock is permanent.</label>
                         </div>
                     </div>
