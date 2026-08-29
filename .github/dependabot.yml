@@ -1,6 +1,6 @@
-# Dependency update PRs. The seven day soak in .npmrc governs what may enter
-# the tree at install time; Dependabot decides when we are told about it, so
-# a weekly run keeps PRs roughly in step with releases leaving the window.
+# Dependency update PRs. The seven day soak in .npmrc governs local installs
+# only: Dependabot resolves versions itself and never reads it, so the cooldown
+# below is what keeps an hours-old release out of an automated PR.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -8,6 +8,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
     # Our own experimental builds are pinned by hand and change often
     ignore:
       - dependency-name: "@cashu/cashu-ts"

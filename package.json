@@ -43,6 +43,6 @@
     "@noble/hashes": "$@noble/hashes"
   },
   "engines": {
-    "npm": ">=11"
+    "npm": ">=11.10"
   }
 }
