@@ -56,6 +56,7 @@ jQuery(function ($) {
   let unit: string = "sat";
   let proofs: Proof[];
   let tokenAmount: Amount;
+  let pastedKey = ""; // captured on paste; the field itself is blanked at once
   let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
   let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
   let params = new URL(document.location.href).searchParams;
@@ -88,7 +89,7 @@ jQuery(function ($) {
   });
 
   // Reset vars
-  // keepKey: the re-check was triggered by the key field itself, so leave it be
+  // keepKey: the re-check was triggered by the key itself, so leave it be
   const resetVars = function (keepKey = false) {
     wallet = undefined;
     mintUrl = "";
@@ -100,7 +101,10 @@ jQuery(function ($) {
     $tokenRemover.addClass("hidden");
     $pkeyWrapper.hide();
     $useNip07.addClass("hidden");
-    if (!keepKey) $pkey.val("");
+    if (!keepKey) {
+      pastedKey = "";
+      $pkey.val("");
+    }
     $redeemButton.prop("disabled", true);
   };
 
@@ -417,7 +421,7 @@ jQuery(function ($) {
               "Enter your private key or enable a <em>nip60</em> compatible Nostr Extension</a>.",
             );
           }
-          if (!$pkey.val() as boolean) {
+          if (!pastedKey) {
             return;
           }
         }
@@ -472,7 +476,7 @@ jQuery(function ($) {
                 ? "Try your Nostr extension, or enter the private key that unlocks this token."
                 : "Enter your private key to unlock this token.",
             );
-            if (!$pkey.val() as boolean) {
+            if (!pastedKey) {
               return;
             }
             throw "This token cannot be redeemed with that key. Please use Cashu Witness to inspect and unlock it first.";
@@ -514,7 +518,7 @@ jQuery(function ($) {
 
   // Every key a v3 spend can use here: pasted, plus NIP-60 via the extension
   const v3SpendKeys = (): string[] => {
-    const pasted = maybeConvertNsecToP2PK($pkey.val() as string);
+    const pasted = maybeConvertNsecToP2PK(pastedKey);
     return [...(pasted ? [pasted] : []), ...nip07Privkeys];
   };
 
@@ -529,7 +533,7 @@ jQuery(function ($) {
     proofs = await signWithNip07(proofs);
     console.log("signed proofs :>>", proofs);
     // Sign P2PK proofs using private key
-    let privkey = $pkey.val() as string;
+    let privkey = pastedKey;
     if (privkey && privkey.startsWith("nsec1")) {
       const { type, data } = nip19.decode(privkey);
       // NB: nostr-tools doesn't hex string nsec automatically
@@ -707,7 +711,12 @@ jQuery(function ($) {
         if (autopay) {
           localStorage.setItem("nostrly-cashu-last-autopay", invoice);
         }
-        // Reset form
+        // Reset form. The keys have done their job: drop them rather than
+        // leave spend authority sitting in the page
+        pastedKey = "";
+        nip07Privkeys = [];
+        nip07Pubkey = undefined;
+        $pkey.val("");
         $token.val("");
         $redeemButton.prop("disabled", true);
         $lnurlRemover.addClass("hidden");
@@ -735,7 +744,14 @@ jQuery(function ($) {
     $redeemButton.prop("disabled", true);
   });
   $token.on("input", processToken);
-  $pkey.on("input", () => processToken(undefined, true));
+  // Captured and blanked at once, so the key never lingers in the DOM
+  $pkey.on("paste", () => {
+    setTimeout(() => {
+      pastedKey = ($pkey.val() as string).trim();
+      $pkey.val("");
+      if (pastedKey) void processToken(undefined, true);
+    }, 100); // let the pasted value land
+  });
   $useNip07.on("click", async () => {
     try {
       $useNip07.prop("disabled", true);

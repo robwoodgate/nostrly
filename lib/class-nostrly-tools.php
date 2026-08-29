@@ -359,7 +359,7 @@ class NostrlyTools
                     <label for="pkey">{$pkey_label}</label>
                     <div class="sublabel text-wrapper">$pkey_desc</div>
                     <div id="pkey-container">
-                      <input type="text" placeholder="{$pkey}" value="" id="pkey">
+                      <input type="password" placeholder="{$pkey}" value="" id="pkey" autocomplete="off">
                       <button type="button" id="use-nip07" class="button hidden">{$nxbutton}</button>
                     </div>
                   </div>
