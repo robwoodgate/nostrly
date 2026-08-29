@@ -575,12 +575,10 @@ jQuery(function ($) {
       let meltQuote = null;
       if (isLnurl(address)) {
         try {
-          // LN invoices are in sats, so if our token is not, we need to find
-          // out roughly how many sats the token is worth... we can estimate
-          // this by asking the mint to give us a mint quote for tokenAmount
-          let estTokenAmount = tokenAmount; // in token's base unit (may not be sats)
+          // LN invoices are in sats, so a non-sat token needs a rate: ask the
+          // mint what the whole token is worth via a throwaway mint quote
+          let toSats = (amount: Amount): Amount => amount;
           if ("sat" != unit) {
-            // LN invoices are in sats — ask the mint how many sats the token is worth
             console.log(
               `Token is in ${unit}. Estimating melt invoice value...`,
             );
@@ -593,44 +591,29 @@ jQuery(function ($) {
               tokenAmount,
               throwawayPub,
             );
-            console.log("Mint Quote :>>", mintQuote);
-            estTokenAmount = Amount.from(getSatsAmount(mintQuote.request));
-            console.log("Mint estTokenAmount :>>", estTokenAmount.toString());
+            const estSats = Amount.from(getSatsAmount(mintQuote.request));
+            console.log("Token worth in sats :>>", estSats.toString());
+            toSats = (amount: Amount): Amount =>
+              amount.scaledBy(estSats, tokenAmount);
           }
-          // Set LN invoice/fee estimates to NutShell defaults: 2%, 2 sat min
-          // @see: https://github.com/cashubtc/nutshell/blob/main/.env.example#L114
-          const estFee = estTokenAmount.ceilPercent(2).clamp(2, estTokenAmount);
-          const mintFees = wallet.getFeesForProofs(proofs);
-
-          // Check fees haven't eaten token
-          if (estFee.add(mintFees).greaterThanOrEqual(estTokenAmount)) {
-            throw new Error("Token amount too low to cover estimated fees");
-          }
-          let estInvAmount = estTokenAmount.subtract(estFee).subtract(mintFees);
-
-          // Get invoice and melt quote
-          invoice = await getInvoiceFromLnurl(address, estInvAmount);
-          meltQuote = await wallet.createMeltQuoteBolt11(invoice);
-          console.log("meltQuote :>> ", meltQuote);
-
-          // If we overestimated invoice value, adjust it to fit.
-          const neededAmount = meltQuote.amount.add(meltQuote.fee_reserve);
-          if (tokenAmount.lessThan(neededAmount)) {
-            console.log(
-              `Melt invoice too high... token: ${tokenAmount}, quote: ${neededAmount}`,
-            );
-            // Proportional rescale using integer arithmetic; subtract 1 unit as safety margin
-            const rescaled = estInvAmount.scaledBy(tokenAmount, neededAmount);
-            if (rescaled.lessThanOrEqual(1)) {
-              throw new Error("Token amount too low to cover fee reserve");
-            }
-            estInvAmount = rescaled.subtract(1);
-            invoice = await getInvoiceFromLnurl(address, estInvAmount);
+          // Melt as much as the proofs allow, so only unused routing reserve
+          // comes back as change. The mint's fee_reserve shrinks with the
+          // amount, so re-quote until the target stops moving.
+          let target = wallet.maxSpendableAfterFees(proofs);
+          for (let attempt = 0; attempt < 3 && !target.isZero(); attempt++) {
+            invoice = await getInvoiceFromLnurl(address, toSats(target));
             meltQuote = await wallet.createMeltQuoteBolt11(invoice);
-            console.log("Adjusted meltQuote :>> ", meltQuote);
+            console.log("meltQuote :>> ", meltQuote);
+            target = wallet.maxSpendableAfterFees(
+              proofs,
+              meltQuote.fee_reserve,
+            );
+            if (target.greaterThanOrEqual(meltQuote.amount)) break;
+            meltQuote = null; // the reserve ate into it: re-quote smaller
           }
-
-          console.log("Final estInvAmount :>> ", estInvAmount.toString());
+          if (!meltQuote) {
+            throw new Error("Token amount too low to cover the mint's fees");
+          }
         } catch (e) {
           let msg = getErrorMessage(e);
           console.error("Error generating invoice:", msg);
