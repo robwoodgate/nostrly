@@ -42,7 +42,7 @@ import bech32 from "bech32";
 import toastr from "toastr";
 import { decode as emojiDecode } from "./emoji-encoder";
 import { handleCashuDonation } from "./cashu-donate";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 declare const nostrly_ajax: {
   relays: string[];

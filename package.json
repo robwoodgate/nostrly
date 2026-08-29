@@ -7,11 +7,11 @@
   "dependencies": {
     "@cashu/cashu-ts": "5.0.0-experimental.d4fd4e21",
     "@gandlaf21/bolt11-decode": "^3.1.1",
-    "@noble/curves": "^1.8.1",
-    "@noble/hashes": "^1.7.1",
+    "@noble/hashes": "^2.2.0",
     "canvas-confetti": "^1.9.3",
-    "nostr-tools": "2.10.3",
-    "toastr": "^2.1.4"
+    "nostr-tools": "2.24.3",
+    "toastr": "^2.1.4",
+    "@noble/curves": "^2.2.0"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",

@@ -10,7 +10,7 @@ import {
   nip04,
   nip19,
 } from "nostr-tools";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
 import {
@@ -460,7 +460,7 @@ async function getRedeemedNutZaps(
   const redeemedNutZapIds = new Set<string>();
   const filter: Filter = { kinds: [7376], authors: [hexpub] };
   await new Promise<void>((resolve) => {
-    pool.subscribeManyEose(relays, [filter], {
+    pool.subscribeManyEose(relays, filter, {
       onevent(event: Event) {
         const redeemedTags = event.tags.filter(
           (tag) => tag[0] === "e" && tag[3] === "redeemed",
@@ -490,7 +490,7 @@ async function fetchNutZapEvents(
   };
   return new Promise((resolve) => {
     const events: Event[] = [];
-    pool.subscribeManyEose(relays, [filter], {
+    pool.subscribeManyEose(relays, filter, {
       onevent: (event: Event) => events.push(event),
       onclose: () => resolve(events),
     });

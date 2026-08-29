@@ -6,6 +6,7 @@ import {
   generateSecretKey,
   EventTemplate,
   Event,
+  NostrEvent,
 } from "nostr-tools";
 import { SimplePool } from "nostr-tools";
 import { copyTextToClipboard, doConfettiBomb, getErrorMessage } from "./utils";
@@ -32,7 +33,7 @@ jQuery(function ($) {
   const decode = $("#nip19_decode"); // nip19 decoder
   const $reset = $(".reset"); // univeral
   $npub.on("input", () => {
-    let { data }: nip19.DecodeResult = nip19.decode($npub.val() as string);
+    let { data }: nip19.DecodedResult = nip19.decode($npub.val() as string);
     $hex.val(data as string);
   });
   $hex.on("input", () => {
@@ -41,7 +42,7 @@ jQuery(function ($) {
   });
   $nip19.on("input", () => {
     try {
-      let decoded: nip19.DecodeResult = nip19.decode($nip19.val() as string);
+      let decoded: nip19.DecodedResult = nip19.decode($nip19.val() as string);
       let out: typeof decoded | { type: string; data: string } = decoded;
       if (decoded.type == "nsec") {
         // nostr-tools doesn't hex string nsec automatically
@@ -69,7 +70,7 @@ jQuery(function ($) {
   $delevent.on("input", () => {
     $delbutton.prop("disabled", true);
     try {
-      let note: nip19.DecodeResult = nip19.decode($delevent.val() as string);
+      let note: nip19.DecodedResult = nip19.decode($delevent.val() as string);
       // console.log(note);
       const { type } = note;
       if ("nevent" == type) {
@@ -99,7 +100,7 @@ jQuery(function ($) {
     e.preventDefault();
     $(".preamble").hide();
 
-    let decoded: nip19.DecodeResult = nip19.decode($delevent.val() as string);
+    let decoded: nip19.DecodedResult = nip19.decode($delevent.val() as string);
     // console.log(decoded);
     const { type, data } = decoded;
     if ("nevent" !== type) {
@@ -145,7 +146,7 @@ jQuery(function ($) {
   $nevent.on("input", () => {
     $paybutton.prop("disabled", true);
     try {
-      let note: nip19.DecodeResult = nip19.decode($nevent.val() as string);
+      let note: nip19.DecodedResult = nip19.decode($nevent.val() as string);
       // console.log(note);
       const { type } = note;
       if ("npub" == type || "nevent" == type) {
@@ -177,12 +178,16 @@ jQuery(function ($) {
     $(".preamble").hide();
 
     // Get author and event id from note or npub
-    let note: nip19.DecodeResult = nip19.decode($nevent.val() as string);
+    let note: nip19.DecodedResult = nip19.decode($nevent.val() as string);
     const { type, data } = note;
     let author: string | undefined;
     let id: string | null = null;
+    let zapped: NostrEvent | null = null;
     if ("nevent" == type) {
       ({ author, id } = data);
+      // An event zap now needs the event, so fetch it; without it we can still
+      // zap the author's profile
+      if (id) zapped = await pool.get(relays, { ids: [id] });
     }
     if ("npub" == type) {
       author = data;
@@ -207,7 +212,7 @@ jQuery(function ($) {
     // Build and sign zap
     let zap = await makeZapEvent({
       profile: author ?? "",
-      event: id,
+      event: zapped,
       amount: amount,
       relays: relays,
       comment: comment,
@@ -261,7 +266,7 @@ jQuery(function ($) {
     let since = Math.round(Date.now() / 1000);
     let sub = pool.subscribeMany(
       relays,
-      [{ kinds: [9735], "#p": [author], since: since }],
+      { kinds: [9735], "#p": [author], since: since },
       {
         onevent(event) {
           // onevent is only called once, the first time the event is received
@@ -323,19 +328,17 @@ jQuery(function ($) {
     anon,
   }: {
     profile: string;
-    event: string | null;
+    event: NostrEvent | null;
     amount: number;
     relays: string[];
     comment: string;
     anon: boolean;
   }) => {
-    const zapEvent = nip57.makeZapRequest({
-      profile,
-      event,
-      amount,
-      relays,
-      comment,
-    });
+    // nostr-tools 2.25 split this: a profile zap takes the pubkey, an event
+    // zap takes the event itself rather than its id
+    const zapEvent = event
+      ? nip57.makeZapRequest({ event, amount, relays, comment })
+      : nip57.makeZapRequest({ pubkey: profile, amount, relays, comment });
 
     // Informal tag used by apps like Damus
     // They should display zap as anonymous
