@@ -80,16 +80,16 @@ class NostrlyRegister
         wp_enqueue_script('confetti');
         wp_enqueue_style('nostrly-register');
 
-        $nxbutton = esc_html('Use Nostr Extension', 'nostrly');
-        $title_nr = esc_html('Pick a name to register', 'nostrly');
-        $title_pk = esc_html('Enter your PUBLIC Key (NPUB or HEX)', 'nostrly');
-        $warn_hpk = esc_html('NB: HEX key entered. Double check this is your public key (NPUB).', 'nostrly');
-        $cobutton = esc_html('Proceed to Checkout', 'nostrly');
-        $copy_inv = esc_html('Copy', 'nostrly');
-        $cancelrg = esc_html('Cancel Registration', 'nostrly');
-        $subtitle = esc_html('Please pay this invoice to register', 'nostrly');
-        $copypass = esc_html('Copy Password', 'nostrly');
-        $cashupay = esc_html('Pay with Cashu ecash?', 'nostrly');
+        $nxbutton = esc_html__('Use Nostr Extension', 'nostrly');
+        $title_nr = esc_html__('Pick a name to register', 'nostrly');
+        $title_pk = esc_html__('Enter your PUBLIC Key (NPUB or HEX)', 'nostrly');
+        $warn_hpk = esc_html__('NB: HEX key entered. Double check this is your public key (NPUB).', 'nostrly');
+        $cobutton = esc_html__('Proceed to Checkout', 'nostrly');
+        $copy_inv = esc_html__('Copy', 'nostrly');
+        $cancelrg = esc_html__('Cancel Registration', 'nostrly');
+        $subtitle = esc_html__('Please pay this invoice to register', 'nostrly');
+        $copypass = esc_html__('Copy Password', 'nostrly');
+        $cashupay = esc_html__('Pay with Cashu ecash?', 'nostrly');
         $sitedom = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
         $profile = admin_url('profile.php');
 

@@ -1,4 +1,9 @@
-import { getEncodedToken, getTokenMetadata } from "@cashu/cashu-ts";
+import {
+  auditableLock,
+  getEncodedToken,
+  getTokenMetadata,
+  isBlsKeyset,
+} from "@cashu/cashu-ts";
 import toastr from "toastr";
 import {
   NOSTRLY_PUBKEY,
@@ -52,15 +57,17 @@ export const handleCashuDonation = async (
     const unit = metadata.unit;
     const wallet = await getWalletWithUnit(mintUrl, unit); // Load wallet
     let proofs; // scope
+    const isNutroot = isBlsKeyset(wallet.keysetId);
     if (pubkey && mints.includes(mintUrl)) {
       // We have a NIP-61 pubkey and the mint is one of the approved ones
       // Receive the token to the wallet (creates new proofs)
       // locked to our p2pk pubkey, and send as NutZap to the NIP-61 relays
+      // On a nutroot mint the zap uses the canonical auditable lock (NUT-10),
+      // so it stays third-party verifiable like a NUT-11 zap. Ahead of NIP-61
+      // spec: only nutroot-aware clients can claim it for now.
+      const lock = isNutroot ? auditableLock(pubkey) : { mainKeys: [pubkey] };
       proofs = await withStaleRetry(() =>
-        wallet.ops
-          .receive(token)
-          .asP2PK({ kind: "P2PK", data: "02" + pubkey })
-          .run(),
+        wallet.ops.receive(token).asLocked(lock).run(),
       );
       await sendNutZap(proofs, mintUrl, unit, message, toPub, nutzapRelays);
     } else {

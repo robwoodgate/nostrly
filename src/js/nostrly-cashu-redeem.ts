@@ -10,29 +10,39 @@ import {
   MeltChangeError,
   Wallet,
   Proof,
+  CashuNip07,
+  type MeltProofsConfig,
   signP2PKProofs,
 } from "@cashu/cashu-ts";
 import {
   debounce,
+  describeNutrootLeaf,
+  describeV3KeyPath,
   doConfettiBomb,
+  getNutrootLeaves,
   getWalletWithUnit,
   formatAmount,
   getSatsAmount,
   getTokenAmount,
   getErrorMessage,
+  isBlsProof,
   withStaleRetry,
 } from "./utils";
 import {
   convertP2PKToNpub,
   getContactDetails,
+  getNostrExtensionKeys,
+  getV3SpendConfig,
+  maybeConvertNsecToP2PK,
   signNip60Proofs,
   signWithNip07,
 } from "./nostr";
 import { nip19 } from "nostr-tools";
 import bech32 from "bech32";
+import toastr from "toastr";
 import { decode as emojiDecode } from "./emoji-encoder";
 import { handleCashuDonation } from "./cashu-donate";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 declare const nostrly_ajax: {
   relays: string[];
@@ -46,6 +56,9 @@ jQuery(function ($) {
   let unit: string = "sat";
   let proofs: Proof[];
   let tokenAmount: Amount;
+  let pastedKey = ""; // captured on paste; the field itself is blanked at once
+  let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
+  let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
   let params = new URL(document.location.href).searchParams;
   let autopay = decodeURIComponent(params.get("autopay") ?? "");
 
@@ -56,6 +69,8 @@ jQuery(function ($) {
   const $lightningStatus = $("#lightningStatus");
   const $pkey = $("#pkey");
   const $pkeyWrapper = $("#pkeyWrapper");
+  const $pkeyLabel = $("#pkeyWrapper label");
+  const $useNip07 = $("#use-nip07");
   const $tokenRemover = $("#tokenRemover");
   const $lnurlRemover = $("#lnurlRemover");
   const $redeemButton = $("#redeem");
@@ -74,7 +89,8 @@ jQuery(function ($) {
   });
 
   // Reset vars
-  const resetVars = function () {
+  // keepKey: the re-check was triggered by the key itself, so leave it be
+  const resetVars = function (keepKey = false) {
     wallet = undefined;
     mintUrl = "";
     unit = "sat";
@@ -84,7 +100,11 @@ jQuery(function ($) {
     $lightningStatus.text("");
     $tokenRemover.addClass("hidden");
     $pkeyWrapper.hide();
-    $pkey.val("");
+    $useNip07.addClass("hidden");
+    if (!keepKey) {
+      pastedKey = "";
+      $pkey.val("");
+    }
     $redeemButton.prop("disabled", true);
   };
 
@@ -146,9 +166,9 @@ jQuery(function ($) {
   };
 
   // Helper to process the Cashu Token
-  const processToken = async (event?: JQuery.Event) => {
+  const processToken = async (event?: JQuery.Event, keepKey = false) => {
     if (event) event.preventDefault();
-    resetVars();
+    resetVars(keepKey);
     $tokenRemover.removeClass("hidden");
     $tokenStatus.text("Checking token, one moment please...");
     try {
@@ -185,7 +205,9 @@ jQuery(function ($) {
         wallet.keyChain.getAllKeys().map((k) => [k.id, k]),
       );
       const dleqVerified = originalProofs.filter((p) => {
-        if (!p.dleq) return true;
+        // v3 proofs pairing-verify without DLEQ data; only pre-v3 proofs
+        // lacking a DLEQ pass through to the mint's judgement
+        if (!p.dleq && !isBlsProof(p)) return true;
         const ks = keysetById.get(p.id);
         if (!ks) return true;
         try {
@@ -368,40 +390,108 @@ jQuery(function ($) {
           }
         }
 
-        $lightningStatus.html(lines.join("<br>"));
-
         const activePathThresholds = [mainRequiredSigners];
         if (refundPathActive) {
           activePathThresholds.push(refundRequiredSigners);
         }
         const minActiveThreshold = Math.min(...activePathThresholds);
         if (!verification.success && minActiveThreshold > 1) {
+          $lightningStatus.html(lines.join("<br>"));
           if (lockState === "ACTIVE" && Number.isFinite(locktime)) {
             throw `This token needs multisig until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}. Please use Cashu Witness to unlock, or wait for lock expiry.`;
           }
           throw "This token needs multisig signatures. Please use Cashu Witness to unlock.";
         }
 
-        // If no compatible extension detected, we'll have to ask for an nsec/private key :(
-        if (
-          hasP2BK ||
-          (typeof window?.nostr?.signSchnorr === "undefined" &&
-            typeof window?.nostr?.signString === "undefined" &&
-            typeof window?.nostr?.nip60?.signSecret === "undefined")
-        ) {
+        // A blinded (P2BK) key can only be derived from a private key: the
+        // extension cannot sign for one itself, but its NIP-60 wallet keys can
+        const nostr = window?.nostr;
+        const haveKeys = Boolean(pastedKey) || nip07Privkeys.length > 0;
+        const extensionSigns = Boolean(nostr) && CashuNip07.canSignP2PK(nostr!);
+        if (hasP2BK ? !haveKeys : !extensionSigns && !haveKeys) {
+          // The lock summary is a to-do list: only useful while something is
+          // still outstanding
+          $lightningStatus.html(lines.join("<br>"));
+          // Offer the wallet rather than prompting it uninvited, as v3 does
+          const canTryExtension =
+            typeof nostr?.nip44?.decrypt !== "undefined" && !nip07Pubkey;
+          $useNip07.toggleClass("hidden", !canTryExtension);
           $pkeyWrapper.show();
-          if (hasP2BK) {
-            $tokenStatus.html(
-              "Enter your private key to unlock P2BK proofs</a>.",
+          // The stock label assumes no extension; here one may be present and
+          // simply unable to sign for a blinded key
+          $pkeyLabel.text(
+            hasP2BK && nostr
+              ? "Blinded keys need a private key: enter it to unlock this token"
+              : "Enter the private key that unlocks this token",
+          );
+          $tokenStatus.html(
+            canTryExtension
+              ? "Try your Nostr extension, or enter your private key."
+              : hasP2BK
+                ? "Enter your private key to unlock P2BK proofs."
+                : "Enter your private key or enable a <em>nip60</em> compatible Nostr Extension.",
+          );
+          return;
+        }
+        $useNip07.addClass("hidden");
+      }
+      // v3 (nutroot) proofs: the lock is a tree inside the point secret and
+      // any signature covers the whole melt, so keys are passed at melt time
+      const v3Proofs = proofs.filter(isBlsProof);
+      if (v3Proofs.length && !lockedProofs.length) {
+        const proof = v3Proofs[0];
+        const keyPath = describeV3KeyPath(proof);
+        const leaves = getNutrootLeaves(proof);
+        let spendable = true;
+        if (keyPath.kind !== "bearer") {
+          const keys = v3SpendKeys();
+          const spend = await wallet.spendOptions(
+            proof,
+            keys.length ? { privkeys: keys } : undefined,
+          );
+          spendable =
+            spend.keyPath ||
+            spend.script.some(
+              (o) =>
+                o.satisfiable ||
+                (!!nip07Pubkey && CashuNip07.completes(o, nip07Pubkey)),
             );
-          } else {
-            $tokenStatus.html(
-              "Enter your private key or enable a <em>nip60</em> compatible Nostr Extension</a>.",
-            );
-          }
-          if (!$pkey.val() as boolean) {
+        }
+        if (spendable) {
+          // The lock details read as a to-do list, so once it is satisfied
+          // they only describe work that is already done
+          $useNip07.addClass("hidden");
+        } else {
+          const lines: string[] = [
+            "Nutroot token: the lock is hidden inside the token secret",
+          ];
+          lines.push(keyPath.text);
+          leaves.forEach((leaf, i) =>
+            lines.push(`Leaf ${i + 1}: ${describeNutrootLeaf(leaf)}`),
+          );
+          $lightningStatus.html(lines.join("<br>"));
+          // A stealth lock is indistinguishable, so we cannot tell whose it is:
+          // offer the extension rather than prompting it uninvited, since its
+          // NIP-60 wallet may hold the (NIP-61) key this derives from. Kept
+          // visible after a failed try, as the extension may have been locked.
+          const hasExtension =
+            typeof window?.nostr?.getPublicKey !== "undefined";
+          $useNip07.toggleClass("hidden", !hasExtension);
+          $pkeyWrapper.show();
+          $pkeyLabel.text(
+            nip07Pubkey
+              ? "Your Nostr extension cannot unlock this token: enter its private key"
+              : "Enter the private key that unlocks this token",
+          );
+          $tokenStatus.html(
+            hasExtension && !nip07Pubkey
+              ? "Try your Nostr extension, or enter the private key that unlocks this token."
+              : "Enter your private key to unlock this token.",
+          );
+          if (!pastedKey) {
             return;
           }
+          throw "This token cannot be redeemed with that key. Please use Cashu Witness to inspect and unlock it first.";
         }
       }
       let mintHost = new URL(mintUrl).hostname;
@@ -436,6 +526,12 @@ jQuery(function ($) {
     }
   };
 
+  // Every key a v3 spend can use here: pasted, plus NIP-60 via the extension
+  const v3SpendKeys = (): string[] => {
+    const pasted = maybeConvertNsecToP2PK(pastedKey);
+    return [...(pasted ? [pasted] : []), ...nip07Privkeys];
+  };
+
   // Sign proofs if any are locked
   const signProofs = async (proofs: Proof[]) => {
     const lockedProofs = proofs.some((p) => p.secret.includes("P2PK"));
@@ -447,7 +543,7 @@ jQuery(function ($) {
     proofs = await signWithNip07(proofs);
     console.log("signed proofs :>>", proofs);
     // Sign P2PK proofs using private key
-    let privkey = $pkey.val() as string;
+    let privkey = pastedKey;
     if (privkey && privkey.startsWith("nsec1")) {
       const { type, data } = nip19.decode(privkey);
       // NB: nostr-tools doesn't hex string nsec automatically
@@ -488,54 +584,45 @@ jQuery(function ($) {
       let meltQuote = null;
       if (isLnurl(address)) {
         try {
-          // LN invoices are in sats, so if our token is not, we need to find
-          // out roughly how many sats the token is worth... we can estimate
-          // this by asking the mint to give us a mint quote for tokenAmount
-          let estTokenAmount = tokenAmount; // in token's base unit (may not be sats)
+          // LN invoices are in sats, so a non-sat token needs a rate: ask the
+          // mint what the whole token is worth via a throwaway mint quote
+          let toSats = (amount: Amount): Amount => amount;
           if ("sat" != unit) {
-            // LN invoices are in sats — ask the mint how many sats the token is worth
             console.log(
               `Token is in ${unit}. Estimating melt invoice value...`,
             );
-            const mintQuote = await wallet.createMintQuoteBolt11(tokenAmount);
-            console.log("Mint Quote :>>", mintQuote);
-            estTokenAmount = Amount.from(getSatsAmount(mintQuote.request));
-            console.log("Mint estTokenAmount :>>", estTokenAmount.toString());
-          }
-          // Set LN invoice/fee estimates to NutShell defaults: 2%, 2 sat min
-          // @see: https://github.com/cashubtc/nutshell/blob/main/.env.example#L114
-          const estFee = estTokenAmount.ceilPercent(2).clamp(2, estTokenAmount);
-          const mintFees = wallet.getFeesForProofs(proofs);
-
-          // Check fees haven't eaten token
-          if (estFee.add(mintFees).greaterThanOrEqual(estTokenAmount)) {
-            throw new Error("Token amount too low to cover estimated fees");
-          }
-          let estInvAmount = estTokenAmount.subtract(estFee).subtract(mintFees);
-
-          // Get invoice and melt quote
-          invoice = await getInvoiceFromLnurl(address, estInvAmount);
-          meltQuote = await wallet.createMeltQuoteBolt11(invoice);
-          console.log("meltQuote :>> ", meltQuote);
-
-          // If we overestimated invoice value, adjust it to fit.
-          const neededAmount = meltQuote.amount.add(meltQuote.fee_reserve);
-          if (tokenAmount.lessThan(neededAmount)) {
-            console.log(
-              `Melt invoice too high... token: ${tokenAmount}, quote: ${neededAmount}`,
+            // Quotes are now locked (NUT-20); this one is estimation-only and
+            // never paid, so force a throwaway key that costs no counter
+            const { pubkey: throwawayPub } = await wallet.createQuoteLockKey({
+              random: true,
+            });
+            const mintQuote = await wallet.createMintQuoteBolt11(
+              tokenAmount,
+              throwawayPub,
             );
-            // Proportional rescale using integer arithmetic; subtract 1 unit as safety margin
-            const rescaled = estInvAmount.scaledBy(tokenAmount, neededAmount);
-            if (rescaled.lessThanOrEqual(1)) {
-              throw new Error("Token amount too low to cover fee reserve");
-            }
-            estInvAmount = rescaled.subtract(1);
-            invoice = await getInvoiceFromLnurl(address, estInvAmount);
-            meltQuote = await wallet.createMeltQuoteBolt11(invoice);
-            console.log("Adjusted meltQuote :>> ", meltQuote);
+            const estSats = Amount.from(getSatsAmount(mintQuote.request));
+            console.log("Token worth in sats :>>", estSats.toString());
+            toSats = (amount: Amount): Amount =>
+              amount.scaledBy(estSats, tokenAmount);
           }
-
-          console.log("Final estInvAmount :>> ", estInvAmount.toString());
+          // Melt as much as the proofs allow, so only unused routing reserve
+          // comes back as change. The mint's fee_reserve shrinks with the
+          // amount, so re-quote until the target stops moving.
+          let target = wallet.maxSpendableAfterFees(proofs);
+          for (let attempt = 0; attempt < 3 && !target.isZero(); attempt++) {
+            invoice = await getInvoiceFromLnurl(address, toSats(target));
+            meltQuote = await wallet.createMeltQuoteBolt11(invoice);
+            console.log("meltQuote :>> ", meltQuote);
+            target = wallet.maxSpendableAfterFees(
+              proofs,
+              meltQuote.fee_reserve,
+            );
+            if (target.greaterThanOrEqual(meltQuote.amount)) break;
+            meltQuote = null; // the reserve ate into it: re-quote smaller
+          }
+          if (!meltQuote) {
+            throw new Error("Token amount too low to cover the mint's fees");
+          }
         } catch (e) {
           let msg = getErrorMessage(e);
           console.error("Error generating invoice:", msg);
@@ -568,9 +655,20 @@ jQuery(function ($) {
       // will be returned to us as change. This also saves a swap fee.
       let meltResponse;
       const w = wallet; // narrowed reference for the retry closure
+      // v3 inputs sign the melt transaction itself, so the key goes in the
+      // melt config rather than onto the proofs
+      let meltConfig: MeltProofsConfig | undefined;
+      if (proofs.some(isBlsProof)) {
+        meltConfig = await getV3SpendConfig(
+          wallet,
+          proofs,
+          v3SpendKeys(),
+          nip07Pubkey,
+        );
+      }
       try {
         meltResponse = await withStaleRetry(() =>
-          w.meltProofsBolt11(meltQuote, proofs),
+          w.meltProofsBolt11(meltQuote, proofs, meltConfig),
         );
       } catch (e) {
         if (!(e instanceof MeltChangeError)) throw e;
@@ -606,7 +704,12 @@ jQuery(function ($) {
         if (autopay) {
           localStorage.setItem("nostrly-cashu-last-autopay", invoice);
         }
-        // Reset form
+        // Reset form. The keys have done their job: drop them rather than
+        // leave spend authority sitting in the page
+        pastedKey = "";
+        nip07Privkeys = [];
+        nip07Pubkey = undefined;
+        $pkey.val("");
         $token.val("");
         $redeemButton.prop("disabled", true);
         $lnurlRemover.addClass("hidden");
@@ -634,6 +737,35 @@ jQuery(function ($) {
     $redeemButton.prop("disabled", true);
   });
   $token.on("input", processToken);
+  // Captured and blanked at once, so the key never lingers in the DOM
+  $pkey.on("paste", () => {
+    setTimeout(() => {
+      pastedKey = ($pkey.val() as string).trim();
+      $pkey.val("");
+      if (pastedKey) void processToken(undefined, true);
+    }, 100); // let the pasted value land
+  });
+  $useNip07.on("click", async () => {
+    try {
+      $useNip07.prop("disabled", true);
+      const before = nip07Privkeys.length;
+      ({ pubkey: nip07Pubkey, privkeys: nip07Privkeys } =
+        await getNostrExtensionKeys());
+      if (!nip07Privkeys.length) {
+        toastr.warning(
+          before
+            ? "No further keys found in your NIP-60 wallet"
+            : "No NIP-60 wallet keys found for this extension",
+        );
+      }
+      await processToken(undefined, true);
+    } catch (e) {
+      toastr.error(getErrorMessage(e, "Nostr extension failed"));
+      console.error(e);
+    } finally {
+      $useNip07.prop("disabled", false);
+    }
+  });
   $lnurl.on("input", () => {
     if ($lnurl.val() as string) {
       $lnurlRemover.removeClass("hidden");

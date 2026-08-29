@@ -1,13 +1,17 @@
 import {
   Wallet,
+  isBlsKeyset,
   ConsoleLogger,
   Amount,
   serializeProofs,
   deserializeProofs,
+  classifyNutrootSpendInfo,
+  parseNutrootLeafHex,
   StaleKeysetError,
   type AmountLike,
   type GetInfoResponse,
   type KeyChainCache,
+  type NutrootLeaf,
   type Proof,
 } from "@cashu/cashu-ts";
 import toastr from "toastr";
@@ -49,6 +53,71 @@ interface NutLockEntry {
   name: string;
   token: string;
   amount: number | string; // Amount.toJSON() returns number | string
+}
+
+// Keyset dispatch every v3-aware tool needs; re-exported so tools import it
+// from one place alongside the helpers below
+export { isBlsProof } from "@cashu/cashu-ts";
+
+/**
+ * What a v3 proof's spend info says about who can spend it, for the holder.
+ * @remarks Classification comes from cashu-ts; only the UI text lives here.
+ */
+export function describeV3KeyPath(proof: Proof): {
+  kind: ReturnType<typeof classifyNutrootSpendInfo>;
+  text: string;
+} {
+  const kind = classifyNutrootSpendInfo(proof);
+  switch (kind) {
+    case "bearer":
+      return {
+        kind,
+        text: "Unlocked: the spending key travels with the token, so anyone holding it can spend or sweep it.",
+      };
+    case "script-only":
+      return {
+        kind,
+        text: "No key path: provably unspendable (NUMS), so only a script leaf can spend it.",
+      };
+    case "receiver-keyed":
+      return {
+        kind,
+        text: "A blinded recipient key: paste a private key to check if it unlocks.",
+      };
+    case "disclosed":
+      return {
+        kind,
+        text: "Key held by someone else: only a script leaf can spend it here.",
+      };
+    default:
+      return {
+        kind,
+        text: "No spending info travels with this token: it cannot be spent from here (it may be the owner's own wallet proof).",
+      };
+  }
+}
+
+/**
+ * Parses the disclosed nutroot leaves riding a v3 proof's spend_info.
+ */
+export function getNutrootLeaves(proof: Proof): NutrootLeaf[] {
+  return (proof.spend_info?.tree ?? []).map(parseNutrootLeafHex);
+}
+
+/**
+ * One-line human description of a nutroot leaf's spending condition.
+ */
+export function describeNutrootLeaf(leaf: NutrootLeaf): string {
+  const m = leaf.keys.length;
+  const sigs = `${leaf.n} of ${m} signature${m > 1 ? "s" : ""}`;
+  switch (leaf.type) {
+    case "after":
+      return `Timelock: ${sigs} after ${new Date((leaf.time ?? 0) * 1000).toLocaleString().slice(0, -3)}`;
+    case "hashlock":
+      return `Hashlock: secret preimage (${leaf.hash?.slice(0, 8)}…) plus ${sigs}`;
+    default:
+      return `Multisig: ${sigs}`;
+  }
 }
 
 /**
@@ -224,6 +293,28 @@ export function clearLockedTokens(): void {
 export const getWalletWithUnit = async (
   mintUrl: string,
   unit: CurrencyUnit = "sat",
+  opts?: { legacy?: boolean },
+): Promise<Wallet> => {
+  const wallet = await loadWalletWithUnit(mintUrl, unit);
+  if (!opts?.legacy) return wallet;
+  // Testing aid: bind to an active pre-v3 keyset so the same mint exercises
+  // the NUT-11 path; the wallet otherwise binds to the cheapest keyset
+  const legacy = wallet.keyChain
+    .getKeysets()
+    .find((k) => k.isActive && !isBlsKeyset(k.id));
+  if (!legacy) return wallet;
+  const bound = new Wallet(mintUrl, {
+    unit,
+    keysetId: legacy.id,
+    logger: new ConsoleLogger("debug"),
+  });
+  bound.loadMintFromCache(wallet.getMintInfo().cache, wallet.keyChain.cache);
+  return bound;
+};
+
+const loadWalletWithUnit = async (
+  mintUrl: string,
+  unit: CurrencyUnit,
 ): Promise<Wallet> => {
   const cacheKey = getMintCacheKey(mintUrl, unit);
 

@@ -10,19 +10,19 @@ import {
   nip04,
   nip19,
 } from "nostr-tools";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
 import {
-  getP2PKExpectedWitnessPubkeys,
-  getP2PKWitnessSignatures,
-  hasP2PKSignedProof,
+  CashuNip07,
   Proof,
+  ScriptPathPlan,
+  Wallet,
+  isBlsProof,
   serializeProofs,
   signP2PKProofs,
 } from "@cashu/cashu-ts";
 import { getErrorMessage } from "./utils";
-import { sha256Hex } from "./nut11";
 
 type Nip60Tag = [string, string];
 type NutZapInfo = {
@@ -55,6 +55,9 @@ export interface Nostr {
   nip60?: {
     signSecret?: (
       secret: string,
+    ) => Promise<{ hash: string; sig: string; pubkey: string }>;
+    signTransaction?: (
+      messageHex: string,
     ) => Promise<{ hash: string; sig: string; pubkey: string }>;
   };
 }
@@ -293,7 +296,8 @@ export const getNip61Info = async (
       } else if (tag[0] === "relay") {
         nrelays.push(tag[1]);
       } else if (tag[0] === "pubkey") {
-        pubkey = tag[1];
+        // NIP-61 now specifies a 33-byte compressed key; older events carry x-only
+        pubkey = tag[1].length === 64 ? "02" + tag[1] : tag[1];
       }
     }
     return { pubkey, mints, relays: nrelays };
@@ -456,7 +460,7 @@ async function getRedeemedNutZaps(
   const redeemedNutZapIds = new Set<string>();
   const filter: Filter = { kinds: [7376], authors: [hexpub] };
   await new Promise<void>((resolve) => {
-    pool.subscribeManyEose(relays, [filter], {
+    pool.subscribeManyEose(relays, filter, {
       onevent(event: Event) {
         const redeemedTags = event.tags.filter(
           (tag) => tag[0] === "e" && tag[3] === "redeemed",
@@ -486,7 +490,7 @@ async function fetchNutZapEvents(
   };
   return new Promise((resolve) => {
     const events: Event[] = [];
-    pool.subscribeManyEose(relays, [filter], {
+    pool.subscribeManyEose(relays, filter, {
       onevent: (event: Event) => events.push(event),
       onclose: () => resolve(events),
     });
@@ -564,85 +568,79 @@ export async function getUnclaimedNutZaps(
   }
 }
 
-// Sign proofs with NIP-07, using whatever signing approach is present:
-// - nip60.signSecret() - the official Cashu signer
-// - nostr.signString() - per https://github.com/nostr-protocol/nips/pull/1842
-// - nostr.signSchnorr() - Alby implementation
-// NOTE: Does not support P2BK as NIP-07 signers don't understand blinded pubkeys
+// Sign NUT-11 proofs with the NIP-07 extension's own key, via whichever
+// method it offers (nip60.signSecret, signString, or Alby's signSchnorr).
+// Blinded (P2BK) keys cannot match the extension's key, so they are skipped.
 export async function signWithNip07(proofs: Proof[]) {
   if (typeof window?.nostr === "undefined") {
-    console.log("Nostr extension not found. Ignoing NIP-07 signing.");
+    console.log("Nostr extension not found. Ignoring NIP-07 signing.");
     return proofs;
   }
-  // Make a copy of each proof
-  const signedProofs = proofs.map((proof) => ({ ...proof }));
-  for (const [index, proof] of signedProofs.entries()) {
-    if (!proof.secret.includes("P2PK")) continue;
-    const pubkeys = getP2PKExpectedWitnessPubkeys(proof.secret);
-    console.log("getP2PKExpectedKWitnessPubkeys:>>", pubkeys);
-    if (!pubkeys.length) continue;
-    let signatures = getP2PKWitnessSignatures(proof.witness);
+  try {
+    return await CashuNip07.signP2PK(window.nostr, proofs);
+  } catch (e) {
+    toastr.warning(getErrorMessage(e, "NIP-07 signing failed"));
+    console.error("NIP-07 signing error:", e);
+    return proofs;
+  }
+}
 
-    const hash = sha256Hex(proof.secret);
-    let pubkey = "";
-    let sig = "";
-    let signedSig = "";
-    let signedHash = "";
-    try {
-      if (typeof window?.nostr?.nip60?.signSecret !== "undefined") {
-        ({
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
-        } = await window.nostr.nip60.signSecret(proof.secret));
-        console.log("signSecret result:", {
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
+/**
+ * The Nostr extension's own key, plus any NIP-60 wallet keys it can decrypt.
+ * @remarks Empty when no extension is present; the caller decides what to do about that.
+ */
+export async function getNostrExtensionKeys(
+  relays?: string[],
+): Promise<{ pubkey?: string; privkeys: string[] }> {
+  if (typeof window?.nostr?.getPublicKey === "undefined") {
+    return { privkeys: [] };
+  }
+  const hexpub = await window.nostr.getPublicKey();
+  // Normalize through the adapter without asking the extension a second time
+  const pubkey = await CashuNip07.pubkey({ getPublicKey: async () => hexpub });
+  let privkeys: string[] = [];
+  if (typeof window.nostr.nip44?.decrypt !== "undefined") {
+    ({ privkeys } = await getNip60Wallet(hexpub, relays));
+  }
+  return { pubkey, privkeys };
+}
+
+/**
+ * Keys and script path plans for spending v3 proofs, letting the Nostr
+ * extension cosign any leaf that names its key unblinded.
+ * @remarks Shape suits both ReceiveConfig and MeltProofsConfig.
+ */
+export async function getV3SpendConfig(
+  wallet: Wallet,
+  proofs: Proof[],
+  privkeys: string[],
+  nip07Pubkey?: string,
+): Promise<{ privkey?: string[]; scriptPath?: ScriptPathPlan[] }> {
+  const opts = privkeys.length ? { privkeys } : undefined;
+  const plans = await wallet.planScriptPaths(proofs, opts);
+  const nostr = window?.nostr;
+  if (nostr && nip07Pubkey && CashuNip07.canSign(nostr)) {
+    const planned = new Set(plans.map((p) => p.secret));
+    for (const proof of proofs.filter(isBlsProof)) {
+      if (planned.has(proof.secret)) continue;
+      const spend = await wallet.spendOptions(proof, opts);
+      if (spend.keyPath) continue;
+      const leaf = spend.script.find((o) =>
+        CashuNip07.completes(o, nip07Pubkey),
+      );
+      if (leaf) {
+        plans.push({
+          secret: proof.secret,
+          leafIndex: leaf.leafIndex,
+          cosign: CashuNip07.cosign(nostr),
         });
-      } else if (typeof window?.nostr?.signString !== "undefined") {
-        ({
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
-        } = await window.nostr.signString(proof.secret));
-        console.log("signString result:", {
-          hash: signedHash,
-          sig: signedSig,
-          pubkey,
-        });
-      } else if (
-        typeof window?.nostr?.signSchnorr !== "undefined" &&
-        typeof window?.nostr?.getPublicKey !== "undefined"
-      ) {
-        pubkey = await window.nostr.getPublicKey();
-        signedSig = await window.nostr.signSchnorr(hash);
-        signedHash = hash;
-        console.log("signSchnorr pubkey:", pubkey);
-        console.log("signSchnorr sig:", signedSig);
       }
-      const normalizedPubkey = "02" + pubkey;
-      console.log("normalizedPubkey:", normalizedPubkey);
-      console.log("signedHash:", signedHash);
-      console.log("hash:", hash);
-      if (signedHash === hash && pubkeys.includes(normalizedPubkey)) {
-        sig = signedSig;
-        console.log("adding sig:", sig);
-      }
-    } catch (e) {
-      const message = getErrorMessage(e, "Failed to sign token");
-      toastr.warning(`Skipped signing proof ${index + 1}: ${message}`);
-      console.error("NIP-07 signing error:", e);
-      continue;
-    }
-    if (sig && !hasP2PKSignedProof(pubkey, proof)) {
-      signedProofs[index].witness = {
-        signatures: [...signatures, sig],
-      };
-      console.log("added sig!", sig);
     }
   }
-  return signedProofs;
+  return {
+    ...(privkeys.length && { privkey: privkeys }),
+    ...(plans.length && { scriptPath: plans }),
+  };
 }
 
 // Sign P2PK proofs using NIP-60 wallet keys

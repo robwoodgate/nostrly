@@ -1,5 +1,6 @@
 // Imports
 import { nip19 } from "nostr-tools";
+import toastr from "toastr";
 import { copyTextToClipboard, doConfettiBomb, getErrorMessage } from "./utils";
 
 declare const nostrly_ajax: {
@@ -238,7 +239,7 @@ jQuery(function ($) {
   async function performCheckout(): Promise<void> {
     let pk: string = ($pubkey.val() as string).trim();
     if (pk.startsWith("npub1")) {
-      const decoded: nip19.DecodeResult = nip19.decode(pk);
+      const decoded: nip19.DecodedResult = nip19.decode(pk);
       if (decoded.type === "npub") {
         pk = decoded.data;
       }

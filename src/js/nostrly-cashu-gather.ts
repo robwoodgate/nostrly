@@ -5,12 +5,14 @@ import {
   signP2PKProofs,
   Proof,
   CheckStateEnum,
+  type ReceiveConfig,
 } from "@cashu/cashu-ts";
 import {
   copyTextToClipboard,
   delay,
   getWalletWithUnit,
   formatAmount,
+  isBlsProof,
   withStaleRetry,
 } from "./utils";
 import {
@@ -109,7 +111,21 @@ jQuery(function ($) {
     });
     try {
       const wallet = await getWalletWithUnit(mintUrl, unit);
-      const newProofs = await withStaleRetry(() => wallet.receive(token));
+      // The wallet keys unlock nutroot proofs at receive time; NUT-11 proofs
+      // are already signed, so passing them is harmless
+      const config: ReceiveConfig = privkeys.length
+        ? { privkey: privkeys }
+        : {};
+      // Script-only zaps (NUMS + leaf on the NIP-61 key) have no key path:
+      // spend them through their first satisfiable leaf
+      const plans = await wallet.planScriptPaths(
+        validSignedProofs,
+        privkeys.length ? { privkeys } : undefined,
+      );
+      if (plans.length) config.scriptPath = plans;
+      const newProofs = await withStaleRetry(() =>
+        wallet.receive(token, config),
+      );
       return getEncodedToken({
         mint: mintUrl,
         proofs: newProofs,
@@ -177,6 +193,13 @@ jQuery(function ($) {
       const invalidEventIds = [];
       for (const [i, proof] of signedProofs.entries()) {
         const eventId = unspentEntries[i].eventId;
+        if (isBlsProof(proof)) {
+          // Nutroot: the lock lives in the point secret and any signature
+          // covers the whole swap, so the keys go to receive, not the proof
+          console.log("A nutroot NutZap proof", proof);
+          validEntries.push({ proof, eventId });
+          continue;
+        }
         if (!proof.secret.includes("P2PK")) {
           // Unspent and unlocked proof... rare!
           console.log("An unlocked NutZap proof!", proof);
