@@ -7,11 +7,11 @@
   "dependencies": {
     "@cashu/cashu-ts": "5.0.0-experimental.d4fd4e21",
     "@gandlaf21/bolt11-decode": "^3.1.1",
+    "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
     "canvas-confetti": "^1.9.3",
     "nostr-tools": "2.24.3",
-    "toastr": "^2.1.4",
-    "@noble/curves": "^2.2.0"
+    "toastr": "^2.1.4"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
@@ -22,7 +22,7 @@
     "eslint": "^9.22.0",
     "eslint-config-prettier": "^10.1.1",
     "prettier": "^3.5.3",
-    "terser-webpack-plugin": "5.3.10",
+    "terser-webpack-plugin": "^5.6.1",
     "ts-loader": "^9.5.2",
     "typescript": "^5.8.2",
     "webpack": "^5.95.0",
@@ -43,6 +43,6 @@
     "@noble/hashes": "$@noble/hashes"
   },
   "engines": {
-    "npm": ">=12"
+    "npm": ">=11"
   }
 }
