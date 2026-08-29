@@ -88,7 +88,8 @@ jQuery(function ($) {
   });
 
   // Reset vars
-  const resetVars = function () {
+  // keepKey: the re-check was triggered by the key field itself, so leave it be
+  const resetVars = function (keepKey = false) {
     wallet = undefined;
     mintUrl = "";
     unit = "sat";
@@ -99,7 +100,7 @@ jQuery(function ($) {
     $tokenRemover.addClass("hidden");
     $pkeyWrapper.hide();
     $useNip07.addClass("hidden");
-    $pkey.val("");
+    if (!keepKey) $pkey.val("");
     $redeemButton.prop("disabled", true);
   };
 
@@ -161,9 +162,9 @@ jQuery(function ($) {
   };
 
   // Helper to process the Cashu Token
-  const processToken = async (event?: JQuery.Event) => {
+  const processToken = async (event?: JQuery.Event, keepKey = false) => {
     if (event) event.preventDefault();
-    resetVars();
+    resetVars(keepKey);
     $tokenRemover.removeClass("hidden");
     $tokenStatus.text("Checking token, one moment please...");
     try {
@@ -734,7 +735,7 @@ jQuery(function ($) {
     $redeemButton.prop("disabled", true);
   });
   $token.on("input", processToken);
-  $pkey.on("input", processToken);
+  $pkey.on("input", () => processToken(undefined, true));
   $useNip07.on("click", async () => {
     try {
       $useNip07.prop("disabled", true);
@@ -748,7 +749,7 @@ jQuery(function ($) {
             : "No NIP-60 wallet keys found for this extension",
         );
       }
-      await processToken();
+      await processToken(undefined, true);
     } catch (e) {
       toastr.error(getErrorMessage(e, "Nostr extension failed"));
       console.error(e);
