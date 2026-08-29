@@ -1,0 +1,26 @@
+# Dependency update PRs. The seven day soak in .npmrc governs what may enter
+# the tree at install time; Dependabot decides when we are told about it, so
+# a weekly run keeps PRs roughly in step with releases leaving the window.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Our own experimental builds are pinned by hand and change often
+    ignore:
+      - dependency-name: "@cashu/cashu-ts"
+    groups:
+      # One PR per family: these move together and are reviewed together
+      noble-scure:
+        patterns:
+          - "@noble/*"
+          - "@scure/*"
+      dev-tooling:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
