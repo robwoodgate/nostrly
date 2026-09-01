@@ -2,7 +2,7 @@ import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
 import { getNut11Mints } from "./nut11";
 import { copyTextToClipboard, debounce, delay } from "./utils";
 import { DEFAULT_RELAYS, pool, getUserRelays, getWalletAndInfo } from "./nostr";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { bytesToHex, hexToBytes } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import { handleCashuDonation } from "./cashu-donate";
 

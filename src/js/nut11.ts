@@ -1,6 +1,3 @@
-import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { sha256 } from "@noble/hashes/sha2.js";
-
 interface MintRead {
   id: number;
   url: string;
@@ -62,13 +59,4 @@ export const isPublicKeyValidP2PK = (key: string): boolean => {
     return true;
   }
   return false;
-};
-
-/**
- * Computes the SHA-256 hash of a string and returns it as a hex string.
- * @param input - The input string to hash.
- * @returns {string} The hex-encoded SHA-256 hash.
- */
-export const sha256Hex = (input: string): string => {
-  return bytesToHex(sha256(utf8ToBytes(input)));
 };
