@@ -25,13 +25,24 @@ Status key: **shipped**, **next**, **later**, **not yet**.
   asks for receiver-keyed outputs under an optional condition, reads one back
   in plain English, and pays one: the payer reproduces the requested tree and
   derives a fresh secret for the payee.
+- **Delivery over nostr.** A request can name an npub, and paying one seals the
+  payload into a NIP-17 message the payee collects in their browser. This is
+  load-bearing rather than convenient: a derived secret cannot be found by
+  scanning the mint, so the payee needs the token itself.
+- **Gifting a locked mint quote.** Cashu Gift pays an invoice for a quote
+  locked to someone else's key, which only they can mint. The cardless ATM
+  without the bearer quote id that made it a theft vector.
 
 ## Next
 
-- **Request transports.** Requests carry no transport yet, so the payer hands
-  the token back by other means. NUT-18 allows a nostr transport, and Nostrly
-  already sends nutzaps, so a request could name an nprofile and have the payer
-  deliver the payment automatically.
+- **Reclaimable gifts.** A quote lock can carry a tree like any secret, so an
+  unclaimed gift could return to the giver after a locktime via the script
+  path. Cashu Gift locks to a bare key today, and cashu-ts would need to accept
+  a nutroot quote lock and sign one by script path.
+
+- **NIP-07 for claims.** Claiming a gift and reading the inbox both want a
+  private key in the page. A gift locked to someone's nostr key could instead
+  be claimed through their extension, which is the safer habit to teach.
 
 - **Richer requested trees.** Compose currently offers one backup-after leaf.
   Co-signers (a 2-of-2 escrow) and hashlocks are the same machinery with more
@@ -49,12 +60,6 @@ Status key: **shipped**, **next**, **later**, **not yet**.
   second home, since that is where people arrive holding a token.
 
 ## Later
-
-- **Gift a locked mint quote (the cardless ATM).** Under v3 every mint quote is
-  locked and can carry a tree, so you can pay an invoice for someone else,
-  lock the quote to their npub-derived key, and add an `after` refund leaf so
-  it returns to you if never redeemed. Uniquely v3, natively nostr-shaped, and
-  nobody else is demoing it. Needs quote lock derivation and invoice polling.
 
 - **Atomic ecash swaps (hashlock plus disclosure).** Two strangers swap ecash
   across mints with no trusted party: both sides lock to the same hash, and the
