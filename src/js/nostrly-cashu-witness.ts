@@ -1,19 +1,29 @@
 // Imports
 import {
+  computeMessageDigest,
+  taggedHash,
   getEncodedToken,
   getTokenMetadata,
+  getHTLCWitnessPreimage,
   getP2PKExpectedWitnessPubkeys,
   getP2PKSigFlag,
   getP2PKWitnessSignatures,
   signP2PKProofs,
   hasP2PKSignedProof,
+  verifyHTLCHash,
   verifyP2PKSpendingConditions,
+  schnorrVerifyDigest,
+  schnorrVerifyMessage,
+  parseNutrootLeafHex,
+  bytesToHex,
+  hexToBytes,
   Amount,
   Proof,
   Wallet,
   Token,
   ConsoleLogger,
   CashuNip07,
+  type ProofState,
   type ReceiveConfig,
   type SpendOption,
   type SpendOptions,
@@ -63,6 +73,7 @@ jQuery(function ($) {
   };
   let spendAuthorised = false;
   let isV3 = false; // proofs are on a v3 (nutroot) keyset
+  let spentEntries: { proof: Proof; state: ProofState }[] = [];
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
   let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
@@ -122,6 +133,7 @@ jQuery(function ($) {
     p2pkParams = { pubkeys: [], n_sigs: 0 };
     spendAuthorised = false;
     isV3 = false;
+    spentEntries = [];
     $witnessInfo.hide().empty();
   };
 
@@ -198,10 +210,24 @@ jQuery(function ($) {
       unit = metadata.unit;
       wallet = await getWalletWithUnit(mintUrl, unit);
       const token: Token = wallet.decodeToken(tokenEncoded);
-      // Drop spent proofs first: one spent input fails a whole unlock swap
-      const { unspent } = await wallet.groupProofsByState(token.proofs);
+      // Drop spent proofs first: one spent input fails a whole unlock swap.
+      // Spent ones are kept aside with their NUT-07 state, which carries the
+      // spend evidence (commitment, and a disclosure opening) worth showing.
+      const states = await wallet.checkProofsStates(token.proofs);
+      const unspent = token.proofs.filter(
+        (_, i) => states[i]?.state === "UNSPENT",
+      );
+      spentEntries = token.proofs.flatMap((proof, i) =>
+        states[i]?.state === "SPENT" ? [{ proof, state: states[i] }] : [],
+      );
       if (!unspent.length) {
-        throw new Error("Token already spent");
+        if (!spentEntries.length) {
+          throw new Error("Token is in-flight (pending) - try again shortly");
+        }
+        $token.attr("data-valid", "no");
+        toastr.info("Token already spent - showing its NUT-07 spend evidence");
+        await renderSpendEvidence();
+        return;
       }
       if (unspent.length < token.proofs.length) {
         allProofs = unspent;
@@ -209,7 +235,7 @@ jQuery(function ($) {
           getEncodedToken({ mint: metadata.mint, unit, proofs: unspent }),
         );
         toastr.warning(
-          `${token.proofs.length - unspent.length} proof(s) already spent - token regenerated with the rest`,
+          `${token.proofs.length - unspent.length} proof(s) already spent or pending - token regenerated with the rest`,
         );
       } else {
         allProofs = token.proofs;
@@ -423,6 +449,7 @@ jQuery(function ($) {
 
     html += `</ul>`;
     $witnessInfo.show().html(html);
+    void renderSpendEvidence();
   }
 
   // Display v3 (nutroot) spending conditions: the key path, then each
@@ -529,6 +556,208 @@ jQuery(function ($) {
     }
     $witnessInfo.show().html(html);
     checkNip07ButtonState();
+    void renderSpendEvidence();
+  }
+
+  // NUT-07 spend evidence: a spent v3 proof returns a binding commitment,
+  // tagged_hash("Cashu_SpendCommitment", Y || input_digest || SHA256(witness)),
+  // and a spend through a disclosure leaf also returns the witness and input
+  // digest that open it. Everything shown verified is verified client-side.
+  // NUT-07 fields come from the mint (and the witness from the spender), so
+  // everything interpolated into the panel is escaped as untrusted
+  const escapeHtml = (s: string) => $("<i>").text(s).html();
+  const shortHex = (hex: string) =>
+    `<span style="font-family:monospace">${escapeHtml(hex.slice(0, 12))}...${escapeHtml(hex.slice(-8))}</span>`;
+  const mono = (s: string) =>
+    `<span style="font-family:monospace">${escapeHtml(s)}</span>`;
+
+  async function renderSpendEvidence() {
+    if (!spentEntries.length) {
+      return;
+    }
+    let sawDisclosure = false;
+    let html = `<div><strong>Spend Evidence (NUT-07):</strong><ul>`;
+    for (const { proof, state } of spentEntries) {
+      const verdicts: { ok?: boolean; text: string }[] = [];
+      let allOk = true;
+      const witness = state.witness;
+      if (witness && state.input_digest) {
+        // A disclosure spend: verify the published opening end to end
+        sawDisclosure = true;
+        if (state.commitment) {
+          const witnessHash = computeMessageDigest(witness);
+          const calc = bytesToHex(
+            taggedHash(
+              "Cashu_SpendCommitment",
+              hexToBytes(state.Y),
+              hexToBytes(state.input_digest),
+              witnessHash,
+            ),
+          );
+          const match = calc === state.commitment.toLowerCase();
+          allOk &&= match;
+          verdicts.push({
+            ok: match,
+            text: match ? "commitment opens" : "commitment does not open",
+          });
+        }
+        let parsed: {
+          leaf?: string;
+          signatures?: string[];
+          preimage?: string;
+        } | null = null;
+        try {
+          parsed = JSON.parse(witness);
+        } catch {
+          verdicts.push({ ok: false, text: "unparseable witness" });
+          allOk = false;
+        }
+        if (parsed?.leaf) {
+          // Script path: which leaf, who signed, any preimage
+          try {
+            const leafHex = parsed.leaf;
+            const leaf = parseNutrootLeafHex(leafHex);
+            const sigs = parsed.signatures ?? [];
+            const signers = leaf.keys.filter((key) =>
+              sigs.some((sig) => {
+                try {
+                  return schnorrVerifyDigest(sig, state.input_digest!, key);
+                } catch {
+                  return false;
+                }
+              }),
+            );
+            const sigOk = signers.length >= leaf.n;
+            allOk &&= sigOk;
+            verdicts.push({
+              text: `spent via leaf: ${escapeHtml(describeNutrootLeaf(leaf))}`,
+            });
+            verdicts.push({
+              ok: sigOk,
+              text:
+                `${signers.length}/${leaf.n} required signature(s) verify` +
+                (signers.length
+                  ? `: ${signers.map((k) => shortHex(k)).join(", ")}`
+                  : ""),
+            });
+            if (leaf.hash) {
+              const preimage = parsed.preimage;
+              const preOk = !!preimage && verifyHTLCHash(preimage, leaf.hash);
+              allOk &&= preOk;
+              verdicts.push({
+                ok: preOk,
+                text: preOk
+                  ? `preimage revealed: ${mono(preimage)}`
+                  : "preimage missing or invalid",
+              });
+            }
+            const tree = proof.spend_info?.tree;
+            if (tree?.length) {
+              const inTree = tree.some(
+                (l) => l.toLowerCase() === leafHex.toLowerCase(),
+              );
+              allOk &&= inTree;
+              verdicts.push({
+                ok: inTree,
+                text: inTree
+                  ? "leaf matches this token's disclosed conditions"
+                  : "leaf is NOT among this token's disclosed conditions",
+              });
+            }
+          } catch (e) {
+            console.error("disclosure leaf parse error:", e);
+            verdicts.push({ ok: false, text: "undecodable leaf" });
+            allOk = false;
+          }
+        } else if (parsed?.signatures?.length) {
+          // Key path published (unusual, but verifiable all the same)
+          let keyOk = false;
+          try {
+            keyOk = schnorrVerifyDigest(
+              parsed.signatures[0],
+              state.input_digest,
+              proof.secret,
+            );
+          } catch {
+            keyOk = false;
+          }
+          allOk &&= keyOk;
+          verdicts.push({
+            ok: keyOk,
+            text: keyOk
+              ? "key-path signature verifies against the token's key"
+              : "key-path signature does not verify",
+          });
+        }
+      } else if (witness) {
+        // Pre-v3 keysets return the witness outright for locked proofs
+        const preimage = getHTLCWitnessPreimage(witness);
+        const sigs = getP2PKWitnessSignatures(witness);
+        let keys: string[] = [];
+        try {
+          keys = getP2PKExpectedWitnessPubkeys(proof.secret);
+        } catch {
+          // not a P2PK/HTLC secret; nothing to check signatures against
+        }
+        const signers = keys.filter((key) =>
+          sigs.some((sig) => {
+            try {
+              return schnorrVerifyMessage(sig, proof.secret, key);
+            } catch {
+              return false;
+            }
+          }),
+        );
+        if (signers.length) {
+          verdicts.push({
+            ok: true,
+            text: `signed by ${signers.map((k) => shortHex(k)).join(", ")}`,
+          });
+        } else if (sigs.length) {
+          verdicts.push({
+            ok: false,
+            text: `${sigs.length} signature(s), none match the lock`,
+          });
+          allOk = false;
+        }
+        if (preimage) {
+          verdicts.push({ text: `preimage revealed: ${mono(preimage)}` });
+        }
+        if (!verdicts.length) {
+          verdicts.push({ text: "witness returned (nothing to verify)" });
+        }
+      } else if (state.commitment) {
+        verdicts.push({
+          text: `evidence sealed in commitment ${shortHex(state.commitment)} (only the spender can open it)`,
+        });
+      } else {
+        verdicts.push({ text: "no evidence returned by this mint" });
+      }
+      const disclosed = Boolean(witness && state.input_digest);
+      const headline = disclosed
+        ? allOk
+          ? "spent, disclosure verified"
+          : "spent, disclosure INVALID"
+        : witness
+          ? "spent, witness returned"
+          : "spent privately";
+      html += `<li class="${allOk ? "signed" : "pending"}"><span class="status-icon"></span><span>${formatAmount(proof.amount, unit)} proof ${shortHex(state.Y)}: ${headline}</span></li>`;
+      if (verdicts.length) {
+        html += `<ul>`;
+        for (const v of verdicts) {
+          const cls = v.ok === undefined ? "" : v.ok ? "signed" : "pending";
+          const icon = cls ? `<span class="status-icon"></span>` : "";
+          html += `<li class="${cls}">${icon}<span>${v.text}</span></li>`;
+        }
+        html += `</ul>`;
+      }
+    }
+    html += `</ul>`;
+    if (sawDisclosure) {
+      html += `<p class="summary">Disclosed spends verify on their own and reveal nothing about the rest of the transaction they were spent in.</p>`;
+    }
+    html += `</div>`;
+    $witnessInfo.show().append(html);
   }
 
   // Check NIP-07 button state and handle unlocked tokens
