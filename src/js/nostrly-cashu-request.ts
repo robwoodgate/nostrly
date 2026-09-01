@@ -5,14 +5,20 @@ import {
   decodePaymentRequest,
   getEncodedToken,
   getTokenMetadata,
+  hexToBytes,
   parseNutrootLeafHex,
+  PaymentRequestTransportType,
   type NutrootLeaf,
 } from "@cashu/cashu-ts";
+import { nip19 } from "nostr-tools";
 import { decode as emojiDecode } from "./emoji-encoder";
 import {
   convertP2PKToNpub,
+  fetchNip17Dms,
   getContactDetails,
+  maybeConvertNpubToHexPub,
   maybeConvertNpubToP2PK,
+  sendNip17Dm,
 } from "./nostr";
 import { isPublicKeyValidP2PK } from "./nut11";
 import {
@@ -50,12 +56,18 @@ jQuery(function ($) {
   const $summary = $("#req-summary");
   const $inspect = $("#inspect-input");
   const $inspectOut = $("#inspect-output");
+  const $nostr = $("#req-nostr");
+  const $inbox = $("#inbox-key");
+  const $inboxButton = $("#inbox-check");
+  const $inboxOut = $("#inbox-output");
   const $payWrap = $("#pay-wrap");
   const $payToken = $("#pay-token");
   const $payAmount = $("#pay-amount");
   const $payAmountWrap = $("#pay-amount-wrap");
   const $payButton = $("#pay-button");
+  const $payHint = $("#pay-hint");
   const $payOut = $("#pay-output");
+  const $payDelivered = $("#pay-delivered");
   const $payment = $("#pay-payment");
   const $paymentCopy = $("#pay-payment-copy");
   const $change = $("#pay-change");
@@ -149,9 +161,65 @@ jQuery(function ($) {
       return undefined; // half a backup leaf is not a request yet
     }
 
+    // A transport is how the payment gets back: without one the payer has to
+    // return the token by hand, which for a derived secret nobody else can find
+    const nprofile = readNprofile();
+    if (nprofile === null) return undefined; // typed, but not valid yet
+    if (nprofile) builder.addNostrTransport(nprofile, ["17"]);
+
     // legacy: nut10 rides alongside for payers that predate v3 keysets
     builder.lock(lock, { legacy: $legacy.is(":checked") });
     return builder.build();
+  }
+
+  // The delivery field takes an npub or a full nprofile. An npub carries no
+  // relays, so pair it with the ones this site uses.
+  // Returns undefined when empty, null when present but unusable.
+  function readNprofile(): string | undefined | null {
+    const raw = ($nostr.val() as string)?.trim();
+    if (!raw) {
+      $nostr.attr("data-valid", "");
+      return undefined;
+    }
+    try {
+      if (raw.startsWith("nprofile")) {
+        nip19.decode(raw); // throws if malformed
+        $nostr.attr("data-valid", "");
+        return raw;
+      }
+      const pubkey = maybeConvertNpubToHexPub(raw);
+      if (!/^[0-9a-f]{64}$/.test(pubkey)) throw new Error("bad key");
+      $nostr.attr("data-valid", "");
+      return nip19.nprofileEncode({ pubkey, relays: nostrly_ajax.relays });
+    } catch {
+      $nostr.attr("data-valid", "no");
+      return null;
+    }
+  }
+
+  // Where a payment for this request should be delivered, if anywhere
+  function nostrTarget(
+    pr: PaymentRequest,
+  ): { pubkey: string; relays: string[] } | undefined {
+    const transport = pr.getTransport(PaymentRequestTransportType.NOSTR);
+    if (!transport?.target) return undefined;
+    try {
+      const decoded = nip19.decode(transport.target);
+      if (decoded.type === "nprofile") {
+        return {
+          pubkey: decoded.data.pubkey,
+          relays: decoded.data.relays?.length
+            ? decoded.data.relays
+            : nostrly_ajax.relays,
+        };
+      }
+      if (decoded.type === "npub") {
+        return { pubkey: decoded.data, relays: nostrly_ajax.relays };
+      }
+    } catch {
+      // an unreadable target is the same as none: the payer returns it by hand
+    }
+    return undefined;
   }
 
   // One renderer for both panels: what this request asks of a payer
@@ -197,6 +265,21 @@ jQuery(function ($) {
         const blind = nutroot.blindKeys?.length ?? 0;
         html += `<li>${blind ? `${blind} of the tree's keys are tagged to be blinded too` : "The tree's keys are used verbatim, so they are recognisable on receipt"}.</li>`;
       }
+    }
+    const target = nostrTarget(pr);
+    if (target) {
+      const npub = nip19.npubEncode(target.pubkey);
+      const dmId = `req-dm-${Math.random().toString(36).slice(2, 8)}`;
+      html += `<li class="signed"><span class="status-icon"></span><span>Delivery: the payment is sent over nostr to <span id="${dmId}">${shortKey(target.pubkey)}</span> as a NIP-17 message.</span></li>`;
+      getContactDetails(npub, nostrly_ajax.relays).then(({ name }) => {
+        if (name) {
+          $(`#${dmId}`).replaceWith(
+            `<a href="https://njump.me/${esc(npub)}" target="_blank">${esc(name)}</a>`,
+          );
+        }
+      });
+    } else {
+      html += `<li>No delivery transport: the payer has to return the token by hand. A derived secret cannot be found by scanning the mint, so the payee needs the token itself.</li>`;
     }
     if (pr.nut10) {
       html += `<li>Legacy fallback (NUT-10) included, so wallets that predate v3 keysets can still pay.</li>`;
@@ -264,6 +347,11 @@ jQuery(function ($) {
         );
       inspected = pr;
       $payAmountWrap.toggle(!pr.amount);
+      $payHint.text(
+        nostrTarget(pr)
+          ? "Your wallet reproduces the requested conditions exactly, derives a fresh secret for the payee, and delivers the payment to them over nostr."
+          : "Your wallet reproduces the requested conditions exactly and derives a fresh secret for the payee. This request carries no transport, so hand the payment token back yourself.",
+      );
       $payWrap.show();
     } catch (e) {
       $inspect.attr("data-valid", "no");
@@ -281,6 +369,7 @@ jQuery(function ($) {
     const pr = inspected;
     if (!pr) return;
     $payButton.prop("disabled", true);
+    $payDelivered.hide();
     try {
       let encoded = ($payToken.val() as string)?.trim();
       if (!encoded) throw new Error("Paste a token to pay with");
@@ -318,9 +407,17 @@ jQuery(function ($) {
         $changeWrap.hide();
       }
       $payOut.show();
-      toastr.success(
-        `Paid ${formatAmount(getTokenAmount(send), meta.unit)}: send the payment token to the payee`,
-      );
+      const paid = formatAmount(getTokenAmount(send), meta.unit);
+      const target = nostrTarget(pr);
+      if (!target) {
+        toastr.success(`Paid ${paid}: send the payment token to the payee`);
+        return;
+      }
+      toastr.info("Delivering the payment over nostr...");
+      const payload = pr.encodePayload(meta.mint, send, { unit: meta.unit });
+      await sendNip17Dm(payload, target.pubkey, target.relays);
+      $payDelivered.show();
+      toastr.success(`Paid ${paid} and delivered to the payee over nostr`);
     } catch (e) {
       console.error("payRequest error:", e);
       toastr.error(getErrorMessage(e, "Could not pay this request"));
@@ -329,9 +426,81 @@ jQuery(function ($) {
     }
   }
 
+  // Inbox: NIP-17 messages carrying a payment for this key. The wraps are
+  // public but sealed, so the key never leaves the browser and only unwraps.
+  async function checkInbox() {
+    const raw = ($inbox.val() as string)?.trim();
+    if (!raw) {
+      toastr.error("Paste the private key of the account you requested to");
+      return;
+    }
+    let privkey: Uint8Array;
+    try {
+      privkey = raw.startsWith("nsec")
+        ? (nip19.decode(raw).data as Uint8Array)
+        : hexToBytes(raw);
+      if (privkey.length !== 32) throw new Error("bad key");
+      $inbox.attr("data-valid", "");
+    } catch {
+      $inbox.attr("data-valid", "no");
+      toastr.error("That is not a valid nsec or hex private key");
+      return;
+    }
+    $inboxButton.prop("disabled", true);
+    $inboxOut.hide().empty();
+    try {
+      toastr.info("Checking relays for payments...");
+      const messages = await fetchNip17Dms(privkey, nostrly_ajax.relays);
+      const payments = messages.flatMap((m) => {
+        try {
+          const payload = PaymentRequest.decodePayload(m.content);
+          return payload?.proofs?.length ? [{ ...m, payload }] : [];
+        } catch {
+          return []; // an ordinary message, not a payment
+        }
+      });
+      if (!payments.length) {
+        $inboxOut
+          .show()
+          .html(
+            `<p>No payments found. Relays keep messages for a while, not forever, so a payment sent long ago may have aged out.</p>`,
+          );
+        return;
+      }
+      let html = `<strong>Payments delivered to you:</strong><ul>`;
+      for (const { payload, created_at } of payments) {
+        const amount = getTokenAmount(payload.proofs);
+        const token = getEncodedToken({
+          mint: payload.mint,
+          unit: payload.unit,
+          proofs: payload.proofs,
+        });
+        const id = `inbox-${Math.random().toString(36).slice(2, 8)}`;
+        html += `<li class="signed"><span class="status-icon"></span><span>${esc(formatAmount(amount, payload.unit))} from ${esc(payload.mint)}, ${esc(new Date(created_at * 1000).toLocaleString())}${payload.memo ? `: ${esc(payload.memo)}` : ""} <button type="button" class="button" id="${id}">Copy token</button></span></li>`;
+        // The token only ever lives in this closure; the button hands it over
+        setTimeout(() => {
+          $(`#${id}`).on("click", () => {
+            copyTextToClipboard(token);
+            toastr.success("Token copied: sweep it in Cashu Witness");
+          });
+        }, 0);
+      }
+      html += `</ul>`;
+      $inboxOut.show().html(html);
+      toastr.success(
+        `Found ${payments.length} payment${payments.length > 1 ? "s" : ""}`,
+      );
+    } catch (e) {
+      console.error("checkInbox error:", e);
+      toastr.error(getErrorMessage(e, "Could not check for payments"));
+    } finally {
+      $inboxButton.prop("disabled", false);
+    }
+  }
+
   // Handlers
   $(
-    "#req-amount, #req-unit, #req-mints, #req-description, #req-payto, #req-backup, #req-backup-after",
+    "#req-amount, #req-unit, #req-mints, #req-description, #req-payto, #req-backup, #req-backup-after, #req-nostr",
   ).on("input", debounce(refresh, 250));
   $("#req-blind, #req-legacy, #req-single").on("change", refresh);
   $inspect.on("input", debounce(inspect, 250));
@@ -340,6 +509,7 @@ jQuery(function ($) {
     toastr.success("Payment request copied");
   });
   $payButton.on("click", payRequest);
+  $inboxButton.on("click", checkInbox);
   $paymentCopy.on("click", () => copyTextToClipboard($payment.val() as string));
   $changeCopy.on("click", () => copyTextToClipboard($change.val() as string));
 

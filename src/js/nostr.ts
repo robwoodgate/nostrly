@@ -8,6 +8,7 @@ import {
   generateSecretKey,
   getPublicKey,
   nip04,
+  nip17,
   nip19,
 } from "nostr-tools";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
@@ -108,6 +109,70 @@ export const sendViaNostr = async (
   const signedEvent = finalizeEvent(event, sk);
   await Promise.any(pool.publish(relays, signedEvent));
 };
+
+/**
+ * Sends a NIP-17 direct message from a throwaway key, so the sender stays
+ * anonymous while the message stays sealed to the recipient.
+ *
+ * @param {string}   message to send
+ * @param {string}   toPub   Hex pubkey to send to
+ * @param {string[]} relays  array of relays to publish to
+ */
+export const sendNip17Dm = async (
+  message: string,
+  toPub: string,
+  relays: string[],
+) => {
+  toPub = toPub || NOSTRLY_PUBKEY; // Fallback
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  const sk = generateSecretKey();
+  const wrapped = nip17.wrapEvent(sk, { publicKey: toPub }, message);
+  await Promise.any(pool.publish(relays, wrapped));
+};
+
+/**
+ * Fetches NIP-17 direct messages addressed to a key, newest first.
+ *
+ * @remarks
+ * Only the gift wrap is queryable: its `p` tag names the recipient, while the
+ * sender and content stay sealed until unwrapped with the recipient's key.
+ * Wraps that do not unwrap are simply not ours, so they are skipped quietly.
+ *
+ * @param {Uint8Array} privkey recipient's secret key, used only to unwrap
+ * @param {string[]}   relays  array of relays to query
+ * @param {number}     limit   maximum wraps to request per relay
+ */
+export async function fetchNip17Dms(
+  privkey: Uint8Array,
+  relays: string[],
+  limit: number = 100,
+): Promise<Array<{ id: string; content: string; created_at: number }>> {
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  const hexpub = getPublicKey(privkey);
+  const filter: Filter = { kinds: [1059], "#p": [hexpub], limit };
+  const wraps: Event[] = await new Promise((resolve) => {
+    const events: Event[] = [];
+    pool.subscribeManyEose(relays, filter, {
+      onevent: (event: Event) => events.push(event),
+      onclose: () => resolve(events),
+    });
+  });
+  const messages: Array<{ id: string; content: string; created_at: number }> =
+    [];
+  for (const wrap of wraps) {
+    try {
+      const rumor = nip17.unwrapEvent(wrap, privkey);
+      messages.push({
+        id: wrap.id,
+        content: rumor.content,
+        created_at: rumor.created_at,
+      });
+    } catch {
+      // Not addressed to this key, or not a NIP-17 wrap
+    }
+  }
+  return messages.sort((a, b) => b.created_at - a.created_at);
+}
 
 /**
  * Sends a NutZap anonymously via Nostr

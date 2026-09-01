@@ -1297,6 +1297,12 @@ class NostrlyTools
         $copy = esc_html__('Copy Request', 'nostrly');
         $inspect_label = esc_attr__('Inspect a payment request', 'nostrly');
         $inspect_ph = esc_attr__('Paste a creq... payment request to see what it asks for', 'nostrly');
+        $nostr_label = esc_attr__('Deliver payments over nostr (optional)', 'nostrly');
+        $nostr_ph = esc_attr__('npub1... or nprofile1...', 'nostrly');
+        $delivered = esc_html__('Delivered to the payee over nostr. They can collect it below.', 'nostrly');
+        $inbox_label = esc_attr__('Collect payments sent to you', 'nostrly');
+        $inbox_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
+        $inbox_button = esc_html__('Check for Payments', 'nostrly');
         $pay_token_label = esc_attr__('Pay it with a Cashu token (or emoji 🥜)', 'nostrly');
         $pay_token_ph = esc_attr__('Paste an unlocked token to pay with...', 'nostrly');
         $pay_amount_label = esc_attr__('Amount to pay', 'nostrly');
@@ -1417,6 +1423,10 @@ class NostrlyTools
                     <label for="req-mints">{$mints_label}</label>
                     <textarea id="req-mints" rows="2" placeholder="{$mints_ph}"></textarea>
 
+                    <label for="req-nostr">{$nostr_label}</label>
+                    <input type="text" id="req-nostr" placeholder="{$nostr_ph}">
+                    <p class="hint">The payer sends the payment straight to you as a sealed NIP-17 message. Without this they have to hand the token back themselves, and a derived secret cannot be found by scanning the mint.</p>
+
                     <div class="row">
                         <div>
                             <label for="req-backup">{$backup_label}</label>
@@ -1456,7 +1466,8 @@ class NostrlyTools
                             <input type="number" min="1" step="1" id="pay-amount">
                         </div>
                         <button type="button" class="button" id="pay-button">{$pay_button}</button>
-                        <p class="hint">Your wallet reproduces the requested conditions exactly and derives a fresh secret for the payee. This request carries no transport, so hand the payment token back yourself.</p>
+                        <p class="hint" id="pay-hint">Your wallet reproduces the requested conditions exactly and derives a fresh secret for the payee.</p>
+                        <div id="pay-delivered" class="info" style="display:none">{$delivered}</div>
                         <div id="pay-output" style="display:none">
                             <label for="pay-payment">{$payment_label}</label>
                             <textarea id="pay-payment" readonly></textarea>
@@ -1468,6 +1479,14 @@ class NostrlyTools
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="panel">
+                    <label for="inbox-key">{$inbox_label}</label>
+                    <input type="password" id="inbox-key" placeholder="{$inbox_ph}" autocomplete="off">
+                    <p class="hint">Your key stays in this browser and is only used to unwrap messages addressed to you. Relays hold sealed messages for a limited time, so collect payments promptly.</p>
+                    <button type="button" class="button" id="inbox-check">{$inbox_button}</button>
+                    <div id="inbox-output" class="info" style="display:none"></div>
                 </div>
             </div>
             EOL;
