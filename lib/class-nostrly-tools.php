@@ -21,6 +21,7 @@ class NostrlyTools
         add_shortcode('nostrly_cashu_witness', [$this, 'cashu_witness_shortcode']);
         add_shortcode('nostrly_cashu_cache', [$this, 'cashu_cache_shortcode']);
         add_shortcode('nostrly_cashu_gather', [$this, 'cashu_gather_shortcode']);
+        add_shortcode('nostrly_cashu_request', [$this, 'cashu_request_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
         add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
@@ -1267,6 +1268,211 @@ class NostrlyTools
      * Enqueue scripts and styles
      * NB: Called from registration_shortcode() so we only load scripts if needed.
      */
+    /**
+     * Cashu Request shortcode: compose and inspect NUT-18 payment requests.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_request_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-request');
+
+        $amount_label = esc_attr__('Amount (leave blank for any)', 'nostrly');
+        $unit_label = esc_attr__('Unit', 'nostrly');
+        $mints_label = esc_attr__('Mints (optional, one per line)', 'nostrly');
+        $mints_ph = esc_attr__('https://mint.example.com', 'nostrly');
+        $desc_label = esc_attr__('Description (optional)', 'nostrly');
+        $desc_ph = esc_attr__('What is this payment for?', 'nostrly');
+        $payto_label = esc_attr__('Pay to (npub or public key)', 'nostrly');
+        $payto_ph = esc_attr__('npub1... or 02...', 'nostrly');
+        $backup_label = esc_attr__('Backup key (optional)', 'nostrly');
+        $backup_ph = esc_attr__('A second key of yours, npub1... or 02...', 'nostrly');
+        $after_label = esc_attr__('...can also claim after', 'nostrly');
+        $blind_label = esc_html__('Blind my keys, so payments cannot be linked (recommended)', 'nostrly');
+        $legacy_label = esc_html__('Include a legacy fallback for wallets that predate v3 keysets', 'nostrly');
+        $single_label = esc_html__('Single use: this request expects one payment', 'nostrly');
+        $output_label = esc_attr__('Your payment request', 'nostrly');
+        $copy = esc_html__('Copy Request', 'nostrly');
+        $inspect_label = esc_attr__('Inspect a payment request', 'nostrly');
+        $inspect_ph = esc_attr__('Paste a creq... payment request to see what it asks for', 'nostrly');
+        $pay_token_label = esc_attr__('Pay it with a Cashu token (or emoji 🥜)', 'nostrly');
+        $pay_token_ph = esc_attr__('Paste an unlocked token to pay with...', 'nostrly');
+        $pay_amount_label = esc_attr__('Amount to pay', 'nostrly');
+        $pay_button = esc_html__('Pay Request', 'nostrly');
+        $payment_label = esc_attr__('Payment token: send this to the payee', 'nostrly');
+        $change_label = esc_attr__('Your change: keep this', 'nostrly');
+        $copy_payment = esc_html__('Copy Payment', 'nostrly');
+        $copy_change = esc_html__('Copy Change', 'nostrly');
+
+        return <<<EOL
+            <style>
+                #cashu-request .panel {
+                    margin-bottom: 40px;
+                }
+                #cashu-request label {
+                    display: block;
+                    font-weight: bold;
+                    margin-bottom: 0.25rem;
+                }
+                #cashu-request label.inline {
+                    display: inline;
+                    font-weight: normal;
+                }
+                #cashu-request input[type="text"],
+                #cashu-request input[type="number"],
+                #cashu-request input[type="datetime-local"],
+                #cashu-request textarea {
+                    border-radius: 6px;
+                    margin-bottom: 1rem;
+                    width: 100%;
+                }
+                #cashu-request [data-valid="no"] {
+                    border: 1px solid #f00;
+                }
+                #cashu-request .row {
+                    display: flex;
+                    gap: 1rem;
+                }
+                #cashu-request .row > div {
+                    flex: 1;
+                }
+                #cashu-request .checks {
+                    margin-bottom: 1rem;
+                }
+                #cashu-request .checks div {
+                    margin-bottom: 0.35rem;
+                }
+                #cashu-request .info {
+                    margin-top: 0.75rem;
+                    padding: 0.75rem;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    text-align: left;
+                    font-size: 0.9rem;
+                    border: 1px solid #444;
+                }
+                #cashu-request .info ul {
+                    margin: 0.5rem 0;
+                    padding-left: 20px;
+                }
+                #cashu-request .info li {
+                    margin-bottom: 0.25rem;
+                    font-family: monospace;
+                }
+                #cashu-request .info li.signed {
+                    display: flex;
+                    align-items: center;
+                }
+                #cashu-request .status-icon {
+                    width: 10px;
+                    height: 10px;
+                    margin-right: 8px;
+                    border-radius: 50%;
+                    display: inline-block;
+                    flex-shrink: 0;
+                    background-color: #0f0;
+                }
+                #cashu-request .error {
+                    color: #f88;
+                    margin: 0;
+                }
+                #cashu-request .hint {
+                    font-size: 0.85rem;
+                    color: #aaa;
+                    margin: -0.75rem 0 1rem;
+                }
+                #req-output,
+                #pay-payment,
+                #pay-change {
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    min-height: 6rem;
+                }
+                #cashu-request .button {
+                    margin-bottom: 1rem;
+                }
+            </style>
+            <div id="cashu-request">
+                <div class="panel">
+                    <div class="row">
+                        <div>
+                            <label for="req-amount">{$amount_label}</label>
+                            <input type="number" min="0" step="1" id="req-amount" placeholder="0">
+                        </div>
+                        <div>
+                            <label for="req-unit">{$unit_label}</label>
+                            <input type="text" id="req-unit" value="sat">
+                        </div>
+                    </div>
+
+                    <label for="req-payto">{$payto_label}</label>
+                    <input type="text" id="req-payto" placeholder="{$payto_ph}">
+                    <p class="hint">Your key is never locked to verbatim: each payment derives its own secret from it, so payments to the same key cannot be linked.</p>
+
+                    <label for="req-description">{$desc_label}</label>
+                    <input type="text" id="req-description" placeholder="{$desc_ph}">
+
+                    <label for="req-mints">{$mints_label}</label>
+                    <textarea id="req-mints" rows="2" placeholder="{$mints_ph}"></textarea>
+
+                    <div class="row">
+                        <div>
+                            <label for="req-backup">{$backup_label}</label>
+                            <input type="text" id="req-backup" placeholder="{$backup_ph}">
+                        </div>
+                        <div>
+                            <label for="req-backup-after">{$after_label}</label>
+                            <input type="datetime-local" id="req-backup-after">
+                        </div>
+                    </div>
+                    <p class="hint">Adds one condition to the request. The payer must reproduce it exactly, and it stays invisible to the mint unless it is used.</p>
+
+                    <div class="checks">
+                        <div><input type="checkbox" id="req-blind" checked> <label class="inline" for="req-blind">{$blind_label}</label></div>
+                        <div><input type="checkbox" id="req-legacy" checked> <label class="inline" for="req-legacy">{$legacy_label}</label></div>
+                        <div><input type="checkbox" id="req-single"> <label class="inline" for="req-single">{$single_label}</label></div>
+                    </div>
+
+                    <div id="req-output-wrap" style="display:none">
+                        <label for="req-output">{$output_label}</label>
+                        <textarea id="req-output" readonly></textarea>
+                        <button type="button" class="button" id="req-copy">{$copy}</button>
+                    </div>
+                    <div id="req-summary" class="info"></div>
+                </div>
+
+                <div class="panel">
+                    <label for="inspect-input">{$inspect_label}</label>
+                    <textarea id="inspect-input" rows="3" placeholder="{$inspect_ph}"></textarea>
+                    <div id="inspect-output" class="info" style="display:none"></div>
+
+                    <div id="pay-wrap" style="display:none">
+                        <label for="pay-token">{$pay_token_label}</label>
+                        <textarea id="pay-token" rows="3" placeholder="{$pay_token_ph}"></textarea>
+                        <div id="pay-amount-wrap" style="display:none">
+                            <label for="pay-amount">{$pay_amount_label}</label>
+                            <input type="number" min="1" step="1" id="pay-amount">
+                        </div>
+                        <button type="button" class="button" id="pay-button">{$pay_button}</button>
+                        <p class="hint">Your wallet reproduces the requested conditions exactly and derives a fresh secret for the payee. This request carries no transport, so hand the payment token back yourself.</p>
+                        <div id="pay-output" style="display:none">
+                            <label for="pay-payment">{$payment_label}</label>
+                            <textarea id="pay-payment" readonly></textarea>
+                            <button type="button" class="button" id="pay-payment-copy">{$copy_payment}</button>
+                            <div id="pay-change-wrap" style="display:none">
+                                <label for="pay-change">{$change_label}</label>
+                                <textarea id="pay-change" readonly></textarea>
+                                <button type="button" class="button" id="pay-change-copy">{$copy_change}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            EOL;
+    }
+
     public function enqueue_scripts(): void
     {
         wp_register_script('nostrly-cashu-redeem', NOSTRLY_URL.'assets/js/nostrly-cashu-redeem.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
@@ -1274,6 +1480,7 @@ class NostrlyTools
         wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-cache', NOSTRLY_URL.'assets/js/nostrly-cashu-cache.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-gather', NOSTRLY_URL.'assets/js/nostrly-cashu-gather.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-request', NOSTRLY_URL.'assets/js/nostrly-cashu-request.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
