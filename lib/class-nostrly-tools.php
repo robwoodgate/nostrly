@@ -22,6 +22,7 @@ class NostrlyTools
         add_shortcode('nostrly_cashu_cache', [$this, 'cashu_cache_shortcode']);
         add_shortcode('nostrly_cashu_gather', [$this, 'cashu_gather_shortcode']);
         add_shortcode('nostrly_cashu_request', [$this, 'cashu_request_shortcode']);
+        add_shortcode('nostrly_cashu_gift', [$this, 'cashu_gift_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
         add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
@@ -1492,6 +1493,190 @@ class NostrlyTools
             EOL;
     }
 
+    /**
+     * Cashu Gift shortcode: pay a Lightning invoice so someone else can mint.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_gift_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-gift');
+
+        $mint_label = esc_attr__('Mint', 'nostrly');
+        $mint_ph = esc_attr__('https://mint.example.com', 'nostrly');
+        $amount_label = esc_attr__('Amount (sats)', 'nostrly');
+        $to_label = esc_attr__('Gift for (npub or public key)', 'nostrly');
+        $to_ph = esc_attr__('npub1... or 02...', 'nostrly');
+        $memo_label = esc_attr__('Message (optional)', 'nostrly');
+        $memo_ph = esc_attr__('Happy birthday!', 'nostrly');
+        $deliver_label = esc_html__('Deliver the gift over nostr when the invoice is paid', 'nostrly');
+        $create = esc_html__('Create Gift', 'nostrly');
+        $invoice_label = esc_attr__('Pay this invoice to fund the gift', 'nostrly');
+        $copy_invoice = esc_html__('Copy Invoice', 'nostrly');
+        $gift_label = esc_attr__('The gift: send this to the recipient', 'nostrly');
+        $copy_gift = esc_html__('Copy Gift', 'nostrly');
+        $claim_label = esc_attr__('Claim a gift', 'nostrly');
+        $claim_ph = esc_attr__('Paste a gift here, or fetch one from nostr below...', 'nostrly');
+        $claim_key_label = esc_attr__('Your private key', 'nostrly');
+        $claim_key_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
+        $claim_button = esc_html__('Claim Gift', 'nostrly');
+        $inbox_button = esc_html__('Fetch from Nostr', 'nostrly');
+        $token_label = esc_attr__('Your ecash', 'nostrly');
+        $copy_token = esc_html__('Copy Token', 'nostrly');
+        $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
+
+        return <<<EOL
+            <style>
+                #cashu-gift .panel {
+                    margin-bottom: 40px;
+                }
+                #cashu-gift label {
+                    display: block;
+                    font-weight: bold;
+                    margin-bottom: 0.25rem;
+                }
+                #cashu-gift label.inline {
+                    display: inline;
+                    font-weight: normal;
+                }
+                #cashu-gift input[type="text"],
+                #cashu-gift input[type="number"],
+                #cashu-gift input[type="password"],
+                #cashu-gift textarea {
+                    border-radius: 6px;
+                    margin-bottom: 1rem;
+                    width: 100%;
+                }
+                #cashu-gift .row {
+                    display: flex;
+                    gap: 1rem;
+                }
+                #cashu-gift .row > div {
+                    flex: 1;
+                }
+                #cashu-gift .button {
+                    margin-bottom: 1rem;
+                }
+                #cashu-gift .hint {
+                    font-size: 0.85rem;
+                    color: #aaa;
+                    margin: -0.75rem 0 1rem;
+                }
+                #cashu-gift .hint.below {
+                    margin-top: 0.35rem;
+                }
+                #cashu-gift .info {
+                    margin-top: 0.75rem;
+                    padding: 0.75rem;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    font-size: 0.9rem;
+                    border: 1px solid #444;
+                }
+                #cashu-gift .info ul {
+                    margin: 0;
+                    padding-left: 20px;
+                }
+                #cashu-gift .info li {
+                    font-family: monospace;
+                }
+                #cashu-gift .info li.signed {
+                    display: flex;
+                    align-items: center;
+                }
+                #cashu-gift .status-icon {
+                    width: 10px;
+                    height: 10px;
+                    margin-right: 8px;
+                    border-radius: 50%;
+                    display: inline-block;
+                    flex-shrink: 0;
+                    background-color: #0f0;
+                }
+                #gift-status {
+                    font-style: italic;
+                    color: #ccc;
+                }
+                #gift-invoice-img {
+                    display: block;
+                    margin: 0 auto 1rem;
+                    background: #fff;
+                    padding: 8px;
+                    border-radius: 6px;
+                }
+                #gift-invoice,
+                #gift-out,
+                #claim-out {
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    min-height: 5rem;
+                }
+            </style>
+            <div id="cashu-gift">
+                <div class="panel">
+                    <div class="row">
+                        <div>
+                            <label for="gift-amount">{$amount_label}</label>
+                            <input type="number" min="1" step="1" id="gift-amount" placeholder="21">
+                        </div>
+                        <div>
+                            <label for="gift-mint">{$mint_label}</label>
+                            <input type="text" id="gift-mint" placeholder="{$mint_ph}">
+                        </div>
+                    </div>
+
+                    <label for="gift-to">{$to_label}</label>
+                    <input type="text" id="gift-to" placeholder="{$to_ph}">
+                    <p class="hint">The mint quote is locked to their key the moment it exists, so the invoice and the gift are both safe to pass around: only they can mint it.</p>
+
+                    <label for="gift-memo">{$memo_label}</label>
+                    <input type="text" id="gift-memo" placeholder="{$memo_ph}">
+
+                    <div><input type="checkbox" id="gift-deliver" checked> <label class="inline" for="gift-deliver">{$deliver_label}</label></div>
+                    <p class="hint below">Sent as a sealed NIP-17 message to the npub above.</p>
+
+                    <button type="button" class="button" id="gift-create">{$create}</button>
+
+                    <div id="gift-invoice-wrap" style="display:none">
+                        <label for="gift-invoice">{$invoice_label}</label>
+                        <img id="gift-invoice-img" alt="Lightning invoice QR code" width="240" height="240">
+                        <textarea id="gift-invoice" readonly></textarea>
+                        <button type="button" class="button" id="gift-invoice-copy">{$copy_invoice}</button>
+                        <p id="gift-status"></p>
+                    </div>
+
+                    <div id="gift-out-wrap" style="display:none">
+                        <label for="gift-out">{$gift_label}</label>
+                        <textarea id="gift-out" readonly></textarea>
+                        <button type="button" class="button" id="gift-out-copy">{$copy_gift}</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <label for="claim-input">{$claim_label}</label>
+                    <textarea id="claim-input" rows="3" placeholder="{$claim_ph}"></textarea>
+
+                    <label for="claim-key">{$claim_key_label}</label>
+                    <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
+                    <p class="hint">Used in this browser only, to sign for the quote the gift is locked to and to unwrap gifts sent over nostr.</p>
+
+                    <button type="button" class="button" id="claim-button">{$claim_button}</button>
+                    <button type="button" class="button" id="claim-inbox">{$inbox_button}</button>
+
+                    <div id="claim-info"></div>
+                    <div id="claim-out-wrap" style="display:none">
+                        <label for="claim-out">{$token_label}</label>
+                        <textarea id="claim-out" readonly></textarea>
+                        <button type="button" class="button" id="claim-out-copy">{$copy_token}</button>
+                        <button type="button" class="button" id="claim-out-emoji">{$copy_emoji}</button>
+                    </div>
+                </div>
+            </div>
+            EOL;
+    }
+
     public function enqueue_scripts(): void
     {
         wp_register_script('nostrly-cashu-redeem', NOSTRLY_URL.'assets/js/nostrly-cashu-redeem.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
@@ -1500,6 +1685,7 @@ class NostrlyTools
         wp_register_script('nostrly-cashu-cache', NOSTRLY_URL.'assets/js/nostrly-cashu-cache.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-gather', NOSTRLY_URL.'assets/js/nostrly-cashu-gather.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-request', NOSTRLY_URL.'assets/js/nostrly-cashu-request.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-gift', NOSTRLY_URL.'assets/js/nostrly-cashu-gift.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);
