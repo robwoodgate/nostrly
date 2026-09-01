@@ -10,11 +10,11 @@ import {
   nip04,
   nip19,
 } from "nostr-tools";
-import { bytesToHex } from "@noble/hashes/utils.js";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
 import toastr from "toastr";
 import {
   CashuNip07,
+  bytesToHex,
   Proof,
   ScriptPathPlan,
   Wallet,
@@ -56,8 +56,11 @@ export interface Nostr {
     signSecret?: (
       secret: string,
     ) => Promise<{ hash: string; sig: string; pubkey: string }>;
+    // v3 inputs sign per-input digests derived from the tagged message and
+    // the input's own transcript container record (NUT-10).
     signTransaction?: (
       messageHex: string,
+      inputContainerHex: string,
     ) => Promise<{ hash: string; sig: string; pubkey: string }>;
   };
 }

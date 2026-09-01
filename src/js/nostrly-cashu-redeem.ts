@@ -13,6 +13,7 @@ import {
   CashuNip07,
   type MeltProofsConfig,
   signP2PKProofs,
+  bytesToHex,
 } from "@cashu/cashu-ts";
 import {
   debounce,
@@ -42,7 +43,6 @@ import bech32 from "bech32";
 import toastr from "toastr";
 import { decode as emojiDecode } from "./emoji-encoder";
 import { handleCashuDonation } from "./cashu-donate";
-import { bytesToHex } from "@noble/hashes/utils.js";
 
 declare const nostrly_ajax: {
   relays: string[];
