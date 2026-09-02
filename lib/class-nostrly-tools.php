@@ -1644,6 +1644,25 @@ class NostrlyTools
                 #cashu-gift .button {
                     margin-bottom: 1rem;
                 }
+                #cashu-gift #claim-key-container {
+                    display: flex;
+                    gap: 0.5rem;
+                    align-items: flex-start;
+                }
+                #cashu-gift #claim-key-container input {
+                    flex: 1;
+                }
+                #cashu-gift #claim-key-container .button {
+                    flex: 0 0 auto;
+                }
+                @media (max-width: 600px) {
+                    #cashu-gift #claim-key-container {
+                        flex-direction: column;
+                    }
+                    #cashu-gift #claim-key-container .button {
+                        width: 100%;
+                    }
+                }
                 #cashu-gift .button.spaced {
                     margin-left: 0.5rem;
                 }
@@ -1797,15 +1816,17 @@ class NostrlyTools
                 <div class="panel">
                     <label for="claim-input">{$claim_label}</label>
                     <textarea id="claim-input" rows="3" placeholder="{$claim_ph}"></textarea>
-                    <p class="hint">A claim link, the gift code, or the raw gift all work here.</p>
+                    <p class="hint">A claim link, the gift code, or the raw gift all work here, or fetch one that was sent to you over nostr.</p>
+                    <button type="button" class="button" id="claim-inbox">{$inbox_button}</button>
 
                     <label for="claim-key">{$claim_key_label}</label>
-                    <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
-                    <p class="hint">Only needed if the gift is locked to your nostr key, or to fetch gifts from relays. For a NIP-61 gift, use your Nostr extension instead and nothing is typed. Anything entered here empties once read, and is forgotten when you leave the page.</p>
+                    <div id="claim-key-container">
+                        <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
+                        <button type="button" class="button" id="claim-nip07">{$nip07_button}</button>
+                    </div>
+                    <p class="hint">Only needed if the gift is locked to your nostr key, or to fetch gifts from relays. For a NIP-61 gift the extension is enough and nothing is typed. Anything entered here empties once read, and is forgotten when you leave the page.</p>
 
-                    <button type="button" class="button" id="claim-nip07">{$nip07_button}</button>
-                    <button type="button" class="button spaced" id="claim-button">{$claim_button}</button>
-                    <button type="button" class="button spaced" id="claim-inbox">{$inbox_button}</button>
+                    <button type="button" class="button" id="claim-button">{$claim_button}</button>
 
                     <div id="claim-inbox-output" class="info"></div>
                     <div id="claim-info" class="info"></div>
