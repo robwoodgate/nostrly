@@ -83,3 +83,39 @@ them would advertise something that is not settled:
   loses funds when rushed.
 - **Scripted leaves** (leaf version `0x01`): the extension point exists, the
   language does not.
+
+## Upstream: what cashu-ts could make easier
+
+Everything below was worked around here rather than fixed at source. Each is a
+small addition, and each removes something awkward from every wallet, not just
+this one.
+
+- **A signer callback for minting.** `mintProofsBolt11(amount, quote, config)`
+  takes `privkey` and signs internally, so a NIP-07 extension or hardware
+  signer cannot sign a locked quote: the key has to be in the page. A
+  `sign?: (digest) => Promise<string>` beside `privkey` would let the browser
+  extension claim a gift locked to someone's nostr key. This is the one that
+  blocks the nicest version of Cashu Gift.
+
+- **Parity-tolerant quote key matching.** `findSigningKey` compares compressed
+  keys exactly, but a key imported from an x-only context (any nostr key) is
+  published as `02 || x` while its secret derives the odd-y twin half the time,
+  so the match fails for half of all users. Trying both parities there, or
+  documenting it loudly on `mintProofs`, would save the next implementer the
+  same afternoon. Note a NIP-61 nutzap key is a real cashu key and must be
+  signed with as-is, so normalizing everything is not the fix.
+
+- **`LockBuilder.disclose()`.** The `disclosure` flag can only be set on leaves
+  passed whole to `addLeaf`; the main and refund leaves the builder generates
+  cannot carry it. Until they can, "make this claim publicly verifiable" cannot
+  be offered as an option on an ordinary lock.
+
+- **Spend receipts.** A spender cannot open their own NUT-07 spend commitment,
+  because nothing surfaces the `(Y, input_digest, witness)` a swap or melt
+  produced. Returning them per input would make "prove I paid this" possible
+  client-side, which is the whole point of the commitment.
+
+- **Why a legacy encoding was dropped.** `PaymentRequestBuilder.lock()` quietly
+  omits `nut10` when the lock blinds its keys, which is correct but invisible:
+  the caller cannot tell a deliberate omission from a bug. A reason on the
+  result would save guessing.
