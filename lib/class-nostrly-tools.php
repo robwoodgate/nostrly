@@ -1303,7 +1303,7 @@ class NostrlyTools
         $inspect_ph = esc_attr__('Paste a creq... payment request to see what it asks for', 'nostrly');
         $nostr_label = esc_attr__('Deliver payments over nostr (optional)', 'nostrly');
         $nostr_ph = esc_attr__('npub1... or nprofile1...', 'nostrly');
-        $delivered = esc_html__('Delivered to the payee over nostr. They can collect it below.', 'nostrly');
+        $delivered = esc_html__('Delivered to the payee over nostr. They collect it from the Collect tab.', 'nostrly');
         $inbox_label = esc_attr__('Collect payments sent to you', 'nostrly');
         $inbox_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
         $inbox_button = esc_html__('Check for Payments', 'nostrly');

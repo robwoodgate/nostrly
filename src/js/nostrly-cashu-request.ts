@@ -419,7 +419,7 @@ jQuery(function ($) {
       $payDelivered
         .show()
         .text(
-          `Delivered to the payee over nostr, on ${relays.join(", ")}. They can collect it below.`,
+          `Delivered to the payee over nostr, on ${relays.join(", ")}. They collect it from the Collect tab.`,
         );
       toastr.success(`Paid ${paid} and delivered to the payee over nostr`);
     } catch (e) {
