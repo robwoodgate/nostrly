@@ -382,6 +382,7 @@ export const getNip60Wallet = async (
   try {
     relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
+    relays = await getWalletRelays(hexpub, relays);
     let privkeys: string[] = [];
     let mints: string[] = [];
     let filter: Filter = { kinds: [17375], authors: [hexpub] };
@@ -455,6 +456,40 @@ export const getNip61Info = async (
   } catch (e) {
     console.error(e);
     return { pubkey: null, mints: [], relays: [] };
+  }
+};
+
+/**
+ * Relays a user's NIP-60 wallet and token events live on.
+ * @remarks Their kind:10019, falling back to NIP-65, per NIP-60. The caller's
+ * relays stay in the set: a wallet is replaceable, so a wider read is only ever
+ * more current, and many relays drop these private kinds.
+ * @param {string}   hexOrNpub npub/hexpub to fetch relays for
+ * @param {string[]} relays Optional. relays to query
+ */
+export const getWalletRelays = async (
+  hexOrNpub: string,
+  relays?: string[],
+): Promise<string[]> => {
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
+  const bound = <T>(work: Promise<T>, fallback: T): Promise<T> =>
+    Promise.race([
+      work,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 3000)),
+    ]);
+  try {
+    const { relays: nutzap } = await bound(getNip61Info(hexpub, relays), {
+      pubkey: null,
+      mints: [],
+      relays: [] as string[],
+    });
+    if (nutzap.length) return [...new Set([...relays, ...nutzap])];
+    const general = await bound(getUserRelays(hexpub, relays), [] as string[]);
+    return [...new Set([...relays, ...general])];
+  } catch (e) {
+    console.error("getWalletRelays", e);
+    return relays;
   }
 };
 
