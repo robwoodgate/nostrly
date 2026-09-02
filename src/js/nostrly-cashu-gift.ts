@@ -2,8 +2,10 @@
 import {
   MintQuoteState,
   Wallet,
+  bytesToHex,
   getEncodedToken,
   hexToBytes,
+  normalizeXOnlySecretKey,
   type MintQuoteBolt11Response,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
@@ -242,10 +244,11 @@ jQuery(function ($) {
           "This gift is not paid yet, so there is nothing to mint",
         );
       }
+      // A nostr key is x-only, and a gift locks to it as `02 || x`. Half of all
+      // secret keys derive the odd-y twin instead, which signs for the same
+      // x-only key but does not match it, so normalize before signing.
       const proofs = await w.mintProofsBolt11(gift.amount, quote, {
-        privkey: Array.from(privkey)
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join(""),
+        privkey: bytesToHex(normalizeXOnlySecretKey(privkey)),
       });
       const token = getEncodedToken({
         mint: gift.mint,
