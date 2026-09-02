@@ -70,6 +70,16 @@ const unb64url = (encoded: string): string =>
     ),
   );
 const HISTORY_KEY = "nostrly-gift-history";
+const SENT_KEY = "nostrly-gift-sent";
+
+type SentGift = {
+  date: string;
+  link: string;
+  amount: number;
+  unit: string;
+  to: string;
+  memo?: string;
+};
 
 type ClaimedGift = {
   date: string;
@@ -119,6 +129,8 @@ jQuery(function ($) {
   const $claimInfo = $("#claim-info");
   const $history = $("#gift-history");
   const $clearHistory = $("#gift-clear-history");
+  const $sent = $("#gift-sent");
+  const $clearSent = $("#gift-clear-sent");
   const $donateCashu = $("#donate_cashu");
 
   const esc = (s: string) => $("<i>").text(s).html();
@@ -269,6 +281,17 @@ jQuery(function ($) {
     $out.val(giftLink(gift));
     $outWrap.show();
     $status.text("Paid. The gift is ready.");
+    // The link is the only way back to an unsent gift, and it lives nowhere
+    // else: the invoice is paid, so losing the tab must not lose the gift
+    storeSent({
+      date: new Date().toISOString(),
+      link: giftLink(gift),
+      amount: gift.amount,
+      unit: gift.unit || "sat",
+      to: toRaw,
+      ...(gift.memo ? { memo: gift.memo } : {}),
+    });
+    loadSent();
 
     if (!$deliver.is(":checked")) {
       toastr.success("Gift ready: send it to the recipient");
@@ -619,6 +642,49 @@ jQuery(function ($) {
     loadHistory();
   }
 
+  function storeSent(entry: SentGift): void {
+    try {
+      const stored = localStorage.getItem(SENT_KEY);
+      const history = stored ? (JSON.parse(stored) as SentGift[]) : [];
+      localStorage.setItem(SENT_KEY, JSON.stringify([entry, ...history]));
+    } catch (e) {
+      console.error("storeSent failed:", e);
+    }
+  }
+
+  function loadSent(): void {
+    let history: SentGift[] = [];
+    try {
+      const stored = localStorage.getItem(SENT_KEY);
+      history = stored ? (JSON.parse(stored) as SentGift[]) : [];
+    } catch {
+      history = [];
+    }
+    $sent.empty();
+    if (!history.length) {
+      $sent.append($("<p></p>").text("No gifts sent yet."));
+      $clearSent.hide();
+      return;
+    }
+    $clearSent.show();
+    const $list = $("<ul></ul>");
+    for (const entry of history) {
+      $list.append(
+        $("<li></li>").append(
+          $("<span></span>").text(
+            `${new Date(entry.date).toLocaleString()} - ${formatAmount(entry.amount, entry.unit)} to ${entry.to.slice(0, 12)}...${entry.to.slice(-6)}${entry.memo ? `: ${entry.memo}` : ""} `,
+          ),
+          $("<button></button>")
+            .attr("type", "button")
+            .addClass("button")
+            .text("Copy Claim Link")
+            .on("click", () => copyTextToClipboard(entry.link)),
+        ),
+      );
+    }
+    $sent.append($list);
+  }
+
   // A claimed token exists only in this page until it is swept, so keep it
   function storeClaimed(entry: ClaimedGift): void {
     const history = getClaimed();
@@ -731,7 +797,12 @@ jQuery(function ($) {
     localStorage.removeItem(HISTORY_KEY);
     loadHistory();
   });
+  $clearSent.on("click", () => {
+    localStorage.removeItem(SENT_KEY);
+    loadSent();
+  });
   loadHistory();
+  loadSent();
   $create.on("click", createGift);
   $invoiceCopy.on("click", () => copyTextToClipboard($invoice.val() as string));
   $outCopy.on("click", () => copyTextToClipboard($out.val() as string));

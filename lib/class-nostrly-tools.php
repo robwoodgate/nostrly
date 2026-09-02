@@ -1579,6 +1579,7 @@ class NostrlyTools
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
         $history_label = esc_html__('Claimed Gifts', 'nostrly');
+        $sent_label = esc_html__('Gifts You Have Sent', 'nostrly');
         $tab_create = esc_html__('Create a Gift', 'nostrly');
         $tab_claim = esc_html__('Claim a Gift', 'nostrly');
         $nip61_label = esc_html__('Lock to their NIP-61 nutzap key when they have one (recommended)', 'nostrly');
@@ -1691,9 +1692,11 @@ class NostrlyTools
                     padding: 0 0.5rem;
                     font-size: 0.8rem;
                 }
+                #cashu-gift #gift-sent li,
                 #cashu-gift #gift-history li {
                     margin-bottom: 0.35rem;
                 }
+                #cashu-gift #gift-sent li .button,
                 #cashu-gift #gift-history li .button {
                     margin-bottom: 0;
                     margin-left: 0.35rem;
@@ -1780,6 +1783,13 @@ class NostrlyTools
                         <textarea id="gift-out" readonly></textarea>
                         <button type="button" class="button" id="gift-out-copy">{$copy_gift}</button>
                     </div>
+                </div>
+
+                <div class="panel">
+                    <h3>{$sent_label}</h3>
+                    <p class="hint below">The invoice is paid the moment a gift exists, so its claim link is kept here in case you close the page before sending it.</p>
+                    <div id="gift-sent" class="info"></div>
+                    <button type="button" class="button" id="gift-clear-sent">{$clear_history}</button>
                 </div>
                 </div>
 

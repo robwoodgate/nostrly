@@ -35,6 +35,11 @@ Status key: **shipped**, **next**, **later**, **not yet**.
 
 ## Next
 
+- **Knowing whether a gift was claimed.** The giver keeps the claim links they
+  have sent, but not what became of them. A batched quote check (the same one
+  the claim inbox uses) would let the list say claimed or still waiting, which
+  is the question a giver actually has.
+
 - **Reclaimable gifts.** A quote lock can carry a tree like any secret, so an
   unclaimed gift could return to the giver after a locktime via the script
   path. Cashu Gift locks to a bare key today, and cashu-ts would need to accept
