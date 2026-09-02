@@ -128,7 +128,10 @@ export const getDmRelays = async (
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
   const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
   try {
-    const event = await pool.get(relays, { kinds: [10050], authors: [hexpub] });
+    const event = await Promise.race([
+      pool.get(relays, { kinds: [10050], authors: [hexpub] }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+    ]);
     const dmRelays = (event?.tags ?? [])
       .filter(
         (tag) =>
@@ -141,7 +144,11 @@ export const getDmRelays = async (
   } catch (e) {
     console.error("getDmRelays", e);
   }
-  const general = await getUserRelays(hexpub, relays);
+  // getUserRelays runs its own unbounded relay query, so bound it here too
+  const general = await Promise.race([
+    getUserRelays(hexpub, relays),
+    new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 3000)),
+  ]);
   return general.length ? general : relays;
 };
 
@@ -190,7 +197,8 @@ export const sendNip17Dm = async (
 export async function fetchNip17Dms(
   privkey: Uint8Array,
   relays: string[],
-  limit: number = 100,
+  limit: number = 40,
+  sinceDays: number = 60,
 ): Promise<Array<{ id: string; content: string; created_at: number }>> {
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
   const hexpub = getPublicKey(privkey);
@@ -198,27 +206,53 @@ export async function fetchNip17Dms(
   // the relays our own DM relay list points at
   const dmRelays = await getDmRelays(hexpub, relays);
   relays = [...new Set([...dmRelays, ...relays])];
-  const filter: Filter = { kinds: [1059], "#p": [hexpub], limit };
+  // Bound the haul: some relays are aggregators, and every wrap costs a trial
+  // decryption whether or not it turns out to be ours
+  const filter: Filter = {
+    kinds: [1059],
+    "#p": [hexpub],
+    limit,
+    since: Math.floor(Date.now() / 1000) - sinceDays * 86400,
+  };
   const wraps: Event[] = await new Promise((resolve) => {
     const events: Event[] = [];
-    pool.subscribeManyEose(relays, filter, {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try {
+        sub.close();
+      } catch {
+        // already closed
+      }
+      resolve(events);
+    };
+    const timer = setTimeout(finish, 8000);
+    const sub = pool.subscribeManyEose(relays, filter, {
       onevent: (event: Event) => events.push(event),
-      onclose: () => resolve(events),
+      onclose: finish,
     });
   });
   const messages: Array<{ id: string; content: string; created_at: number }> =
     [];
-  for (const wrap of wraps) {
-    try {
-      const rumor = nip17.unwrapEvent(wrap, privkey);
-      messages.push({
-        id: wrap.id,
-        content: rumor.content,
-        created_at: rumor.created_at,
-      });
-    } catch {
-      // Not addressed to this key, or not a NIP-17 wrap
+  // Unwrapping is secp256k1 work per wrap, so yield between batches: a hundred
+  // of them back to back freezes the page rather than merely taking a moment
+  const batch = 10;
+  for (let i = 0; i < wraps.length; i += batch) {
+    for (const wrap of wraps.slice(i, i + batch)) {
+      try {
+        const rumor = nip17.unwrapEvent(wrap, privkey);
+        messages.push({
+          id: wrap.id,
+          content: rumor.content,
+          created_at: rumor.created_at,
+        });
+      } catch {
+        // Not addressed to this key, or not a NIP-17 wrap
+      }
     }
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
   return messages.sort((a, b) => b.created_at - a.created_at);
 }

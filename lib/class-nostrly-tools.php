@@ -1597,9 +1597,21 @@ class NostrlyTools
                 #cashu-gift .info li {
                     font-family: monospace;
                 }
-                #cashu-gift .info li.signed {
+                #cashu-gift .info li.signed,
+                #cashu-gift .info li.pending {
                     display: flex;
                     align-items: center;
+                    flex-wrap: wrap;
+                    gap: 0.35rem;
+                    margin-bottom: 0.5rem;
+                }
+                #cashu-gift .info li .button {
+                    margin-bottom: 0;
+                    padding: 0 0.5rem;
+                    font-size: 0.8rem;
+                }
+                #cashu-gift .info li.pending .status-icon {
+                    background-color: #f00;
                 }
                 #cashu-gift .status-icon {
                     width: 10px;
@@ -1683,6 +1695,7 @@ class NostrlyTools
                     <button type="button" class="button" id="claim-button">{$claim_button}</button>
                     <button type="button" class="button" id="claim-inbox">{$inbox_button}</button>
 
+                    <div id="claim-inbox-output" class="info"></div>
                     <div id="claim-info" class="info"></div>
                     <div id="claim-out-wrap" style="display:none">
                         <label for="claim-out">{$token_label}</label>

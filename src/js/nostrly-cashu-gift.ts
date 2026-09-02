@@ -73,6 +73,7 @@ jQuery(function ($) {
   const $claimKey = $("#claim-key");
   const $claimButton = $("#claim-button");
   const $inboxButton = $("#claim-inbox");
+  const $inboxOut = $("#claim-inbox-output");
   const $claimOutWrap = $("#claim-out-wrap");
   const $claimOut = $("#claim-out");
   const $claimCopy = $("#claim-out-copy");
@@ -260,34 +261,45 @@ jQuery(function ($) {
     return gift;
   }
 
-  // Mints the gift: the quote is the input, and the recipient's key signs for it
+  // One claim path, shared by a pasted gift and an inbox row. The quote is the
+  // input, and the recipient's key signs for it.
+  async function claimToToken(gift: Gift, privkey: Uint8Array) {
+    const unit = gift.unit || "sat";
+    const w = await getWalletWithUnit(gift.mint, unit);
+    const quote = await w.checkMintQuoteBolt11(gift.quote);
+    if (quote.state === MintQuoteState.ISSUED) {
+      throw new Error("This gift has already been claimed");
+    }
+    if (quote.state !== MintQuoteState.PAID) {
+      throw new Error("This gift is not paid yet, so there is nothing to mint");
+    }
+    // A nostr key is x-only, and a gift locks to it as `02 || x`. Half of all
+    // secret keys derive the odd-y twin instead, which signs for the same
+    // x-only key but does not match it, so normalize before signing.
+    const proofs = await w.mintProofsBolt11(gift.amount, quote, {
+      privkey: bytesToHex(normalizeXOnlySecretKey(privkey)),
+    });
+    return {
+      proofs,
+      token: getEncodedToken({ mint: gift.mint, unit, proofs }),
+    };
+  }
+
+  function claimError(e: unknown): string {
+    const msg = getErrorMessage(e, "Could not claim this gift");
+    return msg.includes("No private key matches")
+      ? "That key does not match the one this gift is locked to"
+      : msg;
+  }
+
+  // Claims the gift pasted into the box
   async function claimGift() {
     $claimButton.prop("disabled", true);
     try {
       const gift = parseGift(($claim.val() as string)?.trim());
       const privkey = claimPrivkey();
       toastr.info("Checking the gift with the mint...");
-      const w = await getWalletWithUnit(gift.mint, gift.unit || "sat");
-      const quote = await w.checkMintQuoteBolt11(gift.quote);
-      if (quote.state === MintQuoteState.ISSUED) {
-        throw new Error("This gift has already been claimed");
-      }
-      if (quote.state !== MintQuoteState.PAID) {
-        throw new Error(
-          "This gift is not paid yet, so there is nothing to mint",
-        );
-      }
-      // A nostr key is x-only, and a gift locks to it as `02 || x`. Half of all
-      // secret keys derive the odd-y twin instead, which signs for the same
-      // x-only key but does not match it, so normalize before signing.
-      const proofs = await w.mintProofsBolt11(gift.amount, quote, {
-        privkey: bytesToHex(normalizeXOnlySecretKey(privkey)),
-      });
-      const token = getEncodedToken({
-        mint: gift.mint,
-        unit: gift.unit || "sat",
-        proofs,
-      });
+      const { proofs, token } = await claimToToken(gift, privkey);
       $claimOut.val(token);
       $claimOutWrap.show();
       $claimInfo.html(
@@ -296,39 +308,70 @@ jQuery(function ($) {
       toastr.success("Gift claimed");
     } catch (e) {
       console.error("claimGift error:", e);
-      const msg = getErrorMessage(e, "Could not claim this gift");
-      toastr.error(
-        msg.includes("No private key matches")
-          ? "That key does not match the one this gift is locked to"
-          : msg,
-      );
+      toastr.error(claimError(e));
     } finally {
       $claimButton.prop("disabled", false);
     }
   }
 
-  // Gifts arrive as ordinary NIP-17 messages, so the inbox just filters for them
+  // Gifts arrive as ordinary NIP-17 messages, so the inbox filters for them and
+  // asks each mint whether the gift is still there to claim.
   async function checkInbox() {
     $inboxButton.prop("disabled", true);
+    $inboxOut.hide().empty();
     try {
       const privkey = claimPrivkey();
       toastr.info("Checking relays for gifts...");
-      const messages = await fetchNip17Dms(privkey, nostrly_ajax.relays);
+      // Relay work gets one overall bound: a slow or silent relay must not leave
+      // the button spinning with no way back
+      const messages = await Promise.race([
+        fetchNip17Dms(privkey, nostrly_ajax.relays),
+        new Promise<Awaited<ReturnType<typeof fetchNip17Dms>>>((resolve) =>
+          setTimeout(() => resolve([]), 15000),
+        ),
+      ]);
+      // One gift may reach several relays, and a giver may resend it
+      const seen = new Set<string>();
       const gifts = messages.flatMap((m) => {
         try {
-          return [{ ...m, gift: parseGift(m.content) }];
+          const gift = parseGift(m.content);
+          if (seen.has(gift.quote)) return [];
+          seen.add(gift.quote);
+          return [{ gift, created_at: m.created_at }];
         } catch {
-          return [];
+          return []; // an ordinary message, not a gift
         }
       });
       if (!gifts.length) {
         toastr.warning("No gifts found on the relays for that key");
         return;
       }
-      const newest = gifts[0];
-      $claim.val(JSON.stringify(newest.gift));
+      // One wallet per mint, not per gift: loading a v3 keyset is real work, and
+      // doing it several times over blocks the page rather than adding speed
+      const wallets = new Map<string, Wallet>();
+      const rows: Array<{ gift: Gift; created_at: number; state: string }> = [];
+      for (const entry of gifts) {
+        const unit = entry.gift.unit || "sat";
+        const key = `${entry.gift.mint}|${unit}`;
+        try {
+          let w = wallets.get(key);
+          if (!w) {
+            w = await getWalletWithUnit(entry.gift.mint, unit);
+            wallets.set(key, w);
+          }
+          const quote = await w.checkMintQuoteBolt11(entry.gift.quote);
+          rows.push({ ...entry, state: quote.state as string });
+        } catch (e) {
+          console.error("gift state check failed:", e);
+          rows.push({ ...entry, state: "unreachable" });
+        }
+      }
+      renderInbox(rows, privkey);
+      const claimable = rows.filter(
+        (r) => r.state === MintQuoteState.PAID,
+      ).length;
       toastr.success(
-        `Found ${gifts.length} gift${gifts.length > 1 ? "s" : ""}: the newest is ready to claim`,
+        `Found ${rows.length} gift${rows.length > 1 ? "s" : ""}, ${claimable} ready to claim`,
       );
     } catch (e) {
       console.error("checkInbox error:", e);
@@ -336,6 +379,78 @@ jQuery(function ($) {
     } finally {
       $inboxButton.prop("disabled", false);
     }
+  }
+
+  // Each gift keeps its own row, so a claimed token stays put rather than being
+  // overwritten by the next claim
+  function renderInbox(
+    rows: Array<{ gift: Gift; created_at: number; state: string }>,
+    privkey: Uint8Array,
+  ) {
+    const $list = $("<ul></ul>");
+    for (const { gift, created_at, state } of rows) {
+      const unit = gift.unit || "sat";
+      const when = new Date(created_at * 1000).toLocaleString();
+      const claimable = state === MintQuoteState.PAID;
+      const $row = $("<li></li>").addClass(claimable ? "signed" : "pending");
+      const $text = $("<span></span>").text(
+        `${formatAmount(gift.amount, unit)} from ${gift.mint}, ${when}${gift.memo ? `: ${gift.memo}` : ""}`,
+      );
+      $row.append($('<span class="status-icon"></span>'), $text);
+      if (claimable) {
+        const $claimIt = $("<button></button>")
+          .attr("type", "button")
+          .addClass("button")
+          .text("Claim")
+          .on("click", async () => {
+            $claimIt.prop("disabled", true).text("Claiming...");
+            try {
+              const { proofs, token } = await claimToToken(gift, privkey);
+              $claimIt.remove();
+              $row.append(
+                $("<span></span>").text(
+                  ` claimed ${formatAmount(getTokenAmount(proofs), unit)}: `,
+                ),
+                $("<button></button>")
+                  .attr("type", "button")
+                  .addClass("button")
+                  .text("Copy Token")
+                  .on("click", () => copyTextToClipboard(token)),
+                $("<button></button>")
+                  .attr("type", "button")
+                  .addClass("button")
+                  .text("Copy 🥜")
+                  .on("click", () =>
+                    copyTextToClipboard(emojiEncode("🥜", token)),
+                  ),
+              );
+              $claimOut.val(token);
+              $claimOutWrap.show();
+              toastr.success("Gift claimed");
+            } catch (e) {
+              console.error("claim row error:", e);
+              toastr.error(claimError(e));
+              $claimIt.prop("disabled", false).text("Claim");
+            }
+          });
+        $row.append(" ", $claimIt);
+      } else {
+        $row.append(
+          $("<span></span>").text(
+            state === MintQuoteState.ISSUED
+              ? " (already claimed)"
+              : state === "unreachable"
+                ? " (mint unreachable)"
+                : " (not funded yet)",
+          ),
+        );
+      }
+      $list.append($row);
+    }
+    $inboxOut
+      .show()
+      .empty()
+      .append($("<strong></strong>").text("Gifts sent to you:"), $list);
   }
 
   // Show who a gift is for as soon as the field looks like a key
