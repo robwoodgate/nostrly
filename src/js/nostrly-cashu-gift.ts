@@ -10,7 +10,7 @@ import {
   normalizeXOnlySecretKey,
   type MintQuoteBolt11Response,
 } from "@cashu/cashu-ts";
-import { nip19 } from "nostr-tools";
+import { getPublicKey, nip19 } from "nostr-tools";
 import { encode as emojiEncode } from "./emoji-encoder";
 import {
   convertP2PKToNpub,
@@ -317,6 +317,32 @@ jQuery(function ($) {
     }
   }
 
+  // A key from an x-only context names a point without its parity: the gift may
+  // be locked to `02 || x` while the secret derives its odd-y twin. Offer both
+  // and let the mint's own pubkey decide, rather than guessing which is meant.
+  function addClaimKeys(keys: Uint8Array[]): void {
+    claimKeys = [
+      ...new Set([
+        ...keys.flatMap((key) => [
+          bytesToHex(key),
+          bytesToHex(normalizeXOnlySecretKey(key)),
+        ]),
+        ...claimKeys,
+      ]),
+    ];
+    syncKeyButtons();
+  }
+
+  // Neither action can do anything without a key, so they wait for one rather
+  // than offering themselves and then failing
+  function syncKeyButtons(): void {
+    const typed = !!($claimKey.val() as string)?.trim();
+    $claimButton.prop("disabled", !typed && !claimKeys.length);
+    // Only the recipient's own nostr key unwraps their messages, so the
+    // extension's wallet keys do not enable this one
+    $inboxButton.prop("disabled", !typed && !inboxKey);
+  }
+
   // Reads the key once, then empties the field: a secret key sitting in an
   // input is one screen-share or shoulder away from being someone else's
   function readKeyField(): boolean {
@@ -327,17 +353,8 @@ jQuery(function ($) {
       : hexToBytes(raw);
     if (key.length !== 32) throw new Error("That is not a valid private key");
     inboxKey = key;
-    // A key typed as an nsec came from an x-only context, where the published
-    // key is `02 || x` but the secret may derive its odd-y twin. Offer both and
-    // let the mint's own pubkey decide, rather than guessing which is meant.
-    claimKeys = [
-      ...new Set([
-        bytesToHex(key),
-        bytesToHex(normalizeXOnlySecretKey(key)),
-        ...claimKeys,
-      ]),
-    ];
     $claimKey.val("");
+    addClaimKeys([key]);
     return true;
   }
 
@@ -346,7 +363,7 @@ jQuery(function ($) {
     readKeyField();
     if (!claimKeys.length) {
       throw new Error(
-        "Add the key this gift is locked to, or unlock your Nostr wallet keys",
+        "Add the key this gift is locked to, or unlock your nostr wallet",
       );
     }
     return claimKeys;
@@ -354,23 +371,36 @@ jQuery(function ($) {
 
   // The extension will not hand over its identity key, but it will decrypt the
   // NIP-60 wallet keys a NIP-61 gift is locked to, so nobody types a secret
-  async function useExtensionKeys() {
+  async function unlockWalletKeys() {
     $nip07Button.prop("disabled", true);
     try {
-      const { privkeys } = await getNostrExtensionKeys(nostrly_ajax.relays);
+      const { pubkey, privkeys } = await getNostrExtensionKeys(
+        nostrly_ajax.relays,
+      );
+      // Naming the account is the whole diagnosis when a gift will not open:
+      // an extension signed in as somebody else unlocks the wrong wallet
+      const npub = pubkey ? nip19.npubEncode(pubkey.slice(-64)) : "";
+      const whose = npub ? ` for ${npub.slice(0, 12)}...${npub.slice(-4)}` : "";
       if (!privkeys.length) {
         toastr.warning(
-          "No NIP-60 wallet keys found. A gift locked to your nostr key still needs that key pasted.",
+          `No nostr wallet keys found${whose}. A gift locked to your nostr key still needs that key pasted.`,
         );
         return;
       }
-      claimKeys = [...new Set([...privkeys, ...claimKeys])];
+      // A nutzap key is published x-only, so these need both parities too
+      addClaimKeys(privkeys.map(hexToBytes));
+      // The public halves, so a gift that will not open can be checked against
+      // the nutzap key its giver locked to
+      console.log(
+        "unlocked wallet pubkeys:",
+        privkeys.map((k) => getPublicKey(hexToBytes(k))),
+      );
       toastr.success(
-        `Unlocked ${privkeys.length} wallet key${privkeys.length > 1 ? "s" : ""}: you can claim without pasting anything`,
+        `Unlocked ${privkeys.length} wallet key${privkeys.length > 1 ? "s" : ""}${whose}: you can claim without pasting anything`,
       );
     } catch (e) {
-      console.error("useExtensionKeys error:", e);
-      toastr.error(getErrorMessage(e, "Could not read your extension keys"));
+      console.error("unlockWalletKeys error:", e);
+      toastr.error(getErrorMessage(e, "Could not unlock your nostr wallet"));
     } finally {
       $nip07Button.prop("disabled", false);
     }
@@ -379,15 +409,26 @@ jQuery(function ($) {
   // Takes whatever the recipient was sent: a claim link, the encoded gift, or
   // the raw JSON it wraps
   function parseGift(text: string): Gift {
-    let payload = text.trim();
-    const fromLink = payload.match(/#gift=([A-Za-z0-9_-]+)/);
-    if (fromLink) payload = fromLink[1];
-    if (payload.startsWith(GIFT_PREFIX)) {
-      payload = unb64url(payload.slice(GIFT_PREFIX.length));
-    } else if (!payload.startsWith("{")) {
-      payload = unb64url(payload); // bare encoding, no prefix
+    const raw = text.trim();
+    if (!raw) {
+      throw new Error(
+        "Paste a claim link or gift here, or fetch one from nostr",
+      );
     }
-    const gift = JSON.parse(payload) as Gift;
+    let gift: Gift | undefined;
+    try {
+      const fromLink = raw.match(/#gift=([A-Za-z0-9_-]+)/);
+      let payload = fromLink ? fromLink[1] : raw;
+      if (payload.startsWith(GIFT_PREFIX)) {
+        payload = unb64url(payload.slice(GIFT_PREFIX.length));
+      } else if (!payload.startsWith("{")) {
+        payload = unb64url(payload); // bare encoding, no prefix
+      }
+      gift = JSON.parse(payload) as Gift;
+    } catch {
+      // Undecodable text is not a gift, and says so below rather than
+      // surfacing a decoder error
+    }
     if (!gift?.mint || !gift?.quote || !gift?.amount) {
       throw new Error("That does not look like a gift");
     }
@@ -425,7 +466,7 @@ jQuery(function ($) {
   function claimError(e: unknown): string {
     const msg = getErrorMessage(e, "Could not claim this gift");
     return msg.includes("No private key matches")
-      ? "That key does not match the one this gift is locked to"
+      ? "No key here matches this gift. Check which account your extension is signed in as, or paste the key it is locked to"
       : msg;
   }
 
@@ -448,7 +489,7 @@ jQuery(function ($) {
       console.error("claimGift error:", e);
       toastr.error(claimError(e));
     } finally {
-      $claimButton.prop("disabled", false);
+      syncKeyButtons();
     }
   }
 
@@ -461,7 +502,7 @@ jQuery(function ($) {
       readKeyField();
       if (!inboxKey) {
         throw new Error(
-          "Fetching needs the key the message was sent to: paste your nsec, or open the claim link you were sent",
+          "Fetching needs your own nsec in the field beside it, as the extension cannot read your messages",
         );
       }
       const privkey = inboxKey;
@@ -536,7 +577,7 @@ jQuery(function ($) {
       console.error("checkInbox error:", e);
       toastr.error(getErrorMessage(e, "Could not check for gifts"));
     } finally {
-      $inboxButton.prop("disabled", false);
+      syncKeyButtons();
     }
   }
 
@@ -578,12 +619,12 @@ jQuery(function ($) {
                 ),
                 $("<button></button>")
                   .attr("type", "button")
-                  .addClass("button")
+                  .addClass("button copy-token")
                   .text("Copy Token")
                   .on("click", () => copyTextToClipboard(token)),
                 $("<button></button>")
                   .attr("type", "button")
-                  .addClass("button")
+                  .addClass("button copy-emoji")
                   .text("Copy 🥜")
                   .on("click", () =>
                     copyTextToClipboard(emojiEncode("🥜", token)),
@@ -653,7 +694,7 @@ jQuery(function ($) {
   }
 
   function loadSent(): void {
-    let history: SentGift[] = [];
+    let history: SentGift[];
     try {
       const stored = localStorage.getItem(SENT_KEY);
       history = stored ? (JSON.parse(stored) as SentGift[]) : [];
@@ -717,12 +758,12 @@ jQuery(function ($) {
         ),
         $("<button></button>")
           .attr("type", "button")
-          .addClass("button")
+          .addClass("button copy-token")
           .text("Copy Token")
           .on("click", () => copyTextToClipboard(entry.token)),
         $("<button></button>")
           .attr("type", "button")
-          .addClass("button")
+          .addClass("button copy-emoji")
           .text("Copy 🥜")
           .on("click", () =>
             copyTextToClipboard(emojiEncode("🥜", entry.token)),
@@ -808,7 +849,9 @@ jQuery(function ($) {
   $outCopy.on("click", () => copyTextToClipboard($out.val() as string));
   $claimButton.on("click", claimGift);
   $inboxButton.on("click", checkInbox);
-  $nip07Button.on("click", useExtensionKeys);
+  $nip07Button.on("click", unlockWalletKeys);
+  $claimKey.on("input", syncKeyButtons);
+  syncKeyButtons();
   $claimCopy.on("click", () => copyTextToClipboard($claimOut.val() as string));
   $claimEmoji.on("click", () =>
     copyTextToClipboard(emojiEncode("🥜", $claimOut.val() as string)),

@@ -1583,7 +1583,7 @@ class NostrlyTools
         $tab_create = esc_html__('Create a Gift', 'nostrly');
         $tab_claim = esc_html__('Claim a Gift', 'nostrly');
         $nip61_label = esc_html__('Lock to their NIP-61 nutzap key when they have one (recommended)', 'nostrly');
-        $nip07_button = esc_html__('Use Nostr Extension', 'nostrly');
+        $nip07_button = esc_html__('Unlock Nostr Wallet', 'nostrly');
         $clear_history = esc_html__('Clear History', 'nostrly');
 
         return <<<EOL
@@ -1643,6 +1643,15 @@ class NostrlyTools
                 }
                 #cashu-gift .button {
                     margin-bottom: 1rem;
+                }
+                #cashu-gift .button:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+                #cashu-gift .copy-token,
+                #cashu-gift .copy-emoji {
+                    background-color: #FF9900;
+                    color: #000;
                 }
                 #cashu-gift #claim-key-container {
                     display: flex;
@@ -1816,25 +1825,26 @@ class NostrlyTools
                 <div class="panel">
                     <label for="claim-input">{$claim_label}</label>
                     <textarea id="claim-input" rows="3" placeholder="{$claim_ph}"></textarea>
-                    <p class="hint">A claim link, the gift code, or the raw gift all work here, or fetch one that was sent to you over nostr.</p>
-                    <button type="button" class="button" id="claim-inbox">{$inbox_button}</button>
+                    <p class="hint">A claim link, the gift code, or the raw gift all work here.</p>
 
                     <label for="claim-key">{$claim_key_label}</label>
                     <div id="claim-key-container">
                         <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
-                        <button type="button" class="button" id="claim-nip07">{$nip07_button}</button>
+                        <button type="button" class="button" id="claim-inbox">{$inbox_button}</button>
                     </div>
-                    <p class="hint">Only needed if the gift is locked to your nostr key, or to fetch gifts from relays. For a NIP-61 gift the extension is enough and nothing is typed. Anything entered here empties once read, and is forgotten when you leave the page.</p>
+                    <p class="hint">Gifts sent to you over nostr are sealed to your nostr key, so only your own nsec can fetch them. A key here is tried when claiming too. It empties once read, and is forgotten when you leave the page.</p>
 
-                    <button type="button" class="button" id="claim-button">{$claim_button}</button>
+                    <p class="hint">A NIP-61 gift is locked to a key your nostr wallet holds, which your extension unlocks without you typing anything. That key claims a gift, but it cannot fetch one.</p>
+                    <button type="button" class="button" id="claim-nip07">{$nip07_button}</button>
+                    <button type="button" class="button spaced" id="claim-button">{$claim_button}</button>
 
                     <div id="claim-inbox-output" class="info"></div>
                     <div id="claim-info" class="info"></div>
                     <div id="claim-out-wrap" style="display:none">
                         <label for="claim-out">{$token_label}</label>
                         <textarea id="claim-out" readonly></textarea>
-                        <button type="button" class="button" id="claim-out-copy">{$copy_token}</button>
-                        <button type="button" class="button spaced" id="claim-out-emoji">{$copy_emoji}</button>
+                        <button type="button" class="button copy-token" id="claim-out-copy">{$copy_token}</button>
+                        <button type="button" class="button copy-emoji spaced" id="claim-out-emoji">{$copy_emoji}</button>
                     </div>
                 </div>
 
