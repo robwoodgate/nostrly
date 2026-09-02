@@ -1296,6 +1296,9 @@ class NostrlyTools
         $single_label = esc_html__('Single use: this request expects one payment', 'nostrly');
         $output_label = esc_attr__('Your payment request', 'nostrly');
         $copy = esc_html__('Copy Request', 'nostrly');
+        $tab_compose = esc_html__('Create a Request', 'nostrly');
+        $tab_pay = esc_html__('Pay a Request', 'nostrly');
+        $tab_collect = esc_html__('Collect Payments', 'nostrly');
         $inspect_label = esc_attr__('Inspect a payment request', 'nostrly');
         $inspect_ph = esc_attr__('Paste a creq... payment request to see what it asks for', 'nostrly');
         $nostr_label = esc_attr__('Deliver payments over nostr (optional)', 'nostrly');
@@ -1318,6 +1321,31 @@ class NostrlyTools
                 #cashu-request .panel {
                     margin-bottom: 40px;
                 }
+                #cashu-gift .tabs,
+                #cashu-request .tabs {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1.5rem;
+                    flex-wrap: wrap;
+                }
+                #cashu-gift .tab-button,
+                #cashu-request .tab-button {
+                    background: transparent;
+                    border: 1px solid #444;
+                    color: #ccc;
+                    border-radius: 6px;
+                    padding: 0.4rem 1rem;
+                    cursor: pointer;
+                    margin-bottom: 0;
+                }
+                #cashu-gift .tab-button.active,
+                #cashu-request .tab-button.active {
+                    background-color: rgba(255, 255, 255, 0.12);
+                    color: #fff;
+                    border-color: #888;
+                    font-weight: bold;
+                }
+
                 #cashu-request label {
                     display: block;
                     font-weight: bold;
@@ -1409,6 +1437,12 @@ class NostrlyTools
                 }
             </style>
             <div id="cashu-request">
+                <div class="tabs">
+                    <button type="button" class="tab-button" data-tab="create">{$tab_compose}</button>
+                    <button type="button" class="tab-button" data-tab="pay">{$tab_pay}</button>
+                    <button type="button" class="tab-button" data-tab="collect">{$tab_collect}</button>
+                </div>
+                <div class="tab-panel" data-tab="create">
                 <div class="panel">
                     <div class="row">
                         <div>
@@ -1460,7 +1494,9 @@ class NostrlyTools
                     </div>
                     <div id="req-summary" class="info"></div>
                 </div>
+                </div>
 
+                <div class="tab-panel" data-tab="pay">
                 <div class="panel">
                     <label for="inspect-input">{$inspect_label}</label>
                     <textarea id="inspect-input" rows="3" placeholder="{$inspect_ph}"></textarea>
@@ -1488,7 +1524,9 @@ class NostrlyTools
                         </div>
                     </div>
                 </div>
+                </div>
 
+                <div class="tab-panel" data-tab="collect">
                 <div class="panel">
                     <label for="inbox-key">{$inbox_label}</label>
                     <input type="password" id="inbox-key" placeholder="{$inbox_ph}" autocomplete="off">
@@ -1529,10 +1567,10 @@ class NostrlyTools
         $create = esc_html__('Create Gift', 'nostrly');
         $invoice_label = esc_attr__('Pay this invoice to fund the gift', 'nostrly');
         $copy_invoice = esc_html__('Copy Invoice', 'nostrly');
-        $gift_label = esc_attr__('The gift: send this to the recipient', 'nostrly');
-        $copy_gift = esc_html__('Copy Gift', 'nostrly');
+        $gift_label = esc_attr__('Claim link: send this to the recipient', 'nostrly');
+        $copy_gift = esc_html__('Copy Claim Link', 'nostrly');
         $claim_label = esc_attr__('Claim a gift', 'nostrly');
-        $claim_ph = esc_attr__('Paste a gift here, or fetch one from nostr below...', 'nostrly');
+        $claim_ph = esc_attr__('Paste a claim link or gift here, or fetch one from nostr below...', 'nostrly');
         $claim_key_label = esc_attr__('Your private key', 'nostrly');
         $claim_key_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
         $claim_button = esc_html__('Claim Gift', 'nostrly');
@@ -1541,6 +1579,8 @@ class NostrlyTools
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
         $history_label = esc_html__('Claimed Gifts', 'nostrly');
+        $tab_create = esc_html__('Create a Gift', 'nostrly');
+        $tab_claim = esc_html__('Claim a Gift', 'nostrly');
         $clear_history = esc_html__('Clear History', 'nostrly');
 
         return <<<EOL
@@ -1548,6 +1588,31 @@ class NostrlyTools
                 #cashu-gift .panel {
                     margin-bottom: 40px;
                 }
+                #cashu-gift .tabs,
+                #cashu-request .tabs {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1.5rem;
+                    flex-wrap: wrap;
+                }
+                #cashu-gift .tab-button,
+                #cashu-request .tab-button {
+                    background: transparent;
+                    border: 1px solid #444;
+                    color: #ccc;
+                    border-radius: 6px;
+                    padding: 0.4rem 1rem;
+                    cursor: pointer;
+                    margin-bottom: 0;
+                }
+                #cashu-gift .tab-button.active,
+                #cashu-request .tab-button.active {
+                    background-color: rgba(255, 255, 255, 0.12);
+                    color: #fff;
+                    border-color: #888;
+                    font-weight: bold;
+                }
+
                 #cashu-gift label {
                     display: block;
                     font-weight: bold;
@@ -1665,6 +1730,11 @@ class NostrlyTools
                 }
             </style>
             <div id="cashu-gift">
+                <div class="tabs">
+                    <button type="button" class="tab-button" data-tab="create">{$tab_create}</button>
+                    <button type="button" class="tab-button" data-tab="claim">{$tab_claim}</button>
+                </div>
+                <div class="tab-panel" data-tab="create">
                 <div class="panel">
                     <label for="gift-mint">{$mint_label}</label>
                     <select id="gift-mint" name="gift-mint" required>
@@ -1706,10 +1776,13 @@ class NostrlyTools
                         <button type="button" class="button" id="gift-out-copy">{$copy_gift}</button>
                     </div>
                 </div>
+                </div>
 
+                <div class="tab-panel" data-tab="claim">
                 <div class="panel">
                     <label for="claim-input">{$claim_label}</label>
                     <textarea id="claim-input" rows="3" placeholder="{$claim_ph}"></textarea>
+                    <p class="hint">A claim link, the gift code, or the raw gift all work here.</p>
 
                     <label for="claim-key">{$claim_key_label}</label>
                     <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
@@ -1733,6 +1806,7 @@ class NostrlyTools
                     <p class="hint below">Claimed ecash lives only in your browser until you sweep it into a wallet, so it is kept here in case this page is closed.</p>
                     <div id="gift-history" class="info"></div>
                     <button type="button" class="button" id="gift-clear-history">{$clear_history}</button>
+                </div>
                 </div>
             </div>
             EOL;

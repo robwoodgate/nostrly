@@ -502,6 +502,21 @@ jQuery(function ($) {
     }
   }
 
+  // Tabs: composing, paying and collecting are three different visits
+  function showTab(name: string): void {
+    const tab = ["create", "pay", "collect"].includes(name) ? name : "create";
+    $("#cashu-request .tab-panel").hide();
+    $(`#cashu-request .tab-panel[data-tab="${tab}"]`).show();
+    $("#cashu-request .tab-button").removeClass("active");
+    $(`#cashu-request .tab-button[data-tab="${tab}"]`).addClass("active");
+  }
+  $("#cashu-request .tab-button").on("click", function () {
+    const tab = $(this).data("tab") as string;
+    showTab(tab);
+    history.replaceState(null, "", `#${tab}`);
+  });
+  showTab(location.hash.replace("#", ""));
+
   // Click a read-only output to select and copy it
   $("#req-output, #pay-payment, #pay-change").on(
     "click",

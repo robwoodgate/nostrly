@@ -50,6 +50,23 @@ type Gift = {
 };
 
 const MINT_KEY = "nostrly-gift-mint";
+// A gift names a quote only its recipient can mint, so it is safe to put in a
+// link. It rides the fragment, never a query string, to keep the mint, amount
+// and message out of server logs and referrers.
+const GIFT_PREFIX = "nostrlygift1";
+
+const b64url = (text: string): string =>
+  btoa(String.fromCharCode(...new TextEncoder().encode(text)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+const unb64url = (encoded: string): string =>
+  new TextDecoder().decode(
+    Uint8Array.from(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")), (c) =>
+      c.charCodeAt(0),
+    ),
+  );
 const HISTORY_KEY = "nostrly-gift-history";
 
 type ClaimedGift = {
@@ -228,7 +245,7 @@ jQuery(function ($) {
       unit: "sat",
       ...(memo ? { memo } : {}),
     };
-    $out.val(JSON.stringify(gift));
+    $out.val(giftLink(gift));
     $outWrap.show();
     $status.text("Paid. The gift is ready.");
 
@@ -241,11 +258,9 @@ jQuery(function ($) {
       if (!/^[0-9a-f]{64}$/.test(hexpub)) {
         throw new Error("needs an npub to deliver over nostr");
       }
-      const relays = await sendNip17Dm(
-        JSON.stringify(gift),
-        hexpub,
-        nostrly_ajax.relays,
-      );
+      // A readable line, not a blob: this lands in an ordinary DM client
+      const message = `You have been sent ${formatAmount(gift.amount, gift.unit || "sat")} in ecash${gift.memo ? `: ${gift.memo}` : ""}\n\nClaim it here: ${giftLink(gift)}`;
+      const relays = await sendNip17Dm(message, hexpub, nostrly_ajax.relays);
       $status.text(
         `Paid, and the gift was delivered over nostr to ${relays.join(", ")}`,
       );
@@ -275,13 +290,30 @@ jQuery(function ($) {
     return key;
   }
 
+  // Takes whatever the recipient was sent: a claim link, the encoded gift, or
+  // the raw JSON it wraps
   function parseGift(text: string): Gift {
-    const gift = JSON.parse(text) as Gift;
+    let payload = text.trim();
+    const fromLink = payload.match(/#gift=([A-Za-z0-9_-]+)/);
+    if (fromLink) payload = fromLink[1];
+    if (payload.startsWith(GIFT_PREFIX)) {
+      payload = unb64url(payload.slice(GIFT_PREFIX.length));
+    } else if (!payload.startsWith("{")) {
+      payload = unb64url(payload); // bare encoding, no prefix
+    }
+    const gift = JSON.parse(payload) as Gift;
     if (!gift?.mint || !gift?.quote || !gift?.amount) {
       throw new Error("That does not look like a gift");
     }
     return gift;
   }
+
+  const encodeGift = (gift: Gift): string =>
+    GIFT_PREFIX + b64url(JSON.stringify(gift));
+
+  // The page the giver is on is the page the recipient needs
+  const giftLink = (gift: Gift): string =>
+    `${location.origin}${location.pathname}#gift=${encodeGift(gift)}`;
 
   // One claim path, shared by a pasted gift and an inbox row. The quote is the
   // input, and the recipient's key signs for it.
@@ -591,6 +623,40 @@ jQuery(function ($) {
       copyTextToClipboard(this.value);
     },
   );
+
+  // Tabs: giver and recipient never need each other's half, and a recipient
+  // arriving from a link should land on the claim side, not scroll past a form
+  function showTab(name: string): void {
+    const tab = name === "claim" ? "claim" : "create";
+    $("#cashu-gift .tab-panel").hide();
+    $(`#cashu-gift .tab-panel[data-tab="${tab}"]`).show();
+    $("#cashu-gift .tab-button").removeClass("active");
+    $(`#cashu-gift .tab-button[data-tab="${tab}"]`).addClass("active");
+  }
+  $("#cashu-gift .tab-button").on("click", function () {
+    const tab = $(this).data("tab") as string;
+    showTab(tab);
+    history.replaceState(null, "", `#${tab}`);
+  });
+
+  // A claim link carries the gift itself, so open it ready to claim
+  const hash = location.hash;
+  const linked = hash.match(/#gift=([A-Za-z0-9_-]+)/);
+  if (linked) {
+    try {
+      const gift = parseGift(hash);
+      $claim.val(encodeGift(gift));
+      showTab("claim");
+      toastr.info(
+        `A gift of ${formatAmount(gift.amount, gift.unit || "sat")} is ready to claim: add your key below`,
+      );
+    } catch {
+      showTab("claim");
+      toastr.error("That claim link is not readable");
+    }
+  } else {
+    showTab(hash === "#claim" ? "claim" : "create");
+  }
 
   // Handlers
   $clearHistory.on("click", () => {
