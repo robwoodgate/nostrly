@@ -111,6 +111,41 @@ export const sendViaNostr = async (
 };
 
 /**
+ * The relays a recipient reads direct messages on (NIP-17 kind 10050).
+ *
+ * @remarks
+ * A DM published anywhere else is a message their client never looks for. Falls
+ * back to their general relay list (NIP-65) and then to ours, since delivering
+ * somewhere plausible beats not delivering at all.
+ *
+ * @param {string}   hexOrNpub recipient
+ * @param {string[]} relays    relays to run the lookup on
+ */
+export const getDmRelays = async (
+  hexOrNpub: string,
+  relays?: string[],
+): Promise<string[]> => {
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
+  try {
+    const event = await pool.get(relays, { kinds: [10050], authors: [hexpub] });
+    const dmRelays = (event?.tags ?? [])
+      .filter(
+        (tag) =>
+          tag[0] === "relay" &&
+          typeof tag[1] === "string" &&
+          tag[1].trim() !== "",
+      )
+      .map((tag) => tag[1].trim());
+    if (dmRelays.length) return dmRelays;
+  } catch (e) {
+    console.error("getDmRelays", e);
+  }
+  const general = await getUserRelays(hexpub, relays);
+  return general.length ? general : relays;
+};
+
+/**
  * Sends a NIP-17 direct message from a throwaway key, so the sender stays
  * anonymous while the message stays sealed to the recipient.
  *
@@ -122,12 +157,22 @@ export const sendNip17Dm = async (
   message: string,
   toPub: string,
   relays: string[],
-) => {
+): Promise<string[]> => {
   toPub = toPub || NOSTRLY_PUBKEY; // Fallback
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  // Their DM relays first: a sealed message on relays they never read is lost
+  const dmRelays = await getDmRelays(toPub, relays);
+  const targets = [...new Set([...dmRelays, ...relays])];
   const sk = generateSecretKey();
   const wrapped = nip17.wrapEvent(sk, { publicKey: toPub }, message);
-  await Promise.any(pool.publish(relays, wrapped));
+  const results = await Promise.allSettled(pool.publish(targets, wrapped));
+  const delivered = targets.filter(
+    (_, i) => results[i]?.status === "fulfilled",
+  );
+  if (!delivered.length) {
+    throw new Error("No relay accepted the message");
+  }
+  return delivered;
 };
 
 /**
@@ -149,6 +194,10 @@ export async function fetchNip17Dms(
 ): Promise<Array<{ id: string; content: string; created_at: number }>> {
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
   const hexpub = getPublicKey(privkey);
+  // Read where senders are told to write, or we would look everywhere except
+  // the relays our own DM relay list points at
+  const dmRelays = await getDmRelays(hexpub, relays);
+  relays = [...new Set([...dmRelays, ...relays])];
   const filter: Filter = { kinds: [1059], "#p": [hexpub], limit };
   const wraps: Event[] = await new Promise((resolve) => {
     const events: Event[] = [];

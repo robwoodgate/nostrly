@@ -415,8 +415,12 @@ jQuery(function ($) {
       }
       toastr.info("Delivering the payment over nostr...");
       const payload = pr.encodePayload(meta.mint, send, { unit: meta.unit });
-      await sendNip17Dm(payload, target.pubkey, target.relays);
-      $payDelivered.show();
+      const relays = await sendNip17Dm(payload, target.pubkey, target.relays);
+      $payDelivered
+        .show()
+        .text(
+          `Delivered to the payee over nostr, on ${relays.join(", ")}. They can collect it below.`,
+        );
       toastr.success(`Paid ${paid} and delivered to the payee over nostr`);
     } catch (e) {
       console.error("payRequest error:", e);
@@ -497,6 +501,16 @@ jQuery(function ($) {
       $inboxButton.prop("disabled", false);
     }
   }
+
+  // Click a read-only output to select and copy it
+  $("#req-output, #pay-payment, #pay-change").on(
+    "click",
+    function (this: HTMLTextAreaElement) {
+      if (!this.value) return;
+      this.select();
+      copyTextToClipboard(this.value);
+    },
+  );
 
   // Handlers
   $(

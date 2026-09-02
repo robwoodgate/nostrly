@@ -1329,6 +1329,7 @@ class NostrlyTools
                 }
                 #cashu-request input[type="text"],
                 #cashu-request input[type="number"],
+                #cashu-request input[type="password"],
                 #cashu-request input[type="datetime-local"],
                 #cashu-request textarea {
                     border-radius: 6px;
@@ -1359,6 +1360,9 @@ class NostrlyTools
                     text-align: left;
                     font-size: 0.9rem;
                     border: 1px solid #444;
+                }
+                #cashu-request .info:empty {
+                    display: none;
                 }
                 #cashu-request .info ul {
                     margin: 0.5rem 0;
@@ -1504,9 +1508,16 @@ class NostrlyTools
         // Enqueue scripts and styles
         wp_enqueue_script('nostrly-cashu-gift');
 
-        $mint_label = esc_attr__('Mint', 'nostrly');
-        $mint_ph = esc_attr__('https://mint.example.com', 'nostrly');
+        $mint_label = esc_attr__('Choose a Mint', 'nostrly');
         $amount_label = esc_attr__('Amount (sats)', 'nostrly');
+        // Test mint, offered only on ?test=1 (localhost) or ?test=<mint url>
+        $giftmint = '';
+        if (isset($_GET['test'])) {
+            $url = filter_var(wp_unslash($_GET['test']), FILTER_VALIDATE_URL)
+                ? esc_url(wp_unslash($_GET['test']), ['http', 'https'])
+                : 'http://localhost:3338';
+            $giftmint = '<option value="' . $url . '">' . esc_html($url) . ' (TEST MINT)</option>';
+        }
         $to_label = esc_attr__('Gift for (npub or public key)', 'nostrly');
         $to_ph = esc_attr__('npub1... or 02...', 'nostrly');
         $memo_label = esc_attr__('Message (optional)', 'nostrly');
@@ -1544,6 +1555,7 @@ class NostrlyTools
                 #cashu-gift input[type="text"],
                 #cashu-gift input[type="number"],
                 #cashu-gift input[type="password"],
+                #cashu-gift select,
                 #cashu-gift textarea {
                     border-radius: 6px;
                     margin-bottom: 1rem;
@@ -1574,6 +1586,9 @@ class NostrlyTools
                     border-radius: 6px;
                     font-size: 0.9rem;
                     border: 1px solid #444;
+                }
+                #cashu-gift .info:empty {
+                    display: none;
                 }
                 #cashu-gift .info ul {
                     margin: 0;
@@ -1616,16 +1631,19 @@ class NostrlyTools
             </style>
             <div id="cashu-gift">
                 <div class="panel">
-                    <div class="row">
-                        <div>
-                            <label for="gift-amount">{$amount_label}</label>
-                            <input type="number" min="1" step="1" id="gift-amount" placeholder="21">
-                        </div>
-                        <div>
-                            <label for="gift-mint">{$mint_label}</label>
-                            <input type="text" id="gift-mint" placeholder="{$mint_ph}">
-                        </div>
-                    </div>
+                    <label for="gift-mint">{$mint_label}</label>
+                    <select id="gift-mint" name="gift-mint" required>
+                        <option value="" disabled selected>Select a mint...</option>
+                        {$giftmint}
+                        <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
+                        <option value="https://mint.103100.xyz">https://mint.103100.xyz</option>
+                        <option value="https://mint.coinos.io">https://mint.coinos.io</option>
+                        <option value="discover">Discover more mints...</option>
+                    </select>
+                    <p class="hint">The gift is minted here, so pick a mint the recipient is happy to hold ecash from.</p>
+
+                    <label for="gift-amount">{$amount_label}</label>
+                    <input type="number" min="1" step="1" id="gift-amount" placeholder="21">
 
                     <label for="gift-to">{$to_label}</label>
                     <input type="text" id="gift-to" placeholder="{$to_ph}">
@@ -1665,7 +1683,7 @@ class NostrlyTools
                     <button type="button" class="button" id="claim-button">{$claim_button}</button>
                     <button type="button" class="button" id="claim-inbox">{$inbox_button}</button>
 
-                    <div id="claim-info"></div>
+                    <div id="claim-info" class="info"></div>
                     <div id="claim-out-wrap" style="display:none">
                         <label for="claim-out">{$token_label}</label>
                         <textarea id="claim-out" readonly></textarea>

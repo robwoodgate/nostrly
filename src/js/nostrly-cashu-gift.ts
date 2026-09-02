@@ -18,7 +18,7 @@ import {
   maybeConvertNpubToP2PK,
   sendNip17Dm,
 } from "./nostr";
-import { isPublicKeyValidP2PK } from "./nut11";
+import { getNut11Mints, isPublicKeyValidP2PK } from "./nut11";
 import {
   copyTextToClipboard,
   formatAmount,
@@ -92,7 +92,34 @@ jQuery(function ($) {
 
   // Remember the mint between visits: it is the one field nobody wants to retype
   const savedMint = localStorage.getItem(MINT_KEY);
-  if (savedMint) $mint.val(savedMint);
+  if (savedMint && $mint.find(`option[value="${savedMint}"]`).length) {
+    $mint.val(savedMint);
+  }
+
+  // Same mint list as NutLock, refreshed from the auditor on demand
+  $mint.on("change", async () => {
+    if ($mint.val() !== "discover") return;
+    $mint.prop("disabled", true);
+    toastr.info("Updating mint list...");
+    try {
+      const mints = await getNut11Mints();
+      $mint.children("option:not(:first)").remove();
+      $.each(mints, (_i, url) => {
+        $mint.append($("<option></option>").attr("value", url).text(url));
+      });
+      $mint.append(
+        $("<option></option>")
+          .attr("value", "discover")
+          .text("Discover more mints..."),
+      );
+      toastr.clear();
+      toastr.success("Mint list updated");
+    } catch {
+      toastr.clear();
+      toastr.error("Mint discovery failed");
+    }
+    $mint.val("").prop("disabled", false);
+  });
 
   // Creates the quote and shows its invoice. The quote is locked to the
   // recipient from the moment it exists, so the invoice is safe to hand around.
@@ -197,8 +224,14 @@ jQuery(function ($) {
       if (!/^[0-9a-f]{64}$/.test(hexpub)) {
         throw new Error("needs an npub to deliver over nostr");
       }
-      await sendNip17Dm(JSON.stringify(gift), hexpub, nostrly_ajax.relays);
-      $status.text("Paid, and the gift was delivered over nostr.");
+      const relays = await sendNip17Dm(
+        JSON.stringify(gift),
+        hexpub,
+        nostrly_ajax.relays,
+      );
+      $status.text(
+        `Paid, and the gift was delivered over nostr to ${relays.join(", ")}`,
+      );
       toastr.success("Gift delivered over nostr");
     } catch (e) {
       console.error("gift delivery error:", e);
@@ -319,6 +352,16 @@ jQuery(function ($) {
       // not resolvable, which is fine: the key is what matters
     }
   });
+
+  // Click a read-only output to select and copy it
+  $("#gift-invoice, #gift-out, #claim-out").on(
+    "click",
+    function (this: HTMLTextAreaElement) {
+      if (!this.value) return;
+      this.select();
+      copyTextToClipboard(this.value);
+    },
+  );
 
   // Handlers
   $create.on("click", createGift);
