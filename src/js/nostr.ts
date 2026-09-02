@@ -261,6 +261,10 @@ export async function fetchNip17Dms(
     const sub = pool.subscribeManyEose(relays, filter, {
       onevent: (event: Event) => events.push(event),
       onclose: finish,
+      // NIP-17 asks relays to serve a wrap only to the key it names, behind
+      // NIP-42. Without this the better relays return nothing at all, since
+      // they close the subscription rather than leak who is being messaged.
+      onauth: async (evt: EventTemplate) => finalizeEvent(evt, privkey),
     });
   });
   const messages: Array<{ id: string; content: string; created_at: number }> =
