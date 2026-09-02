@@ -181,7 +181,7 @@ jQuery(function ($) {
     let note: nip19.DecodedResult = nip19.decode($nevent.val() as string);
     const { type, data } = note;
     let author: string | undefined;
-    let id: string | null = null;
+    let id: string | null;
     let zapped: NostrEvent | null = null;
     if ("nevent" == type) {
       ({ author, id } = data);

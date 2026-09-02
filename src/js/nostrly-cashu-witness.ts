@@ -461,7 +461,7 @@ jQuery(function ($) {
       return;
     }
     const privkeys = signingKeys();
-    let spend: SpendOptions = { keyPath: false, script: [] };
+    let spend: SpendOptions;
     try {
       spend = await wallet.spendOptions(
         proof,
@@ -689,7 +689,7 @@ jQuery(function ($) {
           }
         } else if (parsed?.signatures?.length) {
           // Key path published (unusual, but verifiable all the same)
-          let keyOk = false;
+          let keyOk: boolean;
           try {
             keyOk = schnorrVerifyDigest(
               parsed.signatures[0],

@@ -223,7 +223,7 @@ jQuery(function ($) {
         await Promise.any(pool.publish(relays, event));
       } catch (error) {
         console.error("Failed to set NIP-05 identifier:", error);
-        throw new Error("Failed to set NIP-05 identifier!");
+        throw new Error("Failed to set NIP-05 identifier!", { cause: error });
       }
 
       // Send to WordPress
