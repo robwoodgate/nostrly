@@ -16,6 +16,8 @@ import {
   convertP2PKToNpub,
   fetchNip17Dms,
   getContactDetails,
+  getNip61Info,
+  getNostrExtensionKeys,
   maybeConvertNpubToHexPub,
   maybeConvertNpubToP2PK,
   sendNip17Dm,
@@ -82,8 +84,11 @@ type ClaimedGift = {
 jQuery(function ($) {
   let wallet: Wallet | undefined;
   let polling = false;
-  // Held for this page only, so the field can be emptied once it has been read
-  let sessionKey: Uint8Array | undefined;
+  // Held for this page only, so the field can be emptied once it has been read.
+  // Minting accepts candidates (cashu-ts picks the one that matches the quote);
+  // unwrapping DMs needs the one key they were sealed to.
+  let claimKeys: string[] = [];
+  let inboxKey: Uint8Array | undefined;
 
   // DOM elements
   const $mint = $("#gift-mint");
@@ -104,6 +109,8 @@ jQuery(function ($) {
   const $claimKey = $("#claim-key");
   const $claimButton = $("#claim-button");
   const $inboxButton = $("#claim-inbox");
+  const $nip07Button = $("#claim-nip07");
+  const $nip61 = $("#gift-nip61");
   const $inboxOut = $("#claim-inbox-output");
   const $claimOutWrap = $("#claim-out-wrap");
   const $claimOut = $("#claim-out");
@@ -168,9 +175,23 @@ jQuery(function ($) {
       }
       const raw = ($to.val() as string)?.trim();
       if (!raw) throw new Error("Who is the gift for?");
-      const toKey = maybeConvertNpubToP2PK(raw);
+      let toKey = maybeConvertNpubToP2PK(raw);
       if (!isPublicKeyValidP2PK(toKey)) {
         throw new Error("That is not a valid npub or public key");
+      }
+      // A nutzap key is the one their wallet holds, and an extension can hand
+      // it over: locking there means they never type a secret to claim. Their
+      // identity key signs their posts and should not double as a money key.
+      if ($nip61.is(":checked") && raw.startsWith("npub")) {
+        const { pubkey } = await getNip61Info(raw, nostrly_ajax.relays);
+        if (pubkey) {
+          toKey = pubkey;
+          toastr.info("Locking to their NIP-61 nutzap key");
+        } else {
+          toastr.warning(
+            "No NIP-61 nutzap key published, so locking to their nostr key: they will need it to claim",
+          );
+        }
       }
       localStorage.setItem(MINT_KEY, mintUrl);
 
@@ -275,19 +296,61 @@ jQuery(function ($) {
 
   // Reads the key once, then empties the field: a secret key sitting in an
   // input is one screen-share or shoulder away from being someone else's
-  function claimPrivkey(): Uint8Array {
+  function readKeyField(): boolean {
     const raw = ($claimKey.val() as string)?.trim();
-    if (!raw) {
-      if (sessionKey) return sessionKey;
-      throw new Error("Paste the private key the gift is locked to");
-    }
+    if (!raw) return false;
     const key = raw.startsWith("nsec")
       ? (nip19.decode(raw).data as Uint8Array)
       : hexToBytes(raw);
     if (key.length !== 32) throw new Error("That is not a valid private key");
-    sessionKey = key;
+    inboxKey = key;
+    // A key typed as an nsec came from an x-only context, where the published
+    // key is `02 || x` but the secret may derive its odd-y twin. Offer both and
+    // let the mint's own pubkey decide, rather than guessing which is meant.
+    claimKeys = [
+      ...new Set([
+        bytesToHex(key),
+        bytesToHex(normalizeXOnlySecretKey(key)),
+        ...claimKeys,
+      ]),
+    ];
     $claimKey.val("");
-    return key;
+    return true;
+  }
+
+  // Keys for minting: whatever was typed, plus anything the extension unlocked
+  function keysForClaim(): string[] {
+    readKeyField();
+    if (!claimKeys.length) {
+      throw new Error(
+        "Add the key this gift is locked to, or unlock your Nostr wallet keys",
+      );
+    }
+    return claimKeys;
+  }
+
+  // The extension will not hand over its identity key, but it will decrypt the
+  // NIP-60 wallet keys a NIP-61 gift is locked to, so nobody types a secret
+  async function useExtensionKeys() {
+    $nip07Button.prop("disabled", true);
+    try {
+      const { privkeys } = await getNostrExtensionKeys(nostrly_ajax.relays);
+      if (!privkeys.length) {
+        toastr.warning(
+          "No NIP-60 wallet keys found. A gift locked to your nostr key still needs that key pasted.",
+        );
+        return;
+      }
+      claimKeys = [...new Set([...privkeys, ...claimKeys])];
+      toastr.success(
+        `Unlocked ${privkeys.length} wallet key${privkeys.length > 1 ? "s" : ""}: you can claim without pasting anything`,
+      );
+    } catch (e) {
+      console.error("useExtensionKeys error:", e);
+      toastr.error(getErrorMessage(e, "Could not read your extension keys"));
+    } finally {
+      $nip07Button.prop("disabled", false);
+    }
   }
 
   // Takes whatever the recipient was sent: a claim link, the encoded gift, or
@@ -317,7 +380,7 @@ jQuery(function ($) {
 
   // One claim path, shared by a pasted gift and an inbox row. The quote is the
   // input, and the recipient's key signs for it.
-  async function claimToToken(gift: Gift, privkey: Uint8Array) {
+  async function claimToToken(gift: Gift, privkeys: string[]) {
     const unit = gift.unit || "sat";
     const w = await getWalletWithUnit(gift.mint, unit);
     const quote = await w.checkMintQuoteBolt11(gift.quote);
@@ -327,11 +390,8 @@ jQuery(function ($) {
     if (quote.state !== MintQuoteState.PAID) {
       throw new Error("This gift is not paid yet, so there is nothing to mint");
     }
-    // A nostr key is x-only, and a gift locks to it as `02 || x`. Half of all
-    // secret keys derive the odd-y twin instead, which signs for the same
-    // x-only key but does not match it, so normalize before signing.
     const proofs = await w.mintProofsBolt11(gift.amount, quote, {
-      privkey: bytesToHex(normalizeXOnlySecretKey(privkey)),
+      privkey: privkeys,
     });
     return {
       proofs,
@@ -351,9 +411,9 @@ jQuery(function ($) {
     $claimButton.prop("disabled", true);
     try {
       const gift = parseGift(($claim.val() as string)?.trim());
-      const privkey = claimPrivkey();
+      const keys = keysForClaim();
       toastr.info("Checking the gift with the mint...");
-      const { proofs, token } = await claimToToken(gift, privkey);
+      const { proofs, token } = await claimToToken(gift, keys);
       recordClaim(gift, proofs, token);
       $claimOut.val(token);
       $claimOutWrap.show();
@@ -375,7 +435,13 @@ jQuery(function ($) {
     $inboxButton.prop("disabled", true);
     $inboxOut.hide().empty();
     try {
-      const privkey = claimPrivkey();
+      readKeyField();
+      if (!inboxKey) {
+        throw new Error(
+          "Fetching needs the key the message was sent to: paste your nsec, or open the claim link you were sent",
+        );
+      }
+      const privkey = inboxKey;
       toastr.info("Checking relays for gifts...");
       // Relay work gets one overall bound: a slow or silent relay must not leave
       // the button spinning with no way back
@@ -436,7 +502,7 @@ jQuery(function ($) {
       // in this list for good. They live in the history below instead.
       const claimed = rows.filter((r) => r.state === MintQuoteState.ISSUED);
       const open = rows.filter((r) => r.state !== MintQuoteState.ISSUED);
-      renderInbox(open, claimed.length, privkey);
+      renderInbox(open, claimed.length);
       const claimable = open.filter(
         (r) => r.state === MintQuoteState.PAID,
       ).length;
@@ -456,7 +522,6 @@ jQuery(function ($) {
   function renderInbox(
     rows: Array<{ gift: Gift; created_at: number; state: string }>,
     claimedCount: number,
-    privkey: Uint8Array,
   ) {
     const $list = $("<ul></ul>");
     for (const { gift, created_at, state } of rows) {
@@ -478,7 +543,10 @@ jQuery(function ($) {
           .on("click", async () => {
             $claimIt.prop("disabled", true).text("Claiming...");
             try {
-              const { proofs, token } = await claimToToken(gift, privkey);
+              const { proofs, token } = await claimToToken(
+                gift,
+                keysForClaim(),
+              );
               recordClaim(gift, proofs, token);
               $claimIt.remove();
               $body.append(
@@ -669,6 +737,7 @@ jQuery(function ($) {
   $outCopy.on("click", () => copyTextToClipboard($out.val() as string));
   $claimButton.on("click", claimGift);
   $inboxButton.on("click", checkInbox);
+  $nip07Button.on("click", useExtensionKeys);
   $claimCopy.on("click", () => copyTextToClipboard($claimOut.val() as string));
   $claimEmoji.on("click", () =>
     copyTextToClipboard(emojiEncode("🥜", $claimOut.val() as string)),

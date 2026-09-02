@@ -1581,6 +1581,8 @@ class NostrlyTools
         $history_label = esc_html__('Claimed Gifts', 'nostrly');
         $tab_create = esc_html__('Create a Gift', 'nostrly');
         $tab_claim = esc_html__('Claim a Gift', 'nostrly');
+        $nip61_label = esc_html__('Lock to their NIP-61 nutzap key when they have one (recommended)', 'nostrly');
+        $nip07_button = esc_html__('Use Nostr Extension', 'nostrly');
         $clear_history = esc_html__('Clear History', 'nostrly');
 
         return <<<EOL
@@ -1757,6 +1759,9 @@ class NostrlyTools
                     <label for="gift-memo">{$memo_label}</label>
                     <input type="text" id="gift-memo" placeholder="{$memo_ph}">
 
+                    <div><input type="checkbox" id="gift-nip61" checked> <label class="inline" for="gift-nip61">{$nip61_label}</label></div>
+                    <p class="hint below">Their wallet holds that key, so they can claim through their Nostr extension without pasting a secret.</p>
+
                     <div><input type="checkbox" id="gift-deliver" checked> <label class="inline" for="gift-deliver">{$deliver_label}</label></div>
                     <p class="hint below">Sent as a sealed NIP-17 message to the npub above.</p>
 
@@ -1786,9 +1791,10 @@ class NostrlyTools
 
                     <label for="claim-key">{$claim_key_label}</label>
                     <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
-                    <p class="hint">Used in this browser only, to sign for the quote the gift is locked to and to unwrap gifts sent over nostr. The field empties once read, and the key is forgotten when you leave the page.</p>
+                    <p class="hint">Only needed if the gift is locked to your nostr key, or to fetch gifts from relays. For a NIP-61 gift, use your Nostr extension instead and nothing is typed. Anything entered here empties once read, and is forgotten when you leave the page.</p>
 
-                    <button type="button" class="button" id="claim-button">{$claim_button}</button>
+                    <button type="button" class="button" id="claim-nip07">{$nip07_button}</button>
+                    <button type="button" class="button spaced" id="claim-button">{$claim_button}</button>
                     <button type="button" class="button spaced" id="claim-inbox">{$inbox_button}</button>
 
                     <div id="claim-inbox-output" class="info"></div>
