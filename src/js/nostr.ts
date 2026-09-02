@@ -127,23 +127,8 @@ export const getDmRelays = async (
 ): Promise<string[]> => {
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
   const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
-  try {
-    const event = await Promise.race([
-      pool.get(relays, { kinds: [10050], authors: [hexpub] }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
-    ]);
-    const dmRelays = (event?.tags ?? [])
-      .filter(
-        (tag) =>
-          tag[0] === "relay" &&
-          typeof tag[1] === "string" &&
-          tag[1].trim() !== "",
-      )
-      .map((tag) => tag[1].trim());
-    if (dmRelays.length) return dmRelays;
-  } catch (e) {
-    console.error("getDmRelays", e);
-  }
+  const dmRelays = await getInboxRelays(hexpub, relays);
+  if (dmRelays.length) return dmRelays;
   // getUserRelays runs its own unbounded relay query, so bound it here too
   const general = await Promise.race([
     getUserRelays(hexpub, relays),
@@ -153,12 +138,53 @@ export const getDmRelays = async (
 };
 
 /**
+ * The relays a user nominated for DMs, from their kind:10050.
+ *
+ * @remarks
+ * Empty when they have published none, which NIP-17 reads as not being set up
+ * to receive messages. Senders must respect that; a reader looking for their
+ * own wraps may search wider, since old ones outlive a change of list.
+ *
+ * @param {string}   hexOrNpub recipient
+ * @param {string[]} relays    relays to run the lookup on
+ */
+export const getInboxRelays = async (
+  hexOrNpub: string,
+  relays?: string[],
+): Promise<string[]> => {
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
+  try {
+    const event = await Promise.race([
+      pool.get(relays, { kinds: [10050], authors: [hexpub] }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+    ]);
+    return (event?.tags ?? [])
+      .filter(
+        (tag) =>
+          tag[0] === "relay" &&
+          typeof tag[1] === "string" &&
+          tag[1].trim() !== "",
+      )
+      .map((tag) => tag[1].trim());
+  } catch (e) {
+    console.error("getInboxRelays", e);
+    return [];
+  }
+};
+
+/**
  * Sends a NIP-17 direct message from a throwaway key, so the sender stays
  * anonymous while the message stays sealed to the recipient.
  *
+ * @remarks
+ * Publishes only to the recipient's kind:10050, per NIP-17, and throws when
+ * they have none: a wrap sent elsewhere both misses them and spreads a p-tag
+ * naming them past the relays that gate it behind AUTH.
+ *
  * @param {string}   message to send
  * @param {string}   toPub   Hex pubkey to send to
- * @param {string[]} relays  array of relays to publish to
+ * @param {string[]} relays  array of relays to find their DM relays on
  */
 export const sendNip17Dm = async (
   message: string,
@@ -167,9 +193,12 @@ export const sendNip17Dm = async (
 ): Promise<string[]> => {
   toPub = toPub || NOSTRLY_PUBKEY; // Fallback
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
-  // Their DM relays first: a sealed message on relays they never read is lost
-  const dmRelays = await getDmRelays(toPub, relays);
-  const targets = [...new Set([...dmRelays, ...relays])];
+  const targets = await getInboxRelays(toPub, relays);
+  if (!targets.length) {
+    throw new Error(
+      "They have not published any nostr DM relays, so nothing can be delivered to them over nostr",
+    );
+  }
   const sk = generateSecretKey();
   const wrapped = nip17.wrapEvent(sk, { publicKey: toPub }, message);
   const results = await Promise.allSettled(pool.publish(targets, wrapped));

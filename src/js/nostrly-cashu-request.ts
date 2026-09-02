@@ -415,13 +415,22 @@ jQuery(function ($) {
       }
       toastr.info("Delivering the payment over nostr...");
       const payload = pr.encodePayload(meta.mint, send, { unit: meta.unit });
-      const relays = await sendNip17Dm(payload, target.pubkey, target.relays);
-      $payDelivered
-        .show()
-        .text(
-          `Delivered to the payee over nostr, on ${relays.join(", ")}. They collect it from the Collect tab.`,
+      try {
+        const relays = await sendNip17Dm(payload, target.pubkey, target.relays);
+        $payDelivered
+          .show()
+          .text(
+            `Delivered to the payee over nostr, on ${relays.join(", ")}. They collect it from the Collect tab.`,
+          );
+        toastr.success(`Paid ${paid} and delivered to the payee over nostr`);
+      } catch (e) {
+        // The payment stands and its token is already on screen: only the
+        // delivery failed, so this must not read as a failed payment
+        console.error("payment delivery error:", e);
+        toastr.warning(
+          `Paid ${paid}, but not delivered over nostr: ${getErrorMessage(e, "send the payment token to the payee")}`,
         );
-      toastr.success(`Paid ${paid} and delivered to the payee over nostr`);
+      }
     } catch (e) {
       console.error("payRequest error:", e);
       toastr.error(getErrorMessage(e, "Could not pay this request"));

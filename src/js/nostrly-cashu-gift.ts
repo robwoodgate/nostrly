@@ -311,9 +311,11 @@ jQuery(function ($) {
       toastr.success("Gift delivered over nostr");
     } catch (e) {
       console.error("gift delivery error:", e);
+      // The gift is safe either way, so say why nostr could not carry it
       toastr.warning(
-        "Gift created, but could not deliver it over nostr. Send it by hand.",
+        `Gift created, but not delivered over nostr: ${getErrorMessage(e, "send it by hand")}`,
       );
+      $status.text("Paid. The gift is ready, but send the link by hand.");
     }
   }
 
