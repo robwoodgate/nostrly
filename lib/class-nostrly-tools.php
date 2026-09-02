@@ -1530,7 +1530,7 @@ class NostrlyTools
                 <div class="panel">
                     <label for="inbox-key">{$inbox_label}</label>
                     <input type="password" id="inbox-key" placeholder="{$inbox_ph}" autocomplete="off">
-                    <p class="hint">Your key stays in this browser and is only used to unwrap messages addressed to you. Relays hold sealed messages for a limited time, so collect payments promptly.</p>
+                    <p class="hint">Your key stays in this browser, is only used to unwrap messages addressed to you, and empties once read. Relays hold sealed messages for a limited time, so collect payments promptly.</p>
                     <button type="button" class="button" id="inbox-check">{$inbox_button}</button>
                     <div id="inbox-output" class="info" style="display:none"></div>
                 </div>

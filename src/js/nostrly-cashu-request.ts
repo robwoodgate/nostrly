@@ -445,6 +445,10 @@ jQuery(function ($) {
         : hexToBytes(raw);
       if (privkey.length !== 32) throw new Error("bad key");
       $inbox.attr("data-valid", "");
+      // Emptied once read, as in Cashu Gift: a secret key left sitting in an
+      // input is one screen-share or shoulder away from being someone else's.
+      // A key that failed to parse stays put, so it can be corrected.
+      $inbox.val("");
     } catch {
       $inbox.attr("data-valid", "no");
       toastr.error("That is not a valid nsec or hex private key");
