@@ -1,10 +1,12 @@
 // Imports
 import {
   MintQuoteState,
+  Proof,
   Wallet,
   bytesToHex,
   getEncodedToken,
   hexToBytes,
+  isUnknownQuote,
   normalizeXOnlySecretKey,
   type MintQuoteBolt11Response,
 } from "@cashu/cashu-ts";
@@ -48,11 +50,23 @@ type Gift = {
 };
 
 const MINT_KEY = "nostrly-gift-mint";
+const HISTORY_KEY = "nostrly-gift-history";
+
+type ClaimedGift = {
+  date: string;
+  token: string;
+  amount: number;
+  unit: string;
+  mint: string;
+  memo?: string;
+};
 
 // DOM ready
 jQuery(function ($) {
   let wallet: Wallet | undefined;
   let polling = false;
+  // Held for this page only, so the field can be emptied once it has been read
+  let sessionKey: Uint8Array | undefined;
 
   // DOM elements
   const $mint = $("#gift-mint");
@@ -79,6 +93,8 @@ jQuery(function ($) {
   const $claimCopy = $("#claim-out-copy");
   const $claimEmoji = $("#claim-out-emoji");
   const $claimInfo = $("#claim-info");
+  const $history = $("#gift-history");
+  const $clearHistory = $("#gift-clear-history");
   const $donateCashu = $("#donate_cashu");
 
   const esc = (s: string) => $("<i>").text(s).html();
@@ -242,14 +258,20 @@ jQuery(function ($) {
     }
   }
 
-  // Reads the recipient's key from the claim field
+  // Reads the key once, then empties the field: a secret key sitting in an
+  // input is one screen-share or shoulder away from being someone else's
   function claimPrivkey(): Uint8Array {
     const raw = ($claimKey.val() as string)?.trim();
-    if (!raw) throw new Error("Paste the private key the gift is locked to");
+    if (!raw) {
+      if (sessionKey) return sessionKey;
+      throw new Error("Paste the private key the gift is locked to");
+    }
     const key = raw.startsWith("nsec")
       ? (nip19.decode(raw).data as Uint8Array)
       : hexToBytes(raw);
     if (key.length !== 32) throw new Error("That is not a valid private key");
+    sessionKey = key;
+    $claimKey.val("");
     return key;
   }
 
@@ -300,6 +322,7 @@ jQuery(function ($) {
       const privkey = claimPrivkey();
       toastr.info("Checking the gift with the mint...");
       const { proofs, token } = await claimToToken(gift, privkey);
+      recordClaim(gift, proofs, token);
       $claimOut.val(token);
       $claimOutWrap.show();
       $claimInfo.html(
@@ -346,28 +369,43 @@ jQuery(function ($) {
         toastr.warning("No gifts found on the relays for that key");
         return;
       }
-      // One wallet per mint, not per gift: loading a v3 keyset is real work, and
-      // doing it several times over blocks the page rather than adding speed
-      const wallets = new Map<string, Wallet>();
-      const rows: Array<{ gift: Gift; created_at: number; state: string }> = [];
+      // One wallet and one batched lookup per mint (NUT-29), not a request per
+      // gift: a per-quote round trip runs into the mint's rate limit as gifts
+      // accumulate, and loading a v3 keyset repeatedly is wasted work
+      const byMint = new Map<string, typeof gifts>();
       for (const entry of gifts) {
-        const unit = entry.gift.unit || "sat";
-        const key = `${entry.gift.mint}|${unit}`;
+        const key = `${entry.gift.mint}|${entry.gift.unit || "sat"}`;
+        byMint.set(key, [...(byMint.get(key) ?? []), entry]);
+      }
+      const rows: Array<{ gift: Gift; created_at: number; state: string }> = [];
+      for (const [key, entries] of byMint) {
+        const [mint, unit] = key.split("|");
         try {
-          let w = wallets.get(key);
-          if (!w) {
-            w = await getWalletWithUnit(entry.gift.mint, unit);
-            wallets.set(key, w);
-          }
-          const quote = await w.checkMintQuoteBolt11(entry.gift.quote);
-          rows.push({ ...entry, state: quote.state as string });
+          const w = await getWalletWithUnit(mint, unit);
+          const quotes = await w.checkMintQuoteBatch<MintQuoteBolt11Response>(
+            "bolt11",
+            entries.map((e) => e.gift.quote),
+          );
+          entries.forEach((entry, i) => {
+            const quote = quotes[i];
+            rows.push({
+              ...entry,
+              state: !quote || isUnknownQuote(quote) ? "unknown" : quote.state,
+            });
+          });
         } catch (e) {
           console.error("gift state check failed:", e);
-          rows.push({ ...entry, state: "unreachable" });
+          entries.forEach((entry) =>
+            rows.push({ ...entry, state: "unreachable" }),
+          );
         }
       }
-      renderInbox(rows, privkey);
-      const claimable = rows.filter(
+      // Already-claimed gifts stay on the relays forever, so they would pile up
+      // in this list for good. They live in the history below instead.
+      const claimed = rows.filter((r) => r.state === MintQuoteState.ISSUED);
+      const open = rows.filter((r) => r.state !== MintQuoteState.ISSUED);
+      renderInbox(open, claimed.length, privkey);
+      const claimable = open.filter(
         (r) => r.state === MintQuoteState.PAID,
       ).length;
       toastr.success(
@@ -385,6 +423,7 @@ jQuery(function ($) {
   // overwritten by the next claim
   function renderInbox(
     rows: Array<{ gift: Gift; created_at: number; state: string }>,
+    claimedCount: number,
     privkey: Uint8Array,
   ) {
     const $list = $("<ul></ul>");
@@ -393,10 +432,12 @@ jQuery(function ($) {
       const when = new Date(created_at * 1000).toLocaleString();
       const claimable = state === MintQuoteState.PAID;
       const $row = $("<li></li>").addClass(claimable ? "signed" : "pending");
-      const $text = $("<span></span>").text(
-        `${formatAmount(gift.amount, unit)} from ${gift.mint}, ${when}${gift.memo ? `: ${gift.memo}` : ""}`,
+      const $body = $('<div class="row-body"></div>').append(
+        $("<span></span>").text(
+          `${formatAmount(gift.amount, unit)} from ${gift.mint}, ${when}${gift.memo ? `: ${gift.memo}` : ""}`,
+        ),
       );
-      $row.append($('<span class="status-icon"></span>'), $text);
+      $row.append($('<span class="status-icon"></span>'), $body);
       if (claimable) {
         const $claimIt = $("<button></button>")
           .attr("type", "button")
@@ -406,8 +447,9 @@ jQuery(function ($) {
             $claimIt.prop("disabled", true).text("Claiming...");
             try {
               const { proofs, token } = await claimToToken(gift, privkey);
+              recordClaim(gift, proofs, token);
               $claimIt.remove();
-              $row.append(
+              $body.append(
                 $("<span></span>").text(
                   ` claimed ${formatAmount(getTokenAmount(proofs), unit)}: `,
                 ),
@@ -433,14 +475,14 @@ jQuery(function ($) {
               $claimIt.prop("disabled", false).text("Claim");
             }
           });
-        $row.append(" ", $claimIt);
+        $body.append(" ", $claimIt);
       } else {
-        $row.append(
+        $body.append(
           $("<span></span>").text(
-            state === MintQuoteState.ISSUED
-              ? " (already claimed)"
-              : state === "unreachable"
-                ? " (mint unreachable)"
+            state === "unreachable"
+              ? " (mint unreachable)"
+              : state === "unknown"
+                ? " (the mint does not know this quote)"
                 : " (not funded yet)",
           ),
         );
@@ -450,7 +492,79 @@ jQuery(function ($) {
     $inboxOut
       .show()
       .empty()
-      .append($("<strong></strong>").text("Gifts sent to you:"), $list);
+      .append($("<strong></strong>").text("Gifts sent to you:"));
+    if (rows.length) {
+      $inboxOut.append($list);
+    } else {
+      $inboxOut.append($("<p></p>").text("Nothing left to claim."));
+    }
+    if (claimedCount) {
+      $inboxOut.append(
+        $("<p></p>").text(
+          `${claimedCount} already claimed, and kept in your history below.`,
+        ),
+      );
+    }
+  }
+
+  function recordClaim(gift: Gift, proofs: Proof[], token: string): void {
+    storeClaimed({
+      date: new Date().toISOString(),
+      token,
+      amount: Number(getTokenAmount(proofs).toJSON()),
+      unit: gift.unit || "sat",
+      mint: gift.mint,
+      ...(gift.memo ? { memo: gift.memo } : {}),
+    });
+    loadHistory();
+  }
+
+  // A claimed token exists only in this page until it is swept, so keep it
+  function storeClaimed(entry: ClaimedGift): void {
+    const history = getClaimed();
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([entry, ...history]));
+  }
+
+  function getClaimed(): ClaimedGift[] {
+    try {
+      const stored = localStorage.getItem(HISTORY_KEY);
+      return stored ? (JSON.parse(stored) as ClaimedGift[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function loadHistory(): void {
+    const history = getClaimed();
+    $history.empty();
+    if (!history.length) {
+      $history.append($("<p></p>").text("No claimed gifts yet."));
+      $clearHistory.hide();
+      return;
+    }
+    $clearHistory.show();
+    const $list = $("<ul></ul>");
+    for (const entry of history) {
+      const $row = $("<li></li>").append(
+        $("<span></span>").text(
+          `${new Date(entry.date).toLocaleString()} - ${formatAmount(entry.amount, entry.unit)}${entry.memo ? `: ${entry.memo}` : ""} `,
+        ),
+        $("<button></button>")
+          .attr("type", "button")
+          .addClass("button")
+          .text("Copy Token")
+          .on("click", () => copyTextToClipboard(entry.token)),
+        $("<button></button>")
+          .attr("type", "button")
+          .addClass("button")
+          .text("Copy 🥜")
+          .on("click", () =>
+            copyTextToClipboard(emojiEncode("🥜", entry.token)),
+          ),
+      );
+      $list.append($row);
+    }
+    $history.append($list);
   }
 
   // Show who a gift is for as soon as the field looks like a key
@@ -479,6 +593,11 @@ jQuery(function ($) {
   );
 
   // Handlers
+  $clearHistory.on("click", () => {
+    localStorage.removeItem(HISTORY_KEY);
+    loadHistory();
+  });
+  loadHistory();
   $create.on("click", createGift);
   $invoiceCopy.on("click", () => copyTextToClipboard($invoice.val() as string));
   $outCopy.on("click", () => copyTextToClipboard($out.val() as string));

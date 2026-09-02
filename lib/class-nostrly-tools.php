@@ -1404,6 +1404,9 @@ class NostrlyTools
                 #cashu-request .button {
                     margin-bottom: 1rem;
                 }
+                #cashu-request .button.spaced {
+                    margin-left: 0.5rem;
+                }
             </style>
             <div id="cashu-request">
                 <div class="panel">
@@ -1537,6 +1540,8 @@ class NostrlyTools
         $token_label = esc_attr__('Your ecash', 'nostrly');
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
+        $history_label = esc_html__('Claimed Gifts', 'nostrly');
+        $clear_history = esc_html__('Clear History', 'nostrly');
 
         return <<<EOL
             <style>
@@ -1571,6 +1576,9 @@ class NostrlyTools
                 #cashu-gift .button {
                     margin-bottom: 1rem;
                 }
+                #cashu-gift .button.spaced {
+                    margin-left: 0.5rem;
+                }
                 #cashu-gift .hint {
                     font-size: 0.85rem;
                     color: #aaa;
@@ -1600,13 +1608,28 @@ class NostrlyTools
                 #cashu-gift .info li.signed,
                 #cashu-gift .info li.pending {
                     display: flex;
-                    align-items: center;
-                    flex-wrap: wrap;
-                    gap: 0.35rem;
+                    align-items: flex-start;
                     margin-bottom: 0.5rem;
+                }
+                #cashu-gift .info li .row-body {
+                    flex: 1;
+                }
+                #cashu-gift .info li.signed .status-icon,
+                #cashu-gift .info li.pending .status-icon {
+                    margin-top: 0.4rem;
                 }
                 #cashu-gift .info li .button {
                     margin-bottom: 0;
+                    margin-left: 0.35rem;
+                    padding: 0 0.5rem;
+                    font-size: 0.8rem;
+                }
+                #cashu-gift #gift-history li {
+                    margin-bottom: 0.35rem;
+                }
+                #cashu-gift #gift-history li .button {
+                    margin-bottom: 0;
+                    margin-left: 0.35rem;
                     padding: 0 0.5rem;
                     font-size: 0.8rem;
                 }
@@ -1690,10 +1713,10 @@ class NostrlyTools
 
                     <label for="claim-key">{$claim_key_label}</label>
                     <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
-                    <p class="hint">Used in this browser only, to sign for the quote the gift is locked to and to unwrap gifts sent over nostr.</p>
+                    <p class="hint">Used in this browser only, to sign for the quote the gift is locked to and to unwrap gifts sent over nostr. The field empties once read, and the key is forgotten when you leave the page.</p>
 
                     <button type="button" class="button" id="claim-button">{$claim_button}</button>
-                    <button type="button" class="button" id="claim-inbox">{$inbox_button}</button>
+                    <button type="button" class="button spaced" id="claim-inbox">{$inbox_button}</button>
 
                     <div id="claim-inbox-output" class="info"></div>
                     <div id="claim-info" class="info"></div>
@@ -1701,8 +1724,15 @@ class NostrlyTools
                         <label for="claim-out">{$token_label}</label>
                         <textarea id="claim-out" readonly></textarea>
                         <button type="button" class="button" id="claim-out-copy">{$copy_token}</button>
-                        <button type="button" class="button" id="claim-out-emoji">{$copy_emoji}</button>
+                        <button type="button" class="button spaced" id="claim-out-emoji">{$copy_emoji}</button>
                     </div>
+                </div>
+
+                <div class="panel">
+                    <h3>{$history_label}</h3>
+                    <p class="hint below">Claimed ecash lives only in your browser until you sweep it into a wallet, so it is kept here in case this page is closed.</p>
+                    <div id="gift-history" class="info"></div>
+                    <button type="button" class="button" id="gift-clear-history">{$clear_history}</button>
                 </div>
             </div>
             EOL;
