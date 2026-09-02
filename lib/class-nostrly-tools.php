@@ -21,6 +21,8 @@ class NostrlyTools
         add_shortcode('nostrly_cashu_witness', [$this, 'cashu_witness_shortcode']);
         add_shortcode('nostrly_cashu_cache', [$this, 'cashu_cache_shortcode']);
         add_shortcode('nostrly_cashu_gather', [$this, 'cashu_gather_shortcode']);
+        add_shortcode('nostrly_cashu_request', [$this, 'cashu_request_shortcode']);
+        add_shortcode('nostrly_cashu_gift', [$this, 'cashu_gift_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('script_loader_src', [$this, 'script_loader_src'], 9999);
         add_filter('style_loader_src', [$this, 'script_loader_src'], 9999);
@@ -1267,6 +1269,555 @@ class NostrlyTools
      * Enqueue scripts and styles
      * NB: Called from registration_shortcode() so we only load scripts if needed.
      */
+    /**
+     * Cashu Request shortcode: compose and inspect NUT-18 payment requests.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_request_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-request');
+
+        $amount_label = esc_attr__('Amount (leave blank for any)', 'nostrly');
+        $unit_label = esc_attr__('Unit', 'nostrly');
+        $mints_label = esc_attr__('Mints (optional, one per line)', 'nostrly');
+        $mints_ph = esc_attr__('https://mint.example.com', 'nostrly');
+        $desc_label = esc_attr__('Description (optional)', 'nostrly');
+        $desc_ph = esc_attr__('What is this payment for?', 'nostrly');
+        $payto_label = esc_attr__('Pay to (npub or public key)', 'nostrly');
+        $payto_ph = esc_attr__('npub1... or 02...', 'nostrly');
+        $backup_label = esc_attr__('Backup key (optional)', 'nostrly');
+        $backup_ph = esc_attr__('A second key of yours, npub1... or 02...', 'nostrly');
+        $after_label = esc_attr__('...can also claim after', 'nostrly');
+        $blind_label = esc_html__('Blind my keys, so payments cannot be linked (recommended)', 'nostrly');
+        $legacy_label = esc_html__('Include a legacy fallback for wallets that predate v3 keysets', 'nostrly');
+        $single_label = esc_html__('Single use: this request expects one payment', 'nostrly');
+        $output_label = esc_attr__('Your payment request', 'nostrly');
+        $copy = esc_html__('Copy Request', 'nostrly');
+        $tab_compose = esc_html__('Create a Request', 'nostrly');
+        $tab_pay = esc_html__('Pay a Request', 'nostrly');
+        $tab_collect = esc_html__('Collect Payments', 'nostrly');
+        $inspect_label = esc_attr__('Inspect a payment request', 'nostrly');
+        $inspect_ph = esc_attr__('Paste a creq... payment request to see what it asks for', 'nostrly');
+        $nostr_label = esc_attr__('Deliver payments over nostr (optional)', 'nostrly');
+        $nostr_ph = esc_attr__('npub1... or nprofile1...', 'nostrly');
+        $delivered = esc_html__('Delivered to the payee over nostr. They can collect it below.', 'nostrly');
+        $inbox_label = esc_attr__('Collect payments sent to you', 'nostrly');
+        $inbox_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
+        $inbox_button = esc_html__('Check for Payments', 'nostrly');
+        $pay_token_label = esc_attr__('Pay it with a Cashu token (or emoji 🥜)', 'nostrly');
+        $pay_token_ph = esc_attr__('Paste an unlocked token to pay with...', 'nostrly');
+        $pay_amount_label = esc_attr__('Amount to pay', 'nostrly');
+        $pay_button = esc_html__('Pay Request', 'nostrly');
+        $payment_label = esc_attr__('Payment token: send this to the payee', 'nostrly');
+        $change_label = esc_attr__('Your change: keep this', 'nostrly');
+        $copy_payment = esc_html__('Copy Payment', 'nostrly');
+        $copy_change = esc_html__('Copy Change', 'nostrly');
+
+        return <<<EOL
+            <style>
+                #cashu-request .panel {
+                    margin-bottom: 40px;
+                }
+                #cashu-gift .tabs,
+                #cashu-request .tabs {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1.5rem;
+                    flex-wrap: wrap;
+                }
+                #cashu-gift .tab-button,
+                #cashu-request .tab-button {
+                    background: transparent;
+                    border: 1px solid #444;
+                    color: #ccc;
+                    border-radius: 6px;
+                    padding: 0.4rem 1rem;
+                    cursor: pointer;
+                    margin-bottom: 0;
+                }
+                #cashu-gift .tab-button.active,
+                #cashu-request .tab-button.active {
+                    background-color: rgba(255, 255, 255, 0.12);
+                    color: #fff;
+                    border-color: #888;
+                    font-weight: bold;
+                }
+
+                #cashu-request label {
+                    display: block;
+                    font-weight: bold;
+                    margin-bottom: 0.25rem;
+                }
+                #cashu-request label.inline {
+                    display: inline;
+                    font-weight: normal;
+                }
+                #cashu-request input[type="text"],
+                #cashu-request input[type="number"],
+                #cashu-request input[type="password"],
+                #cashu-request input[type="datetime-local"],
+                #cashu-request textarea {
+                    border-radius: 6px;
+                    margin-bottom: 1rem;
+                    width: 100%;
+                }
+                #cashu-request [data-valid="no"] {
+                    border: 1px solid #f00;
+                }
+                #cashu-request .row {
+                    display: flex;
+                    gap: 1rem;
+                }
+                #cashu-request .row > div {
+                    flex: 1;
+                }
+                #cashu-request .checks {
+                    margin-bottom: 1rem;
+                }
+                #cashu-request .checks div {
+                    margin-bottom: 0.35rem;
+                }
+                #cashu-request .info {
+                    margin-top: 0.75rem;
+                    padding: 0.75rem;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    text-align: left;
+                    font-size: 0.9rem;
+                    border: 1px solid #444;
+                }
+                #cashu-request .info:empty {
+                    display: none;
+                }
+                #cashu-request .info ul {
+                    margin: 0.5rem 0;
+                    padding-left: 20px;
+                }
+                #cashu-request .info li {
+                    margin-bottom: 0.25rem;
+                    font-family: monospace;
+                }
+                #cashu-request .info li.signed {
+                    display: flex;
+                    align-items: center;
+                }
+                #cashu-request .status-icon {
+                    width: 10px;
+                    height: 10px;
+                    margin-right: 8px;
+                    border-radius: 50%;
+                    display: inline-block;
+                    flex-shrink: 0;
+                    background-color: #0f0;
+                }
+                #cashu-request .error {
+                    color: #f88;
+                    margin: 0;
+                }
+                #cashu-request .hint {
+                    font-size: 0.85rem;
+                    color: #aaa;
+                    margin: -0.75rem 0 1rem;
+                }
+                #req-output,
+                #pay-payment,
+                #pay-change {
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    min-height: 6rem;
+                }
+                #cashu-request .button {
+                    margin-bottom: 1rem;
+                }
+                #cashu-request .button.spaced {
+                    margin-left: 0.5rem;
+                }
+            </style>
+            <div id="cashu-request">
+                <div class="tabs">
+                    <button type="button" class="tab-button" data-tab="create">{$tab_compose}</button>
+                    <button type="button" class="tab-button" data-tab="pay">{$tab_pay}</button>
+                    <button type="button" class="tab-button" data-tab="collect">{$tab_collect}</button>
+                </div>
+                <div class="tab-panel" data-tab="create">
+                <div class="panel">
+                    <div class="row">
+                        <div>
+                            <label for="req-amount">{$amount_label}</label>
+                            <input type="number" min="0" step="1" id="req-amount" placeholder="0">
+                        </div>
+                        <div>
+                            <label for="req-unit">{$unit_label}</label>
+                            <input type="text" id="req-unit" value="sat">
+                        </div>
+                    </div>
+
+                    <label for="req-payto">{$payto_label}</label>
+                    <input type="text" id="req-payto" placeholder="{$payto_ph}">
+                    <p class="hint">Your key is never locked to verbatim: each payment derives its own secret from it, so payments to the same key cannot be linked.</p>
+
+                    <label for="req-description">{$desc_label}</label>
+                    <input type="text" id="req-description" placeholder="{$desc_ph}">
+
+                    <label for="req-mints">{$mints_label}</label>
+                    <textarea id="req-mints" rows="2" placeholder="{$mints_ph}"></textarea>
+
+                    <label for="req-nostr">{$nostr_label}</label>
+                    <input type="text" id="req-nostr" placeholder="{$nostr_ph}">
+                    <p class="hint">The payer sends the payment straight to you as a sealed NIP-17 message. Without this they have to hand the token back themselves, and a derived secret cannot be found by scanning the mint.</p>
+
+                    <div class="row">
+                        <div>
+                            <label for="req-backup">{$backup_label}</label>
+                            <input type="text" id="req-backup" placeholder="{$backup_ph}">
+                        </div>
+                        <div>
+                            <label for="req-backup-after">{$after_label}</label>
+                            <input type="datetime-local" id="req-backup-after">
+                        </div>
+                    </div>
+                    <p class="hint">Adds one condition to the request. The payer must reproduce it exactly, and it stays invisible to the mint unless it is used.</p>
+
+                    <div class="checks">
+                        <div><input type="checkbox" id="req-blind" checked> <label class="inline" for="req-blind">{$blind_label}</label></div>
+                        <div><input type="checkbox" id="req-legacy" checked> <label class="inline" for="req-legacy">{$legacy_label}</label></div>
+                        <div><input type="checkbox" id="req-single"> <label class="inline" for="req-single">{$single_label}</label></div>
+                    </div>
+
+                    <div id="req-output-wrap" style="display:none">
+                        <label for="req-output">{$output_label}</label>
+                        <textarea id="req-output" readonly></textarea>
+                        <button type="button" class="button" id="req-copy">{$copy}</button>
+                    </div>
+                    <div id="req-summary" class="info"></div>
+                </div>
+                </div>
+
+                <div class="tab-panel" data-tab="pay">
+                <div class="panel">
+                    <label for="inspect-input">{$inspect_label}</label>
+                    <textarea id="inspect-input" rows="3" placeholder="{$inspect_ph}"></textarea>
+                    <div id="inspect-output" class="info" style="display:none"></div>
+
+                    <div id="pay-wrap" style="display:none">
+                        <label for="pay-token">{$pay_token_label}</label>
+                        <textarea id="pay-token" rows="3" placeholder="{$pay_token_ph}"></textarea>
+                        <div id="pay-amount-wrap" style="display:none">
+                            <label for="pay-amount">{$pay_amount_label}</label>
+                            <input type="number" min="1" step="1" id="pay-amount">
+                        </div>
+                        <button type="button" class="button" id="pay-button">{$pay_button}</button>
+                        <p class="hint" id="pay-hint">Your wallet reproduces the requested conditions exactly and derives a fresh secret for the payee.</p>
+                        <div id="pay-delivered" class="info" style="display:none">{$delivered}</div>
+                        <div id="pay-output" style="display:none">
+                            <label for="pay-payment">{$payment_label}</label>
+                            <textarea id="pay-payment" readonly></textarea>
+                            <button type="button" class="button" id="pay-payment-copy">{$copy_payment}</button>
+                            <div id="pay-change-wrap" style="display:none">
+                                <label for="pay-change">{$change_label}</label>
+                                <textarea id="pay-change" readonly></textarea>
+                                <button type="button" class="button" id="pay-change-copy">{$copy_change}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <div class="tab-panel" data-tab="collect">
+                <div class="panel">
+                    <label for="inbox-key">{$inbox_label}</label>
+                    <input type="password" id="inbox-key" placeholder="{$inbox_ph}" autocomplete="off">
+                    <p class="hint">Your key stays in this browser and is only used to unwrap messages addressed to you. Relays hold sealed messages for a limited time, so collect payments promptly.</p>
+                    <button type="button" class="button" id="inbox-check">{$inbox_button}</button>
+                    <div id="inbox-output" class="info" style="display:none"></div>
+                </div>
+            </div>
+            EOL;
+    }
+
+    /**
+     * Cashu Gift shortcode: pay a Lightning invoice so someone else can mint.
+     *
+     * @param mixed      $atts
+     * @param null|mixed $content
+     */
+    public function cashu_gift_shortcode($atts, $content = null)
+    {
+        // Enqueue scripts and styles
+        wp_enqueue_script('nostrly-cashu-gift');
+
+        $mint_label = esc_attr__('Choose a Mint', 'nostrly');
+        $amount_label = esc_attr__('Amount (sats)', 'nostrly');
+        // Test mint, offered only on ?test=1 (localhost) or ?test=<mint url>
+        $giftmint = '';
+        if (isset($_GET['test'])) {
+            $url = filter_var(wp_unslash($_GET['test']), FILTER_VALIDATE_URL)
+                ? esc_url(wp_unslash($_GET['test']), ['http', 'https'])
+                : 'http://localhost:3338';
+            $giftmint = '<option value="' . $url . '">' . esc_html($url) . ' (TEST MINT)</option>';
+        }
+        $to_label = esc_attr__('Gift for (npub or public key)', 'nostrly');
+        $to_ph = esc_attr__('npub1... or 02...', 'nostrly');
+        $memo_label = esc_attr__('Message (optional)', 'nostrly');
+        $memo_ph = esc_attr__('Happy birthday!', 'nostrly');
+        $deliver_label = esc_html__('Deliver the gift over nostr when the invoice is paid', 'nostrly');
+        $create = esc_html__('Create Gift', 'nostrly');
+        $invoice_label = esc_attr__('Pay this invoice to fund the gift', 'nostrly');
+        $copy_invoice = esc_html__('Copy Invoice', 'nostrly');
+        $gift_label = esc_attr__('Claim link: send this to the recipient', 'nostrly');
+        $copy_gift = esc_html__('Copy Claim Link', 'nostrly');
+        $claim_label = esc_attr__('Claim a gift', 'nostrly');
+        $claim_ph = esc_attr__('Paste a claim link or gift here, or fetch one from nostr below...', 'nostrly');
+        $claim_key_label = esc_attr__('Your private key', 'nostrly');
+        $claim_key_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
+        $claim_button = esc_html__('Claim Gift', 'nostrly');
+        $inbox_button = esc_html__('Fetch from Nostr', 'nostrly');
+        $token_label = esc_attr__('Your ecash', 'nostrly');
+        $copy_token = esc_html__('Copy Token', 'nostrly');
+        $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
+        $history_label = esc_html__('Claimed Gifts', 'nostrly');
+        $tab_create = esc_html__('Create a Gift', 'nostrly');
+        $tab_claim = esc_html__('Claim a Gift', 'nostrly');
+        $nip61_label = esc_html__('Lock to their NIP-61 nutzap key when they have one (recommended)', 'nostrly');
+        $nip07_button = esc_html__('Use Nostr Extension', 'nostrly');
+        $clear_history = esc_html__('Clear History', 'nostrly');
+
+        return <<<EOL
+            <style>
+                #cashu-gift .panel {
+                    margin-bottom: 40px;
+                }
+                #cashu-gift .tabs,
+                #cashu-request .tabs {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1.5rem;
+                    flex-wrap: wrap;
+                }
+                #cashu-gift .tab-button,
+                #cashu-request .tab-button {
+                    background: transparent;
+                    border: 1px solid #444;
+                    color: #ccc;
+                    border-radius: 6px;
+                    padding: 0.4rem 1rem;
+                    cursor: pointer;
+                    margin-bottom: 0;
+                }
+                #cashu-gift .tab-button.active,
+                #cashu-request .tab-button.active {
+                    background-color: rgba(255, 255, 255, 0.12);
+                    color: #fff;
+                    border-color: #888;
+                    font-weight: bold;
+                }
+
+                #cashu-gift label {
+                    display: block;
+                    font-weight: bold;
+                    margin-bottom: 0.25rem;
+                }
+                #cashu-gift label.inline {
+                    display: inline;
+                    font-weight: normal;
+                }
+                #cashu-gift input[type="text"],
+                #cashu-gift input[type="number"],
+                #cashu-gift input[type="password"],
+                #cashu-gift select,
+                #cashu-gift textarea {
+                    border-radius: 6px;
+                    margin-bottom: 1rem;
+                    width: 100%;
+                }
+                #cashu-gift .row {
+                    display: flex;
+                    gap: 1rem;
+                }
+                #cashu-gift .row > div {
+                    flex: 1;
+                }
+                #cashu-gift .button {
+                    margin-bottom: 1rem;
+                }
+                #cashu-gift .button.spaced {
+                    margin-left: 0.5rem;
+                }
+                #cashu-gift .hint {
+                    font-size: 0.85rem;
+                    color: #aaa;
+                    margin: -0.75rem 0 1rem;
+                }
+                #cashu-gift .hint.below {
+                    margin-top: 0.35rem;
+                }
+                #cashu-gift .info {
+                    margin-top: 0.75rem;
+                    padding: 0.75rem;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    font-size: 0.9rem;
+                    border: 1px solid #444;
+                }
+                #cashu-gift .info:empty {
+                    display: none;
+                }
+                #cashu-gift .info ul {
+                    margin: 0;
+                    padding-left: 20px;
+                }
+                #cashu-gift .info li {
+                    font-family: monospace;
+                }
+                #cashu-gift .info li.signed,
+                #cashu-gift .info li.pending {
+                    display: flex;
+                    align-items: flex-start;
+                    margin-bottom: 0.5rem;
+                }
+                #cashu-gift .info li .row-body {
+                    flex: 1;
+                }
+                #cashu-gift .info li.signed .status-icon,
+                #cashu-gift .info li.pending .status-icon {
+                    margin-top: 0.4rem;
+                }
+                #cashu-gift .info li .button {
+                    margin-bottom: 0;
+                    margin-left: 0.35rem;
+                    padding: 0 0.5rem;
+                    font-size: 0.8rem;
+                }
+                #cashu-gift #gift-history li {
+                    margin-bottom: 0.35rem;
+                }
+                #cashu-gift #gift-history li .button {
+                    margin-bottom: 0;
+                    margin-left: 0.35rem;
+                    padding: 0 0.5rem;
+                    font-size: 0.8rem;
+                }
+                #cashu-gift .info li.pending .status-icon {
+                    background-color: #f00;
+                }
+                #cashu-gift .status-icon {
+                    width: 10px;
+                    height: 10px;
+                    margin-right: 8px;
+                    border-radius: 50%;
+                    display: inline-block;
+                    flex-shrink: 0;
+                    background-color: #0f0;
+                }
+                #gift-status {
+                    font-style: italic;
+                    color: #ccc;
+                }
+                #gift-invoice-img {
+                    display: block;
+                    margin: 0 auto 1rem;
+                    background: #fff;
+                    padding: 8px;
+                    border-radius: 6px;
+                }
+                #gift-invoice,
+                #gift-out,
+                #claim-out {
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    min-height: 5rem;
+                }
+            </style>
+            <div id="cashu-gift">
+                <div class="tabs">
+                    <button type="button" class="tab-button" data-tab="create">{$tab_create}</button>
+                    <button type="button" class="tab-button" data-tab="claim">{$tab_claim}</button>
+                </div>
+                <div class="tab-panel" data-tab="create">
+                <div class="panel">
+                    <label for="gift-mint">{$mint_label}</label>
+                    <select id="gift-mint" name="gift-mint" required>
+                        <option value="" disabled selected>Select a mint...</option>
+                        {$giftmint}
+                        <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
+                        <option value="https://mint.103100.xyz">https://mint.103100.xyz</option>
+                        <option value="https://mint.coinos.io">https://mint.coinos.io</option>
+                        <option value="discover">Discover more mints...</option>
+                    </select>
+                    <p class="hint">The gift is minted here, so pick a mint the recipient is happy to hold ecash from.</p>
+
+                    <label for="gift-amount">{$amount_label}</label>
+                    <input type="number" min="1" step="1" id="gift-amount" placeholder="21">
+
+                    <label for="gift-to">{$to_label}</label>
+                    <input type="text" id="gift-to" placeholder="{$to_ph}">
+                    <p class="hint">The mint quote is locked to their key the moment it exists, so the invoice and the gift are both safe to pass around: only they can mint it.</p>
+
+                    <label for="gift-memo">{$memo_label}</label>
+                    <input type="text" id="gift-memo" placeholder="{$memo_ph}">
+
+                    <div><input type="checkbox" id="gift-nip61" checked> <label class="inline" for="gift-nip61">{$nip61_label}</label></div>
+                    <p class="hint below">Their wallet holds that key, so they can claim through their Nostr extension without pasting a secret.</p>
+
+                    <div><input type="checkbox" id="gift-deliver" checked> <label class="inline" for="gift-deliver">{$deliver_label}</label></div>
+                    <p class="hint below">Sent as a sealed NIP-17 message to the npub above.</p>
+
+                    <button type="button" class="button" id="gift-create">{$create}</button>
+
+                    <div id="gift-invoice-wrap" style="display:none">
+                        <label for="gift-invoice">{$invoice_label}</label>
+                        <img id="gift-invoice-img" alt="Lightning invoice QR code" width="240" height="240">
+                        <textarea id="gift-invoice" readonly></textarea>
+                        <button type="button" class="button" id="gift-invoice-copy">{$copy_invoice}</button>
+                        <p id="gift-status"></p>
+                    </div>
+
+                    <div id="gift-out-wrap" style="display:none">
+                        <label for="gift-out">{$gift_label}</label>
+                        <textarea id="gift-out" readonly></textarea>
+                        <button type="button" class="button" id="gift-out-copy">{$copy_gift}</button>
+                    </div>
+                </div>
+                </div>
+
+                <div class="tab-panel" data-tab="claim">
+                <div class="panel">
+                    <label for="claim-input">{$claim_label}</label>
+                    <textarea id="claim-input" rows="3" placeholder="{$claim_ph}"></textarea>
+                    <p class="hint">A claim link, the gift code, or the raw gift all work here.</p>
+
+                    <label for="claim-key">{$claim_key_label}</label>
+                    <input type="password" id="claim-key" placeholder="{$claim_key_ph}" autocomplete="off">
+                    <p class="hint">Only needed if the gift is locked to your nostr key, or to fetch gifts from relays. For a NIP-61 gift, use your Nostr extension instead and nothing is typed. Anything entered here empties once read, and is forgotten when you leave the page.</p>
+
+                    <button type="button" class="button" id="claim-nip07">{$nip07_button}</button>
+                    <button type="button" class="button spaced" id="claim-button">{$claim_button}</button>
+                    <button type="button" class="button spaced" id="claim-inbox">{$inbox_button}</button>
+
+                    <div id="claim-inbox-output" class="info"></div>
+                    <div id="claim-info" class="info"></div>
+                    <div id="claim-out-wrap" style="display:none">
+                        <label for="claim-out">{$token_label}</label>
+                        <textarea id="claim-out" readonly></textarea>
+                        <button type="button" class="button" id="claim-out-copy">{$copy_token}</button>
+                        <button type="button" class="button spaced" id="claim-out-emoji">{$copy_emoji}</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>{$history_label}</h3>
+                    <p class="hint below">Claimed ecash lives only in your browser until you sweep it into a wallet, so it is kept here in case this page is closed.</p>
+                    <div id="gift-history" class="info"></div>
+                    <button type="button" class="button" id="gift-clear-history">{$clear_history}</button>
+                </div>
+                </div>
+            </div>
+            EOL;
+    }
+
     public function enqueue_scripts(): void
     {
         wp_register_script('nostrly-cashu-redeem', NOSTRLY_URL.'assets/js/nostrly-cashu-redeem.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
@@ -1274,6 +1825,8 @@ class NostrlyTools
         wp_register_script('nostrly-cashu-witness', NOSTRLY_URL.'assets/js/nostrly-cashu-witness.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-cache', NOSTRLY_URL.'assets/js/nostrly-cashu-cache.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-cashu-gather', NOSTRLY_URL.'assets/js/nostrly-cashu-gather.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-request', NOSTRLY_URL.'assets/js/nostrly-cashu-request.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
+        wp_register_script('nostrly-cashu-gift', NOSTRLY_URL.'assets/js/nostrly-cashu-gift.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('nostrly-tools', NOSTRLY_URL.'assets/js/nostrly-tools.min.js', ['nostrly-vendor'], NOSTRLY_VERSION, false); // NB: head
         wp_register_script('confetti', 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js', [], NOSTRLY_VERSION, false); // NB: head
         wp_enqueue_script('window-nostr', 'https://unpkg.com/window.nostr.js/dist/window.nostr.js', [], 'latest', true);

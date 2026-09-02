@@ -13,6 +13,8 @@ export default {
     "nostrly-cashu-redeem": "./src/js/nostrly-cashu-redeem.ts",
     "nostrly-cashu-lock": "./src/js/nostrly-cashu-lock.ts",
     "nostrly-cashu-witness": "./src/js/nostrly-cashu-witness.ts",
+    "nostrly-cashu-request": "./src/js/nostrly-cashu-request.ts",
+    "nostrly-cashu-gift": "./src/js/nostrly-cashu-gift.ts",
     "nostrly-cashu-cache": "./src/js/nostrly-cashu-cache.ts",
     "nostrly-cashu-gather": "./src/js/nostrly-cashu-gather.ts",
   },

@@ -8,6 +8,7 @@ import {
   generateSecretKey,
   getPublicKey,
   nip04,
+  nip17,
   nip19,
 } from "nostr-tools";
 import { EncryptedDirectMessage } from "nostr-tools/kinds";
@@ -108,6 +109,153 @@ export const sendViaNostr = async (
   const signedEvent = finalizeEvent(event, sk);
   await Promise.any(pool.publish(relays, signedEvent));
 };
+
+/**
+ * The relays a recipient reads direct messages on (NIP-17 kind 10050).
+ *
+ * @remarks
+ * A DM published anywhere else is a message their client never looks for. Falls
+ * back to their general relay list (NIP-65) and then to ours, since delivering
+ * somewhere plausible beats not delivering at all.
+ *
+ * @param {string}   hexOrNpub recipient
+ * @param {string[]} relays    relays to run the lookup on
+ */
+export const getDmRelays = async (
+  hexOrNpub: string,
+  relays?: string[],
+): Promise<string[]> => {
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
+  try {
+    const event = await Promise.race([
+      pool.get(relays, { kinds: [10050], authors: [hexpub] }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+    ]);
+    const dmRelays = (event?.tags ?? [])
+      .filter(
+        (tag) =>
+          tag[0] === "relay" &&
+          typeof tag[1] === "string" &&
+          tag[1].trim() !== "",
+      )
+      .map((tag) => tag[1].trim());
+    if (dmRelays.length) return dmRelays;
+  } catch (e) {
+    console.error("getDmRelays", e);
+  }
+  // getUserRelays runs its own unbounded relay query, so bound it here too
+  const general = await Promise.race([
+    getUserRelays(hexpub, relays),
+    new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 3000)),
+  ]);
+  return general.length ? general : relays;
+};
+
+/**
+ * Sends a NIP-17 direct message from a throwaway key, so the sender stays
+ * anonymous while the message stays sealed to the recipient.
+ *
+ * @param {string}   message to send
+ * @param {string}   toPub   Hex pubkey to send to
+ * @param {string[]} relays  array of relays to publish to
+ */
+export const sendNip17Dm = async (
+  message: string,
+  toPub: string,
+  relays: string[],
+): Promise<string[]> => {
+  toPub = toPub || NOSTRLY_PUBKEY; // Fallback
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  // Their DM relays first: a sealed message on relays they never read is lost
+  const dmRelays = await getDmRelays(toPub, relays);
+  const targets = [...new Set([...dmRelays, ...relays])];
+  const sk = generateSecretKey();
+  const wrapped = nip17.wrapEvent(sk, { publicKey: toPub }, message);
+  const results = await Promise.allSettled(pool.publish(targets, wrapped));
+  const delivered = targets.filter(
+    (_, i) => results[i]?.status === "fulfilled",
+  );
+  if (!delivered.length) {
+    throw new Error("No relay accepted the message");
+  }
+  return delivered;
+};
+
+/**
+ * Fetches NIP-17 direct messages addressed to a key, newest first.
+ *
+ * @remarks
+ * Only the gift wrap is queryable: its `p` tag names the recipient, while the
+ * sender and content stay sealed until unwrapped with the recipient's key.
+ * Wraps that do not unwrap are simply not ours, so they are skipped quietly.
+ *
+ * @param {Uint8Array} privkey recipient's secret key, used only to unwrap
+ * @param {string[]}   relays  array of relays to query
+ * @param {number}     limit   maximum wraps to request per relay
+ */
+export async function fetchNip17Dms(
+  privkey: Uint8Array,
+  relays: string[],
+  limit: number = 40,
+  sinceDays: number = 60,
+): Promise<Array<{ id: string; content: string; created_at: number }>> {
+  relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
+  const hexpub = getPublicKey(privkey);
+  // Read where senders are told to write, or we would look everywhere except
+  // the relays our own DM relay list points at
+  const dmRelays = await getDmRelays(hexpub, relays);
+  relays = [...new Set([...dmRelays, ...relays])];
+  // Bound the haul: some relays are aggregators, and every wrap costs a trial
+  // decryption whether or not it turns out to be ours
+  const filter: Filter = {
+    kinds: [1059],
+    "#p": [hexpub],
+    limit,
+    since: Math.floor(Date.now() / 1000) - sinceDays * 86400,
+  };
+  const wraps: Event[] = await new Promise((resolve) => {
+    const events: Event[] = [];
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try {
+        sub.close();
+      } catch {
+        // already closed
+      }
+      resolve(events);
+    };
+    const timer = setTimeout(finish, 8000);
+    const sub = pool.subscribeManyEose(relays, filter, {
+      onevent: (event: Event) => events.push(event),
+      onclose: finish,
+    });
+  });
+  const messages: Array<{ id: string; content: string; created_at: number }> =
+    [];
+  // Unwrapping is secp256k1 work per wrap, so yield between batches: a hundred
+  // of them back to back freezes the page rather than merely taking a moment
+  const batch = 10;
+  for (let i = 0; i < wraps.length; i += batch) {
+    for (const wrap of wraps.slice(i, i + batch)) {
+      try {
+        const rumor = nip17.unwrapEvent(wrap, privkey);
+        messages.push({
+          id: wrap.id,
+          content: rumor.content,
+          created_at: rumor.created_at,
+        });
+      } catch {
+        // Not addressed to this key, or not a NIP-17 wrap
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return messages.sort((a, b) => b.created_at - a.created_at);
+}
 
 /**
  * Sends a NutZap anonymously via Nostr

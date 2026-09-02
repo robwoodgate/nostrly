@@ -1,5 +1,6 @@
 // Imports
 import {
+  auditableLockKey,
   computeMessageDigest,
   taggedHash,
   getEncodedToken,
@@ -497,13 +498,30 @@ jQuery(function ($) {
 
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
     html += `<div><strong>Nutroot Token:</strong> the token secret is itself a public key, with any conditions hidden inside it, taproot-style. The mint cannot see the details below unless they are used.</div>`;
+
+    // An auditable lock is the one shape a stranger can fully check: the whole
+    // claim is verified here, so say who it names rather than leaving it implied
+    const auditKey = auditableLockKey(proof);
+    if (auditKey) {
+      const npub = convertP2PKToNpub(auditKey);
+      const keyId = `audit-${npub}`;
+      html += `<strong>Auditable Lock:</strong><ul>`;
+      html += `<li class="signed"><span class="status-icon"></span><span>Verified: no key path exists, so <span id="${keyId}">${auditKey.slice(0, 12)}...${auditKey.slice(-12)}</span> and nobody else can claim this.</span></li>`;
+      html += `<li>Anyone holding this token can check that, no keys and no mint needed.</li>`;
+      html += `</ul>`;
+      updateContactName(keyId, npub);
+    }
+
     html += `<strong>Key Path:</strong><ul>`;
     html += `<li>Locked to&nbsp;<span style="font-family:monospace">${proof.secret.slice(0, 12)}...${proof.secret.slice(-12)}</span></li>`;
     const keyPathText =
       keyPath.kind === "receiver-keyed" && spend.keyPath
         ? "A blinded recipient key: your key unlocks it."
         : keyPath.text;
-    html += `<li class="${spend.keyPath ? "signed" : "pending"}"><span class="status-icon"></span>${keyPathText}</li>`;
+    const keyPathByDesign = keyPath.kind === "script-only";
+    html += keyPathByDesign
+      ? `<li>${keyPathText}</li>`
+      : `<li class="${spend.keyPath ? "signed" : "pending"}"><span class="status-icon"></span>${keyPathText}</li>`;
     html += `</ul>`;
 
     if (spend.script.length) {

@@ -1,0 +1,121 @@
+# Roadmap
+
+Nutroot (v3 keyset) capabilities worth showcasing in Nostrly, roughly in the
+order they earn their keep. Nostrly is where the lock formats get seen, so the
+bar for each entry is "does a person understand nutroot better after using it".
+
+Status key: **shipped**, **next**, **later**, **not yet**.
+
+## Shipped
+
+- **Auditable locks.** NutLock builds the canonical public single-key lock: a
+  NUMS internal key with one unblinded 1-of-1 leaf, so anyone can verify who
+  can spend without holding a key.
+- **Condition trees.** NutLock stacks leaves (threshold plus refund-after), and
+  Witness x-rays every leaf with a per-leaf "can your key satisfy this" verdict.
+- **P2BK receiver-keyed sends.** Unique secret per output derived from a static
+  recipient key, so the recipient's key never appears on the wire.
+- **Spend evidence (NUT-07).** Witness verifies a disclosure spend end to end
+  in the browser: commitment opens, signatures verify against the input digest,
+  preimage matches its hashlock, and the exercised leaf matches the token's own
+  disclosed tree.
+- **Auditable locks are named, not just parsed.** Witness recognises the
+  canonical shape and says who can claim it, verified from the proof alone.
+- **Payment requests (NUT-18 / NUT-26).** Cashu Request composes a request that
+  asks for receiver-keyed outputs under an optional condition, reads one back
+  in plain English, and pays one: the payer reproduces the requested tree and
+  derives a fresh secret for the payee.
+- **Delivery over nostr.** A request can name an npub, and paying one seals the
+  payload into a NIP-17 message the payee collects in their browser. This is
+  load-bearing rather than convenient: a derived secret cannot be found by
+  scanning the mint, so the payee needs the token itself.
+- **Gifting a locked mint quote.** Cashu Gift pays an invoice for a quote
+  locked to someone else's key, which only they can mint. The cardless ATM
+  without the bearer quote id that made it a theft vector.
+
+## Next
+
+- **Reclaimable gifts.** A quote lock can carry a tree like any secret, so an
+  unclaimed gift could return to the giver after a locktime via the script
+  path. Cashu Gift locks to a bare key today, and cashu-ts would need to accept
+  a nutroot quote lock and sign one by script path.
+
+- **NIP-07 for claims.** Claiming a gift and reading the inbox both want a
+  private key in the page. A gift locked to someone's nostr key could instead
+  be claimed through their extension, which is the safer habit to teach.
+
+- **Richer requested trees.** Compose currently offers one backup-after leaf.
+  Co-signers (a 2-of-2 escrow) and hashlocks are the same machinery with more
+  form fields, once there is a use case worth the UI.
+
+- **Disclosure as an option, not just a lock type.** `disclosure` currently
+  rides along with auditable locks only. Any leaf can carry it, so expose it as
+  a choice: "make the claim publicly verifiable". Blocked on a small cashu-ts
+  addition first: `LockBuilder` sets the flag only on leaves passed whole to
+  `addLeaf`, so the main and refund leaves it generates internally need a
+  `disclose()` affordance before Nostrly can offer the checkbox.
+
+- **Requests in Redeem.** Paying a request lives in the Request tool for now,
+  next to the request it fulfils. If it earns its keep, Redeem is the natural
+  second home, since that is where people arrive holding a token.
+
+## Later
+
+- **Atomic ecash swaps (hashlock plus disclosure).** Two strangers swap ecash
+  across mints with no trusted party: both sides lock to the same hash, and the
+  first claim publishes its preimage through NUT-07, which the counterparty
+  reads to claim their side. The flashiest thing nutroot can do, and the reason
+  disclosure exists beyond public tips. Needs a hashlock lock type, a preimage
+  watch mode in Witness, and careful timeout handling.
+
+- **Batched and mixed transactions.** One transaction can carry several quote
+  inputs, proofs from different senders, and a melt quote, all atomic. Gather
+  is the natural home: sweep several tokens and pay an invoice in one request.
+
+## Not yet
+
+Doors the spec deliberately leaves open but has not walked through. Building on
+them would advertise something that is not settled:
+
+- **Covenants** (`melt_to` and friends): illustration only in NUT-10, no
+  allocated leaf type.
+- **MuSig2 / FROST**: no interop NUT yet, and nonce handling is the part that
+  loses funds when rushed.
+- **Scripted leaves** (leaf version `0x01`): the extension point exists, the
+  language does not.
+
+## Upstream: what cashu-ts could make easier
+
+Everything below was worked around here rather than fixed at source. Each is a
+small addition, and each removes something awkward from every wallet, not just
+this one.
+
+- **A signer callback for minting.** `mintProofsBolt11(amount, quote, config)`
+  takes `privkey` and signs internally, so a NIP-07 extension or hardware
+  signer cannot sign a locked quote: the key has to be in the page. A
+  `sign?: (digest) => Promise<string>` beside `privkey` would let the browser
+  extension claim a gift locked to someone's nostr key. This is the one that
+  blocks the nicest version of Cashu Gift.
+
+- **Parity-tolerant quote key matching.** `findSigningKey` compares compressed
+  keys exactly, but a key imported from an x-only context (any nostr key) is
+  published as `02 || x` while its secret derives the odd-y twin half the time,
+  so the match fails for half of all users. Trying both parities there, or
+  documenting it loudly on `mintProofs`, would save the next implementer the
+  same afternoon. Note a NIP-61 nutzap key is a real cashu key and must be
+  signed with as-is, so normalizing everything is not the fix.
+
+- **`LockBuilder.disclose()`.** The `disclosure` flag can only be set on leaves
+  passed whole to `addLeaf`; the main and refund leaves the builder generates
+  cannot carry it. Until they can, "make this claim publicly verifiable" cannot
+  be offered as an option on an ordinary lock.
+
+- **Spend receipts.** A spender cannot open their own NUT-07 spend commitment,
+  because nothing surfaces the `(Y, input_digest, witness)` a swap or melt
+  produced. Returning them per input would make "prove I paid this" possible
+  client-side, which is the whole point of the commitment.
+
+- **Why a legacy encoding was dropped.** `PaymentRequestBuilder.lock()` quietly
+  omits `nut10` when the lock blinds its keys, which is correct but invisible:
+  the caller cannot tell a deliberate omission from a bug. A reason on the
+  result would save guessing.
