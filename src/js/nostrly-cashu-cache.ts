@@ -1,10 +1,19 @@
-import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
+import { generateSecretKey, nip19 } from "nostr-tools";
 import { getNut11Mints } from "./nut11";
 import { copyTextToClipboard, debounce, delay } from "./utils";
 import { DEFAULT_RELAYS, pool, getUserRelays, getWalletAndInfo } from "./nostr";
-import { bytesToHex, hexToBytes } from "@cashu/cashu-ts";
+import { bytesToHex, getPubKeyFromPrivKey, hexToBytes } from "@cashu/cashu-ts";
 import toastr from "toastr";
 import { handleCashuDonation } from "./cashu-donate";
+
+/**
+ * The nutzap key in its P2PK form: 33 bytes, parity included.
+ * @remarks NIP-61 names a `p2pk-pubkey` here. Publishing it x-only asserts an
+ * even-Y point the secret may not have, and a nutzap locked to the twin cannot
+ * be spent. The "prefix 02" rule elsewhere in NIP-61 predates this tag.
+ */
+const p2pkPubkey = (sk: Uint8Array): string =>
+  bytesToHex(getPubKeyFromPrivKey(sk));
 
 // DOM ready
 jQuery(function ($) {
@@ -246,13 +255,13 @@ jQuery(function ($) {
       try {
         if (privkeys.length && !$rotateKeys.is(":checked")) {
           sk = hexToBytes(privkeys[0]); // Use existing
-          pk = getPublicKey(sk); // hex string
+          pk = p2pkPubkey(sk);
           console.log("Using existing private key");
         } else throw "New needed";
       } catch (e) {
         console.log("Generating new private key");
         sk = generateSecretKey();
-        pk = getPublicKey(sk); // hex string
+        pk = p2pkPubkey(sk);
         privkeys = [bytesToHex(sk), ...privkeys];
       }
 
@@ -320,11 +329,28 @@ jQuery(function ($) {
         await window.nostr.signEvent(p2pkMetadataEvent);
 
       toastr.info("Publishing your wallet");
-      await Promise.all([
-        pool.publish(relays, signedWalletMetadata),
-        pool.publish(relays, signedWalletBackup),
-        pool.publish(relays, signedP2PKMetadata),
-      ]);
+      // pool.publish gives one promise per relay, so these are flattened:
+      // awaiting the arrays themselves resolves at once and hides a refusal,
+      // leaving a wallet that reads as published but is stored nowhere
+      const events = [
+        signedWalletMetadata,
+        signedWalletBackup,
+        signedP2PKMetadata,
+      ];
+      const results = await Promise.allSettled(
+        events.flatMap((event) => pool.publish(relays, event)),
+      );
+      const refused = relays.filter((_relay, i) =>
+        events.some(
+          (_e, n) => results[n * relays.length + i].status !== "fulfilled",
+        ),
+      );
+      if (refused.length === relays.length) {
+        throw "No relay stored your wallet. Check your relay list and try again.";
+      }
+      if (refused.length) {
+        toastr.warning(`Not stored by: ${refused.join(", ")}`);
+      }
 
       // Display success
       const nsecs = privkeys
