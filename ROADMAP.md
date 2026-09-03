@@ -95,20 +95,16 @@ Everything below was worked around here rather than fixed at source. Each is a
 small addition, and each removes something awkward from every wallet, not just
 this one.
 
-- **A signer callback for minting.** `mintProofsBolt11(amount, quote, config)`
-  takes `privkey` and signs internally, so a NIP-07 extension or hardware
-  signer cannot sign a locked quote: the key has to be in the page. A
-  `sign?: (digest) => Promise<string>` beside `privkey` would let the browser
-  extension claim a gift locked to someone's nostr key. This is the one that
-  blocks the nicest version of Cashu Gift.
+- **A signer callback for minting.** Done on cashu-ts 1005 (pending the next
+  experimental build): `MintProofsConfig.sign` (and `.sign(fn)` on the mint
+  builder) takes the quote digest, and for a v3 quote the tagged message and
+  container, and returns the signature; `CashuNip07.signQuote(nostr)` is the
+  extension-backed one. Cashu Gift claims a gift locked to the extension's own
+  nostr key that way, with NIP-60 wallet keys still covering nutzap locks.
 
-- **Parity-tolerant quote key matching.** `findSigningKey` compares compressed
-  keys exactly, but a key imported from an x-only context (any nostr key) is
-  published as `02 || x` while its secret derives the odd-y twin half the time,
-  so the match fails for half of all users. Trying both parities there, or
-  documenting it loudly on `mintProofs`, would save the next implementer the
-  same afternoon. Note a NIP-61 nutzap key is a real cashu key and must be
-  signed with as-is, so normalizing everything is not the fix.
+- **Parity-tolerant quote key matching.** Fixed at source: `findSigningKey`
+  matches on x and returns the scalar for the published parity (PR to cashu-ts
+  main). The gift tool's own both-parities workaround can go once that ships.
 
 - **`LockBuilder.disclose()`.** The `disclosure` flag can only be set on leaves
   passed whole to `addLeaf`; the main and refund leaves the builder generates

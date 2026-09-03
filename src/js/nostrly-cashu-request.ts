@@ -455,7 +455,7 @@ jQuery(function ($) {
   ): Promise<{ spendable: boolean; reason?: string }> {
     const wallet = new Wallet(payload.mint, { unit: payload.unit });
     for (const proof of payload.proofs) {
-      const spend = await wallet.spendOptions(proof, { privkeys });
+      const spend = wallet.spendOptions(proof, { privkeys });
       if (spend.spendable) continue;
       const when = spend.availableAt
         ? new Date(spend.availableAt * 1000).toLocaleString()

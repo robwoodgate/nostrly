@@ -7,7 +7,9 @@ import {
   getEncodedToken,
   hexToBytes,
   isUnknownQuote,
+  CashuNip07,
   normalizeXOnlySecretKey,
+  type MintProofsConfig,
   type MintQuoteBolt11Response,
 } from "@cashu/cashu-ts";
 import { getPublicKey, nip19 } from "nostr-tools";
@@ -336,10 +338,14 @@ jQuery(function ($) {
   }
 
   // Neither action can do anything without a key, so they wait for one rather
-  // than offering themselves and then failing
+  // than offering themselves and then failing. An extension counts as a key for
+  // claiming: it can sign for a gift locked to its own nostr key.
   function syncKeyButtons(): void {
     const typed = !!($claimKey.val() as string)?.trim();
-    $claimButton.prop("disabled", !typed && !claimKeys.length);
+    $claimButton.prop(
+      "disabled",
+      !typed && !claimKeys.length && !hasExtensionSigner(),
+    );
     // Only the recipient's own nostr key unwraps their messages, so the
     // extension's wallet keys do not enable this one
     $inboxButton.prop("disabled", !typed && !inboxKey);
@@ -360,15 +366,39 @@ jQuery(function ($) {
     return true;
   }
 
-  // Keys for minting: whatever was typed, plus anything the extension unlocked
+  // Keys for minting: whatever was typed, plus anything the extension unlocked.
+  // Empty is allowed when an extension can sign instead (see extensionSignerFor).
   function keysForClaim(): string[] {
     readKeyField();
-    if (!claimKeys.length) {
+    if (!claimKeys.length && !hasExtensionSigner()) {
       throw new Error(
         "Add the key this gift is locked to, or unlock your nostr wallet",
       );
     }
     return claimKeys;
+  }
+
+  function hasExtensionSigner(): boolean {
+    return !!window.nostr && CashuNip07.canSign(window.nostr);
+  }
+
+  // A gift locked to the extension's own nostr key is claimed by asking the
+  // extension to sign the quote, so the identity key never enters the page.
+  // Held keys win when one of them matches; the extension covers the rest.
+  async function extensionSignerFor(
+    quotePubkey: string | undefined,
+    privkeys: string[],
+  ): Promise<MintProofsConfig["sign"] | undefined> {
+    if (!quotePubkey || !window.nostr || !hasExtensionSigner())
+      return undefined;
+    const x = quotePubkey.slice(-64).toLowerCase();
+    const held = privkeys.some(
+      (k) => getPublicKey(hexToBytes(k)).toLowerCase() === x,
+    );
+    if (held) return undefined;
+    const extension = await CashuNip07.pubkey(window.nostr);
+    if (extension.slice(-64).toLowerCase() !== x) return undefined;
+    return CashuNip07.signQuote(window.nostr);
   }
 
   // The extension will not hand over its identity key, but it will decrypt the
@@ -456,9 +486,13 @@ jQuery(function ($) {
     if (quote.state !== MintQuoteState.PAID) {
       throw new Error("This gift is not paid yet, so there is nothing to mint");
     }
-    const proofs = await w.mintProofsBolt11(gift.amount, quote, {
-      privkey: privkeys,
-    });
+    const sign = await extensionSignerFor(quote.pubkey, privkeys);
+    if (sign) toastr.info("Asking your extension to sign for the gift...");
+    const proofs = await w.mintProofsBolt11(
+      gift.amount,
+      quote,
+      sign ? { sign } : { privkey: privkeys },
+    );
     return {
       proofs,
       token: getEncodedToken({ mint: gift.mint, unit, proofs }),
