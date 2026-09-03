@@ -2,13 +2,20 @@
 import {
   LockBuilder,
   PaymentRequest,
+  Wallet,
+  bytesToHex,
   decodePaymentRequest,
   getEncodedToken,
+  getP2PKExpectedWitnessPubkeys,
+  getPubKeyFromPrivKey,
   getTokenMetadata,
   hexToBytes,
+  isBlsKeyset,
+  isV3PointSecret,
   parseNutrootLeafHex,
   PaymentRequestTransportType,
   type NutrootLeaf,
+  type PaymentRequestPayload,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
 import { decode as emojiDecode } from "./emoji-encoder";
@@ -58,6 +65,8 @@ jQuery(function ($) {
   const $inspectOut = $("#inspect-output");
   const $nostr = $("#req-nostr");
   const $inbox = $("#inbox-key");
+  const $inboxCashu = $("#inbox-cashu-key");
+  const $inboxRequest = $("#inbox-request");
   const $inboxButton = $("#inbox-check");
   const $inboxOut = $("#inbox-output");
   const $payWrap = $("#pay-wrap");
@@ -439,6 +448,78 @@ jQuery(function ($) {
     }
   }
 
+  // Can the collector actually spend what arrived? A payment delivered over nostr
+  // cannot be handed back, and in the case that matters nothing was handed over:
+  // proofs derived to the payer's own key look like a payment until you try to
+  // spend them. So this gates the belief, not the custody. Offline: spendOptions
+  // reads the proofs and the keys held, never the mint.
+  async function assessPayment(
+    payload: PaymentRequestPayload,
+    privkeys: string[],
+  ): Promise<{ spendable: boolean; reason?: string }> {
+    const wallet = new Wallet(payload.mint, { unit: payload.unit });
+    const pubkeys = new Set<string>();
+    for (const key of privkeys) {
+      const pub = bytesToHex(getPubKeyFromPrivKey(hexToBytes(key)));
+      // An x-only import holds the other parity: same point, other prefix byte.
+      pubkeys.add(pub);
+      pubkeys.add((pub.startsWith("02") ? "03" : "02") + pub.slice(2));
+    }
+    for (const proof of payload.proofs) {
+      if (isBlsKeyset(proof.id) && isV3PointSecret(proof.secret)) {
+        const spend = await wallet.spendOptions(proof, { privkeys });
+        if (spend.keyPath || spend.script.some((o) => o.satisfiable)) continue;
+        const waiting = spend.script.find((o) => o.blockedBy === "locktime");
+        return {
+          spendable: false,
+          reason: waiting?.availableAt
+            ? `one of its conditions does not unlock until ${new Date(waiting.availableAt * 1000).toLocaleString()}`
+            : "it is derived from a key you did not give, so only its owner can spend it",
+        };
+      }
+      let expected: string[];
+      try {
+        expected = getP2PKExpectedWitnessPubkeys(proof.secret);
+      } catch {
+        continue; // not a NUT-10 secret: an unlocked bearer proof anyone can spend
+      }
+      if (expected.length && !expected.some((k) => pubkeys.has(k))) {
+        return {
+          spendable: false,
+          reason: "it is locked to a key you did not give",
+        };
+      }
+    }
+    return { spendable: true };
+  }
+
+  // The settlement half: does this payment net what the request asked, under the
+  // lock it asked for? Unlike the spendability check this one needs the mint's
+  // fee schedule, so it dials the mint the payer named.
+  async function checkAgainstRequest(
+    payload: PaymentRequestPayload,
+    pr: PaymentRequest,
+    privkey: string,
+  ): Promise<string | undefined> {
+    if (payload.id && pr.id && payload.id !== pr.id) {
+      return "sent for a different request";
+    }
+    if (!pr.amount) return undefined; // amountless: only you know what was due
+    if (pr.isMintListStrict && !pr.includesMint(payload.mint)) {
+      return "paid from a mint your request does not accept";
+    }
+    try {
+      const wallet = await getWalletWithUnit(payload.mint, payload.unit);
+      return wallet.isPaymentRequestSatisfied(pr, payload.proofs, undefined, {
+        privkeys: privkey,
+      })
+        ? undefined
+        : "short of the amount you asked for, once input fees are counted";
+    } catch (e) {
+      return getErrorMessage(e, "does not match what you asked for");
+    }
+  }
+
   // Inbox: NIP-17 messages carrying a payment for this key. The wraps are
   // public but sealed, so the key never leaves the browser and only unwraps.
   async function checkInbox() {
@@ -463,6 +544,40 @@ jQuery(function ($) {
       toastr.error("That is not a valid nsec or hex private key");
       return;
     }
+    // The nostr key unwraps the message; the cashu key is what the proofs were
+    // derived to. The request form takes them separately, so they need not match.
+    const cashuRaw = ($inboxCashu.val() as string)?.trim();
+    let cashuKey: string;
+    try {
+      cashuKey = cashuRaw
+        ? bytesToHex(
+            cashuRaw.startsWith("nsec")
+              ? (nip19.decode(cashuRaw).data as Uint8Array)
+              : hexToBytes(cashuRaw),
+          )
+        : bytesToHex(privkey);
+      if (cashuKey.length !== 64) throw new Error("bad key");
+      $inboxCashu.attr("data-valid", "");
+      $inboxCashu.val("");
+    } catch {
+      $inboxCashu.attr("data-valid", "no");
+      toastr.error("That is not a valid nsec or hex private key");
+      return;
+    }
+    // Optional: the request these payments answer. Without it the panel can still
+    // say whether proofs are spendable, but not whether they are the right amount.
+    const requestRaw = ($inboxRequest.val() as string)?.trim();
+    let request: PaymentRequest | undefined;
+    if (requestRaw) {
+      try {
+        request = decodePaymentRequest(requestRaw);
+        $inboxRequest.attr("data-valid", "");
+      } catch {
+        $inboxRequest.attr("data-valid", "no");
+        toastr.error("That is not a payment request");
+        return;
+      }
+    }
     $inboxButton.prop("disabled", true);
     $inboxOut.hide().empty();
     try {
@@ -484,16 +599,35 @@ jQuery(function ($) {
           );
         return;
       }
-      let html = `<strong>Payments delivered to you:</strong><ul>`;
+      let html = `<strong>Messages carrying proofs, delivered to you:</strong><ul>`;
+      let spendableCount = 0;
       for (const { payload, created_at } of payments) {
         const amount = getTokenAmount(payload.proofs);
+        const when = new Date(created_at * 1000).toLocaleString();
+        const memo = payload.memo ? `: ${esc(payload.memo)}` : "";
+        const line = `${esc(formatAmount(amount, payload.unit))} from ${esc(payload.mint)}, ${esc(when)}${memo}`;
+        const verdict = await assessPayment(payload, [cashuKey]);
+        if (!verdict.spendable) {
+          // Not a payment: nothing was transferred, so there is nothing to hand
+          // back and nothing to credit. Saying so is the whole job of this panel.
+          html += `<li class="unsigned"><span class="status-icon"></span><span>${line}<br><strong>Not a payment you can spend</strong>: ${esc(verdict.reason ?? "")}. Do not treat this as paid.</span></li>`;
+          continue;
+        }
+        const mismatch = request
+          ? await checkAgainstRequest(payload, request, cashuKey)
+          : undefined;
+        if (mismatch) {
+          html += `<li class="unsigned"><span class="status-icon"></span><span>${line}<br><strong>Spendable, but not settlement</strong>: ${esc(mismatch)}.</span></li>`;
+          continue;
+        }
+        spendableCount++;
         const token = getEncodedToken({
           mint: payload.mint,
           unit: payload.unit,
           proofs: payload.proofs,
         });
         const id = `inbox-${Math.random().toString(36).slice(2, 8)}`;
-        html += `<li class="signed"><span class="status-icon"></span><span>${esc(formatAmount(amount, payload.unit))} from ${esc(payload.mint)}, ${esc(new Date(created_at * 1000).toLocaleString())}${payload.memo ? `: ${esc(payload.memo)}` : ""} <button type="button" class="button" id="${id}">Copy token</button></span></li>`;
+        html += `<li class="signed"><span class="status-icon"></span><span>${line} <button type="button" class="button copy-token" id="${id}">Copy token</button></span></li>`;
         // The token only ever lives in this closure; the button hands it over
         setTimeout(() => {
           $(`#${id}`).on("click", () => {
@@ -503,10 +637,21 @@ jQuery(function ($) {
         }, 0);
       }
       html += `</ul>`;
+      const rejected = payments.length - spendableCount;
+      if (rejected) {
+        html += `<p>A payer chooses which key the proofs are derived to, and only your key can tell its own derivation from someone else's. That is why ${rejected === 1 ? "one entry above is" : `${rejected} entries above are`} not counted as payment. Such proofs can be live and unspent at the mint and still not be yours: nothing was transferred, so there is nothing to hand back and nothing to credit.</p>`;
+      }
+      if (!request) {
+        html += `<p>Paste the request you created to also check each payment is the amount you asked for. Without it this panel only reports what you can spend.</p>`;
+      }
       $inboxOut.show().html(html);
-      toastr.success(
-        `Found ${payments.length} payment${payments.length > 1 ? "s" : ""}`,
-      );
+      if (!spendableCount) {
+        toastr.warning("No spendable payments found");
+      } else {
+        toastr.success(
+          `Found ${spendableCount} payment${spendableCount > 1 ? "s" : ""} you can spend`,
+        );
+      }
     } catch (e) {
       console.error("checkInbox error:", e);
       toastr.error(getErrorMessage(e, "Could not check for payments"));

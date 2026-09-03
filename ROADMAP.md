@@ -124,3 +124,23 @@ this one.
   omits `nut10` when the lock blinds its keys, which is correct but invisible:
   the caller cannot tell a deliberate omission from a bug. A reason on the
   result would save guessing.
+
+- **One spendability check across both lock families.** `Wallet.spendOptions`
+  throws on anything that is not a v3 point secret, so a wallet triaging
+  received proofs has to know the whole decision tree itself: test
+  `isBlsKeyset(id) && isV3PointSecret(secret)` first, fall back to
+  `getP2PKExpectedWitnessPubkeys` for a legacy lock, and treat a parse failure
+  as an unlocked bearer proof anyone can spend. That tree is library knowledge,
+  and every wallet that receives mixed proofs needs the identical copy of it.
+  The Cashu Request collect tab has one, and writing it meant reimplementing the
+  NUT-28 parity flip (`02` against `03` on a derived pubkey) to compare with
+  NUT-11 witness keys, which `recoverLeafKeySecretKeys` already does correctly
+  inside the library. It also leans on `new Wallet(url)` being safe with no
+  `loadMint()`, true because `spendOptions` is offline for a seedless wallet,
+  but only discoverable by reading `_nutrootState()`. Letting `spendOptions`
+  accept any proof and return a machine-readable reason when nothing can spend
+  it (`not-keyed-to-you`, `locktime`, `threshold`, `preimage`), wording left to
+  the caller, would remove all of that. It would also plug two gaps inside
+  cashu-ts: `planScriptPaths` silently skips non-v3 proofs, and
+  `isPaymentRequestSatisfied` grew its own separate legacy comparison that this
+  would subsume.

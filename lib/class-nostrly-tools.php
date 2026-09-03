@@ -1306,6 +1306,10 @@ class NostrlyTools
         $delivered = esc_html__('Delivered to the payee over nostr. They collect it from the Collect tab.', 'nostrly');
         $inbox_label = esc_attr__('Collect payments sent to you', 'nostrly');
         $inbox_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
+        $inbox_cashu_label = esc_attr__('Your Cashu key, if it is not the one above', 'nostrly');
+        $inbox_cashu_ph = esc_attr__('nsec1... or hex private key', 'nostrly');
+        $inbox_request_label = esc_attr__('The request these payments answer (optional)', 'nostrly');
+        $inbox_request_ph = esc_attr__('creqB...', 'nostrly');
         $inbox_button = esc_html__('Check for Payments', 'nostrly');
         $pay_token_label = esc_attr__('Pay it with a Cashu token (or emoji 🥜)', 'nostrly');
         $pay_token_ph = esc_attr__('Paste an unlocked token to pay with...', 'nostrly');
@@ -1400,9 +1404,33 @@ class NostrlyTools
                     margin-bottom: 0.25rem;
                     font-family: monospace;
                 }
-                #cashu-request .info li.signed {
+                #cashu-request .info li.signed,
+                #cashu-request .info li.unsigned {
                     display: flex;
+                    margin-bottom: 0.5rem;
+                }
+                /* A spendable row is one line beside a taller button, so centre its dot
+                   against the row; an unspendable row wraps, so pin the dot to line one. */
+                #cashu-request .info li.signed {
                     align-items: center;
+                }
+                #cashu-request .info li.unsigned {
+                    align-items: flex-start;
+                }
+                #cashu-request .info li.unsigned .status-icon {
+                    margin-top: 0.4rem;
+                    background-color: #f00;
+                }
+                #cashu-request .info li .button {
+                    margin-bottom: 0;
+                    margin-left: 0.35rem;
+                    padding: 0 0.5rem;
+                    font-size: 0.8rem;
+                }
+                #cashu-request .info li .button.copy-token {
+                    border-radius: 6px;
+                    background-color: #FF9900;
+                    color: #000;
                 }
                 #cashu-request .status-icon {
                     width: 10px;
@@ -1531,6 +1559,15 @@ class NostrlyTools
                     <label for="inbox-key">{$inbox_label}</label>
                     <input type="password" id="inbox-key" placeholder="{$inbox_ph}" autocomplete="off">
                     <p class="hint">Your key stays in this browser, is only used to unwrap messages addressed to you, and empties once read. Relays hold sealed messages for a limited time, so collect payments promptly.</p>
+
+                    <label for="inbox-cashu-key">{$inbox_cashu_label}</label>
+                    <input type="password" id="inbox-cashu-key" placeholder="{$inbox_cashu_ph}" autocomplete="off">
+                    <p class="hint">A payer picks which key the proofs are derived to, and only that key can tell its own derivation from someone else's. Without it this panel cannot tell a payment from a message that merely looks like one. Leave empty if you requested to the same key you collect with.</p>
+
+                    <label for="inbox-request">{$inbox_request_label}</label>
+                    <input type="text" id="inbox-request" placeholder="{$inbox_request_ph}">
+                    <p class="hint">Paste it to also check each payment is the amount you asked for, net of the fees it will cost to swap.</p>
+
                     <button type="button" class="button" id="inbox-check">{$inbox_button}</button>
                     <div id="inbox-output" class="info" style="display:none"></div>
                 </div>
