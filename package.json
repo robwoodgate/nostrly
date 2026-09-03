@@ -5,7 +5,7 @@
   "main": "index.js",
   "author": "robwoodgate",
   "dependencies": {
-    "@cashu/cashu-ts": "^5.0.0-experimental.9e024cb2",
+    "@cashu/cashu-ts": "5.0.0-experimental.e3dcfa01f",
     "@gandlaf21/bolt11-decode": "^3.1.1",
     "canvas-confetti": "^1.9.3",
     "nostr-tools": "2.24.3",
