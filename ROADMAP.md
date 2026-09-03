@@ -125,22 +125,14 @@ this one.
   the caller cannot tell a deliberate omission from a bug. A reason on the
   result would save guessing.
 
-- **One spendability check across both lock families.** `Wallet.spendOptions`
-  throws on anything that is not a v3 point secret, so a wallet triaging
-  received proofs has to know the whole decision tree itself: test
-  `isBlsKeyset(id) && isV3PointSecret(secret)` first, fall back to
-  `getP2PKExpectedWitnessPubkeys` for a legacy lock, and treat a parse failure
-  as an unlocked bearer proof anyone can spend. That tree is library knowledge,
-  and every wallet that receives mixed proofs needs the identical copy of it.
-  The Cashu Request collect tab has one, and writing it meant reimplementing the
-  NUT-28 parity flip (`02` against `03` on a derived pubkey) to compare with
-  NUT-11 witness keys, which `recoverLeafKeySecretKeys` already does correctly
-  inside the library. It also leans on `new Wallet(url)` being safe with no
-  `loadMint()`, true because `spendOptions` is offline for a seedless wallet,
-  but only discoverable by reading `_nutrootState()`. Letting `spendOptions`
-  accept any proof and return a machine-readable reason when nothing can spend
-  it (`not-keyed-to-you`, `locktime`, `threshold`, `preimage`), wording left to
-  the caller, would remove all of that. It would also plug two gaps inside
-  cashu-ts: `planScriptPaths` silently skips non-v3 proofs, and
-  `isPaymentRequestSatisfied` grew its own separate legacy comparison that this
-  would subsume.
+- **One spendability check across both lock families.** Done on cashu-ts 950
+  (pending the next experimental build): `Wallet.spendOptions` now accepts any
+  proof and answers `spendable` plus a machine-readable `blockedBy`
+  (`not-keyed-to-you`, `locktime`, `threshold`, `preimage`), wording left to the
+  caller. A NUT-11 lock reads as the same leaf shape as a nutroot tree, matched
+  across key parity and through `p2pk_e`, so the decision tree in the Cashu
+  Request collect tab (`isBlsKeyset` gate, `getP2PKExpectedWitnessPubkeys`
+  fallback, hand-rolled parity flip) can collapse to one call once the pin moves.
+  `isPaymentRequestSatisfied` keeps its own legacy comparison on purpose: it
+  checks lock identity (exactly the condition requested), which is stronger than
+  spendability and is what settlement needs.

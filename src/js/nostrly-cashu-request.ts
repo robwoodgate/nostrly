@@ -6,12 +6,8 @@ import {
   bytesToHex,
   decodePaymentRequest,
   getEncodedToken,
-  getP2PKExpectedWitnessPubkeys,
-  getPubKeyFromPrivKey,
   getTokenMetadata,
   hexToBytes,
-  isBlsKeyset,
-  isV3PointSecret,
   parseNutrootLeafHex,
   PaymentRequestTransportType,
   type NutrootLeaf,
@@ -300,7 +296,7 @@ jQuery(function ($) {
       // Blinding and a pre-v3 fallback are mutually exclusive by construction:
       // NUT-11 names the key verbatim, which is the thing blinding removes
       html += opts.blinded
-        ? `<li>No legacy fallback: a pre-v3 lock has to name your key verbatim, which is exactly what blinding removes. Untick blinding to include one.</li>`
+        ? `<li>No legacy fallback: a pre-v3 request can only name your key verbatim, and you asked for blinding. Untick blinding to include one.</li>`
         : `<li>No legacy fallback: these conditions have no pre-v3 equivalent, so this request is v3 only.</li>`;
     }
     html += "</ul>";
@@ -458,37 +454,23 @@ jQuery(function ($) {
     privkeys: string[],
   ): Promise<{ spendable: boolean; reason?: string }> {
     const wallet = new Wallet(payload.mint, { unit: payload.unit });
-    const pubkeys = new Set<string>();
-    for (const key of privkeys) {
-      const pub = bytesToHex(getPubKeyFromPrivKey(hexToBytes(key)));
-      // An x-only import holds the other parity: same point, other prefix byte.
-      pubkeys.add(pub);
-      pubkeys.add((pub.startsWith("02") ? "03" : "02") + pub.slice(2));
-    }
     for (const proof of payload.proofs) {
-      if (isBlsKeyset(proof.id) && isV3PointSecret(proof.secret)) {
-        const spend = await wallet.spendOptions(proof, { privkeys });
-        if (spend.keyPath || spend.script.some((o) => o.satisfiable)) continue;
-        const waiting = spend.script.find((o) => o.blockedBy === "locktime");
-        return {
-          spendable: false,
-          reason: waiting?.availableAt
-            ? `one of its conditions does not unlock until ${new Date(waiting.availableAt * 1000).toLocaleString()}`
-            : "it is derived from a key you did not give, so only its owner can spend it",
-        };
-      }
-      let expected: string[];
-      try {
-        expected = getP2PKExpectedWitnessPubkeys(proof.secret);
-      } catch {
-        continue; // not a NUT-10 secret: an unlocked bearer proof anyone can spend
-      }
-      if (expected.length && !expected.some((k) => pubkeys.has(k))) {
-        return {
-          spendable: false,
-          reason: "it is locked to a key you did not give",
-        };
-      }
+      const spend = await wallet.spendOptions(proof, { privkeys });
+      if (spend.spendable) continue;
+      const when = spend.availableAt
+        ? new Date(spend.availableAt * 1000).toLocaleString()
+        : "later";
+      const reasons = {
+        "not-keyed-to-you":
+          "it is locked to a key you did not give, so only its owner can spend it",
+        locktime: `one of its conditions does not unlock until ${when}`,
+        threshold: "it needs more signing keys than you gave",
+        preimage: "it needs a preimage you do not hold",
+      };
+      return {
+        spendable: false,
+        reason: reasons[spend.blockedBy ?? "not-keyed-to-you"],
+      };
     }
     return { spendable: true };
   }
@@ -604,20 +586,23 @@ jQuery(function ($) {
       for (const { payload, created_at } of payments) {
         const amount = getTokenAmount(payload.proofs);
         const when = new Date(created_at * 1000).toLocaleString();
-        const memo = payload.memo ? `: ${esc(payload.memo)}` : "";
-        const line = `${esc(formatAmount(amount, payload.unit))} from ${esc(payload.mint)}, ${esc(when)}${memo}`;
+        // The memo is payer text of any length, so it gets its own line under the summary.
+        const memo = payload.memo
+          ? `<br>Memo: <em>${esc(payload.memo)}</em>`
+          : "";
+        const line = `${esc(formatAmount(amount, payload.unit))} from ${esc(payload.mint)}, ${esc(when)}`;
         const verdict = await assessPayment(payload, [cashuKey]);
         if (!verdict.spendable) {
           // Not a payment: nothing was transferred, so there is nothing to hand
           // back and nothing to credit. Saying so is the whole job of this panel.
-          html += `<li class="unsigned"><span class="status-icon"></span><span>${line}<br><strong>Not a payment you can spend</strong>: ${esc(verdict.reason ?? "")}. Do not treat this as paid.</span></li>`;
+          html += `<li class="unsigned"><span class="status-icon"></span><span>${line}${memo}<br><strong>Not a payment you can spend</strong>: ${esc(verdict.reason ?? "")}. Do not treat this as paid.</span></li>`;
           continue;
         }
         const mismatch = request
           ? await checkAgainstRequest(payload, request, cashuKey)
           : undefined;
         if (mismatch) {
-          html += `<li class="unsigned"><span class="status-icon"></span><span>${line}<br><strong>Spendable, but not settlement</strong>: ${esc(mismatch)}.</span></li>`;
+          html += `<li class="unsigned"><span class="status-icon"></span><span>${line}${memo}<br><strong>Spendable, but not settlement</strong>: ${esc(mismatch)}.</span></li>`;
           continue;
         }
         spendableCount++;
@@ -627,7 +612,7 @@ jQuery(function ($) {
           proofs: payload.proofs,
         });
         const id = `inbox-${Math.random().toString(36).slice(2, 8)}`;
-        html += `<li class="signed"><span class="status-icon"></span><span>${line} <button type="button" class="button copy-token" id="${id}">Copy token</button></span></li>`;
+        html += `<li class="signed"><span class="status-icon"></span><span>${line} <button type="button" class="button copy-token" id="${id}">Copy token</button>${memo}</span></li>`;
         // The token only ever lives in this closure; the button hands it over
         setTimeout(() => {
           $(`#${id}`).on("click", () => {
