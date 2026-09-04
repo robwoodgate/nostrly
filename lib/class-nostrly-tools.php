@@ -1293,6 +1293,7 @@ class NostrlyTools
         $after_label = esc_attr__('...can also claim after', 'nostrly');
         $blind_label = esc_html__('Blind my keys, so payments cannot be linked (recommended)', 'nostrly');
         $legacy_label = esc_html__('Include a legacy fallback for wallets that predate v3 keysets', 'nostrly');
+        $disclose_label = esc_html__('Publicly verifiable claims: the mint publishes each spend\'s witness (NUT-07)', 'nostrly');
         $single_label = esc_html__('Single use: this request expects one payment', 'nostrly');
         $output_label = esc_attr__('Your payment request', 'nostrly');
         $copy = esc_html__('Copy Request', 'nostrly');
@@ -1512,6 +1513,7 @@ class NostrlyTools
                     <div class="checks">
                         <div><input type="checkbox" id="req-blind" checked> <label class="inline" for="req-blind">{$blind_label}</label></div>
                         <div><input type="checkbox" id="req-legacy" checked> <label class="inline" for="req-legacy">{$legacy_label}</label></div>
+                        <div><input type="checkbox" id="req-disclose"> <label class="inline" for="req-disclose">{$disclose_label}</label></div>
                         <div><input type="checkbox" id="req-single"> <label class="inline" for="req-single">{$single_label}</label></div>
                     </div>
 

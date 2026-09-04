@@ -110,13 +110,16 @@ export function getNutrootLeaves(proof: Proof): NutrootLeaf[] {
 export function describeNutrootLeaf(leaf: NutrootLeaf): string {
   const m = leaf.keys.length;
   const sigs = `${leaf.n} of ${m} signature${m > 1 ? "s" : ""}`;
+  const disclosed = leaf.disclosure
+    ? ", publicly verifiable (the mint publishes the witness)"
+    : "";
   switch (leaf.type) {
     case "after":
-      return `Timelock: ${sigs} after ${new Date((leaf.time ?? 0) * 1000).toLocaleString().slice(0, -3)}`;
+      return `Timelock: ${sigs} after ${new Date((leaf.time ?? 0) * 1000).toLocaleString().slice(0, -3)}${disclosed}`;
     case "hashlock":
-      return `Hashlock: secret preimage (${leaf.hash?.slice(0, 8)}…) plus ${sigs}`;
+      return `Hashlock: secret preimage (${leaf.hash?.slice(0, 8)}…) plus ${sigs}${disclosed}`;
     default:
-      return `Multisig: ${sigs}`;
+      return `Multisig: ${sigs}${disclosed}`;
   }
 }
 

@@ -1,6 +1,7 @@
 // Imports
 import {
   LockBuilder,
+  NUTROOT_NUMS_KEY,
   PaymentRequest,
   Wallet,
   bytesToHex,
@@ -52,6 +53,7 @@ jQuery(function ($) {
   const $backupAfter = $("#req-backup-after");
   const $blind = $("#req-blind");
   const $legacy = $("#req-legacy");
+  const $disclose = $("#req-disclose");
   const $single = $("#req-single");
   const $output = $("#req-output");
   const $outputWrap = $("#req-output-wrap");
@@ -117,7 +119,8 @@ jQuery(function ($) {
 
   // Builds the request from the form. Returns undefined while the form is
   // incomplete, so typing does not spray errors.
-  function buildRequest(): PaymentRequest | undefined {
+  function buildRequest():
+    { pr: PaymentRequest; omittedNut10?: string } | undefined {
     const unit = (($unit.val() as string) || "sat").trim().toLowerCase();
     const amountRaw = ($amount.val() as string)?.trim();
     const amount = amountRaw ? Number(amountRaw) : 0;
@@ -149,6 +152,7 @@ jQuery(function ($) {
 
     const lock = new LockBuilder().addMainPubkey(payTo);
     if ($blind.is(":checked")) lock.blindKeys();
+    if ($disclose.is(":checked")) lock.disclose();
 
     // A backup leaf is the payee's own second key, claimable after a date: the
     // simplest honest reason for a request to carry a tree at all.
@@ -174,7 +178,7 @@ jQuery(function ($) {
 
     // legacy: nut10 rides alongside for payers that predate v3 keysets
     builder.lock(lock, { legacy: $legacy.is(":checked") });
-    return builder.build();
+    return { pr: builder.build(), omittedNut10: builder.omitted.nut10 };
   }
 
   // The delivery field takes an npub or a full nprofile. An npub carries no
@@ -230,7 +234,7 @@ jQuery(function ($) {
   // One renderer for both panels: what this request asks of a payer
   function renderSummary(
     pr: PaymentRequest,
-    opts?: { legacyWanted?: boolean; blinded?: boolean },
+    opts?: { omittedNut10?: string },
   ): string {
     const unit = pr.unit ?? "sat";
     let html = "<ul>";
@@ -245,16 +249,20 @@ jQuery(function ($) {
 
     const nutroot = pr.toNutrootOptions();
     if (nutroot) {
-      const npub = convertP2PKToNpub(nutroot.receiverKey);
-      const keyId = `req-recv-${Math.random().toString(36).slice(2, 8)}`;
-      html += `<li class="signed"><span class="status-icon"></span><span>Nutroot (v3): outputs derived from <span id="${keyId}">${shortKey(nutroot.receiverKey)}</span>, never locked to it verbatim.</span></li>`;
-      getContactDetails(npub, nostrly_ajax.relays).then(({ name }) => {
-        if (name) {
-          $(`#${keyId}`).replaceWith(
-            `<a href="https://njump.me/${esc(npub)}" target="_blank">${esc(name)}</a>`,
-          );
-        }
-      });
+      if (nutroot.receiverKey === NUTROOT_NUMS_KEY) {
+        html += `<li class="signed"><span class="status-icon"></span><span>Nutroot (v3): script-only. There is no key path, so a payment can only be claimed through the conditions below.</span></li>`;
+      } else {
+        const npub = convertP2PKToNpub(nutroot.receiverKey);
+        const keyId = `req-recv-${Math.random().toString(36).slice(2, 8)}`;
+        html += `<li class="signed"><span class="status-icon"></span><span>Nutroot (v3): outputs derived from <span id="${keyId}">${shortKey(nutroot.receiverKey)}</span>, never locked to it verbatim.</span></li>`;
+        getContactDetails(npub, nostrly_ajax.relays).then(({ name }) => {
+          if (name) {
+            $(`#${keyId}`).replaceWith(
+              `<a href="https://njump.me/${esc(npub)}" target="_blank">${esc(name)}</a>`,
+            );
+          }
+        });
+      }
       const leaves: NutrootLeaf[] = (nutroot.leaves ?? []).map((l) =>
         typeof l === "string" ? parseNutrootLeafHex(l) : l,
       );
@@ -265,7 +273,7 @@ jQuery(function ($) {
         }
         html += `</ul></li>`;
       }
-      html += `<li>Every payment derives its own secret from that key, so two payments to this request cannot be linked.</li>`;
+      html += `<li>Every payment derives its own secret${nutroot.receiverKey === NUTROOT_NUMS_KEY ? "" : " from that key"}, so two payments to this request cannot be linked.</li>`;
       if (leaves.length) {
         const blind = nutroot.blindKeys?.length ?? 0;
         html += `<li>${blind ? `${blind} of the tree's keys are tagged to be blinded too` : "The tree's keys are used verbatim, so they are recognisable on receipt"}.</li>`;
@@ -292,12 +300,9 @@ jQuery(function ($) {
     if (!nutroot && !pr.nut10) {
       html += `<li>No lock: any wallet can pay, and the proofs arrive unlocked.</li>`;
     }
-    if (opts?.legacyWanted && !pr.nut10) {
-      // Blinding and a pre-v3 fallback are mutually exclusive by construction:
-      // NUT-11 names the key verbatim, which is the thing blinding removes
-      html += opts.blinded
-        ? `<li>No legacy fallback: a pre-v3 request can only name your key verbatim, and you asked for blinding. Untick blinding to include one.</li>`
-        : `<li>No legacy fallback: these conditions have no pre-v3 equivalent, so this request is v3 only.</li>`;
+    if (opts?.omittedNut10) {
+      // The builder says why it left the pre-v3 encoding out (eg blinding removes the verbatim key)
+      html += `<li>No legacy fallback: ${esc(opts.omittedNut10)}.</li>`;
     }
     html += "</ul>";
     return html;
@@ -305,9 +310,9 @@ jQuery(function ($) {
 
   // Compose panel
   function refresh() {
-    let pr: PaymentRequest | undefined;
+    let built: ReturnType<typeof buildRequest>;
     try {
-      pr = buildRequest();
+      built = buildRequest();
     } catch (e) {
       $outputWrap.hide();
       $summary.html(
@@ -315,18 +320,15 @@ jQuery(function ($) {
       );
       return;
     }
-    if (!pr) {
+    if (!built) {
       $outputWrap.hide();
       $summary.empty();
       return;
     }
-    $output.val(pr.toEncodedRequest());
+    $output.val(built.pr.toEncodedRequest());
     $outputWrap.show();
     $summary.html(
-      `<strong>This request asks a payer for:</strong>${renderSummary(pr, {
-        legacyWanted: $legacy.is(":checked"),
-        blinded: $blind.is(":checked"),
-      })}`,
+      `<strong>This request asks a payer for:</strong>${renderSummary(built.pr, built)}`,
     );
   }
 
@@ -674,7 +676,10 @@ jQuery(function ($) {
   $(
     "#req-amount, #req-unit, #req-mints, #req-description, #req-payto, #req-backup, #req-backup-after, #req-nostr",
   ).on("input", debounce(refresh, 250));
-  $("#req-blind, #req-legacy, #req-single").on("change", refresh);
+  $("#req-blind, #req-legacy, #req-disclose, #req-single").on(
+    "change",
+    refresh,
+  );
   $inspect.on("input", debounce(inspect, 250));
   $copy.on("click", () => {
     copyTextToClipboard($output.val() as string);

@@ -32,6 +32,12 @@ Status key: **shipped**, **next**, **later**, **not yet**.
 - **Gifting a locked mint quote.** Cashu Gift pays an invoice for a quote
   locked to someone else's key, which only they can mint. The cardless ATM
   without the bearer quote id that made it a theft vector.
+- **NIP-07 for claims.** A gift locked to the extension's own nostr key is
+  claimed through the extension, no private key in the page: the safer habit
+  to teach.
+- **Disclosure as an option, not just a lock type.** Cashu Request offers
+  "publicly verifiable claims" on any request: every generated leaf carries
+  `disclosure`, and a lone key gives up its key path so no spend can dodge it.
 
 ## Next
 
@@ -45,20 +51,9 @@ Status key: **shipped**, **next**, **later**, **not yet**.
   path. Cashu Gift locks to a bare key today, and cashu-ts would need to accept
   a nutroot quote lock and sign one by script path.
 
-- **NIP-07 for claims.** Claiming a gift and reading the inbox both want a
-  private key in the page. A gift locked to someone's nostr key could instead
-  be claimed through their extension, which is the safer habit to teach.
-
 - **Richer requested trees.** Compose currently offers one backup-after leaf.
   Co-signers (a 2-of-2 escrow) and hashlocks are the same machinery with more
   form fields, once there is a use case worth the UI.
-
-- **Disclosure as an option, not just a lock type.** `disclosure` currently
-  rides along with auditable locks only. Any leaf can carry it, so expose it as
-  a choice: "make the claim publicly verifiable". Blocked on a small cashu-ts
-  addition first: `LockBuilder` sets the flag only on leaves passed whole to
-  `addLeaf`, so the main and refund leaves it generates internally need a
-  `disclose()` affordance before Nostrly can offer the checkbox.
 
 - **Requests in Redeem.** Paying a request lives in the Request tool for now,
   next to the request it fulfils. If it earns its keep, Redeem is the natural
@@ -95,8 +90,8 @@ Everything below was worked around here rather than fixed at source. Each is a
 small addition, and each removes something awkward from every wallet, not just
 this one.
 
-- **A signer callback for minting.** Done on cashu-ts 1005 (pending the next
-  experimental build): `MintProofsConfig.sign` (and `.sign(fn)` on the mint
+- **A signer callback for minting.** Done on cashu-ts 1005 (in experimental
+  ce00c698b): `MintProofsConfig.sign` (and `.sign(fn)` on the mint
   builder) takes the quote digest, and for a v3 quote the tagged message and
   container, and returns the signature; `CashuNip07.signQuote(nostr)` is the
   extension-backed one. Cashu Gift claims a gift locked to the extension's own
@@ -106,23 +101,22 @@ this one.
   matches on x and returns the scalar for the published parity (PR to cashu-ts
   main). The gift tool's own both-parities workaround can go once that ships.
 
-- **`LockBuilder.disclose()`.** The `disclosure` flag can only be set on leaves
-  passed whole to `addLeaf`; the main and refund leaves the builder generates
-  cannot carry it. Until they can, "make this claim publicly verifiable" cannot
-  be offered as an option on an ordinary lock.
+- **`LockBuilder.disclose()`.** Done on cashu-ts 950 (in experimental
+  ce00c698b): `disclosure: true` / `disclose()` stamps every leaf the builder
+  generates, and a lone main key becomes a leaf under NUMS so the key path
+  cannot bypass it. Cashu Request's checkbox uses it.
 
 - **Spend receipts.** A spender cannot open their own NUT-07 spend commitment,
   because nothing surfaces the `(Y, input_digest, witness)` a swap or melt
   produced. Returning them per input would make "prove I paid this" possible
   client-side, which is the whole point of the commitment.
 
-- **Why a legacy encoding was dropped.** `PaymentRequestBuilder.lock()` quietly
-  omits `nut10` when the lock blinds its keys, which is correct but invisible:
-  the caller cannot tell a deliberate omission from a bug. A reason on the
-  result would save guessing.
+- **Why a legacy encoding was dropped.** Done on cashu-ts 950 (in experimental
+  ce00c698b): `PaymentRequestBuilder.omitted` carries each encoder's reason
+  after `lock()`. Cashu Request's compose summary shows it instead of guessing.
 
 - **One spendability check across both lock families.** Done on cashu-ts 950
-  (pending the next experimental build): `Wallet.spendOptions` now accepts any
+  (in experimental ce00c698b): `Wallet.spendOptions` now accepts any
   proof and answers `spendable` plus a machine-readable `blockedBy`
   (`not-keyed-to-you`, `locktime`, `threshold`, `preimage`), wording left to the
   caller. A NUT-11 lock reads as the same leaf shape as a nutroot tree, matched
