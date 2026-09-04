@@ -6,7 +6,6 @@ import {
   bytesToHex,
   getEncodedToken,
   hexToBytes,
-  isUnknownQuote,
   CashuNip07,
   normalizeXOnlySecretKey,
   type MintProofsConfig,
@@ -588,7 +587,7 @@ jQuery(function ($) {
             const quote = quotes[i];
             rows.push({
               ...entry,
-              state: !quote || isUnknownQuote(quote) ? "unknown" : quote.state,
+              state: quote?.state ?? "unknown",
             });
           });
         } catch (e) {

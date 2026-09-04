@@ -839,32 +839,18 @@ export async function getV3SpendConfig(
   preimage?: string,
 ): Promise<{ privkey?: string[]; scriptPath?: ScriptPathPlan[] }> {
   const opts = privkeys.length ? { privkeys } : undefined;
-  const plans = await wallet.planScriptPaths(proofs, opts);
+  const plans = await wallet.planScriptPaths(proofs, { ...opts, preimage });
   const nostr = window?.nostr;
   const nip07 =
     nostr && nip07Pubkey && CashuNip07.canSign(nostr)
       ? { nostr, pubkey: nip07Pubkey }
       : undefined;
-  if (nip07 || preimage) {
+  if (nip07) {
     const planned = new Set(plans.map((p) => p.secret));
     for (const proof of proofs.filter(isBlsProof)) {
       if (planned.has(proof.secret)) continue;
       const spend = await wallet.spendOptions(proof, opts);
       if (spend.keyPath) continue;
-      // A hashlock leaf is never satisfiable on its own, so the plan is
-      // built here: the secret completes a leaf whose keys are held
-      const hashlock = preimage
-        ? spend.script.find((o) => o.blockedBy === "preimage")
-        : undefined;
-      if (hashlock) {
-        plans.push({
-          secret: proof.secret,
-          leafIndex: hashlock.leafIndex,
-          preimage,
-        });
-        continue;
-      }
-      if (!nip07) continue;
       const leaf = spend.script.find(
         (o) =>
           CashuNip07.completes(o, nip07.pubkey) && (!o.leaf.hash || preimage),

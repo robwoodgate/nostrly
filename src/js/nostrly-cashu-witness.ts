@@ -1,5 +1,6 @@
 // Imports
 import {
+  attachHTLCPreimage,
   auditableLockKey,
   computeMessageDigest,
   taggedHash,
@@ -350,9 +351,6 @@ jQuery(function ($) {
   const refundAt = () => refundLeaf()?.availableAt;
   const fmtDate = (unix: number) =>
     new Date(unix * 1000).toLocaleString().slice(0, -3);
-  const parseWitness = (w: Proof["witness"]) =>
-    typeof w === "string" ? JSON.parse(w) : (w ?? {});
-
   // Validate the pasted secret against the token's hashlock, then re-assess
   function applySecret(quiet = false) {
     const val = (($secret.val() as string) ?? "").trim().toLowerCase();
@@ -373,12 +371,8 @@ jQuery(function ($) {
       return;
     }
     // NUT-14: the preimage rides the witness, and later signing keeps it there
-    const stamp = (p: Proof) =>
-      p.secret.includes("HTLC")
-        ? { ...p, witness: { ...parseWitness(p.witness), preimage: val } }
-        : p;
-    proofs = proofs.map(stamp);
-    allProofs = allProofs.map(stamp);
+    proofs = attachHTLCPreimage(proofs, val);
+    allProofs = attachHTLCPreimage(allProofs, val);
     displayWitnessInfo();
     checkNip07ButtonState();
   }
@@ -419,7 +413,7 @@ jQuery(function ($) {
   }
 
   // Subscribe to the token's proofs and read the secret from the witness of
-  // a spent one. Websocket first: polling counts against the mint's rate limit
+  // a spent one; the library falls back to polling when the socket cannot serve
   async function watchForSecret() {
     const hash = hashLeaf()?.leaf.hash;
     if (!wallet || !hash) return;
@@ -440,54 +434,28 @@ jQuery(function ($) {
     }
     const found = (state: ProofState) => {
       if (state.state !== "SPENT" || !state.witness) return false;
-      let pre: string | undefined;
-      try {
-        pre = isV3
-          ? parseWitness(state.witness).preimage
-          : getHTLCWitnessPreimage(state.witness);
-      } catch {
-        return false;
-      }
+      const pre = getHTLCWitnessPreimage(state.witness);
       if (!pre || !verifyHTLCHash(pre, hash)) return false;
       revealSecret(pre);
       return true;
     };
     try {
-      const ws = wallet.getMintInfo().isSupported(17);
-      const live = ws.params?.some((p) => p.commands.includes("proof_state"));
-      if (!live) throw new Error("mint does not push proof states");
-      say("watching (live)");
-      const stream = wallet.on
-        .proofStatesStream(watched, { signal: ac.signal })
-        [Symbol.asyncIterator]();
-      // NUT-17 replays the current state on subscribe, so silence means the
-      // socket is dead even if the library keeps quietly reconnecting
-      const first = stream.next();
-      const replay = await Promise.race([
-        first,
-        new Promise<"silent">((r) => setTimeout(() => r("silent"), 10_000)),
-      ]);
-      if (replay === "silent") {
-        first.catch(() => {});
-        throw new Error("no state replay from the websocket");
-      }
-      for (let r = replay; !r.done; r = await stream.next()) {
-        if (found(r.value)) return;
+      for await (const update of wallet.on.proofStatesStream(watched, {
+        signal: ac.signal,
+        pollMs: 30_000, // polling counts against the mint's rate limit
+        onMode: (mode) =>
+          say(
+            mode === "websocket"
+              ? "watching (live)"
+              : "watching (polling every 30s)",
+          ),
+      })) {
+        if (found(update)) return;
       }
     } catch (e) {
       if (ac.signal.aborted) return;
-      console.warn("live watch unavailable, polling instead:", e);
-    }
-    say("watching (polling every 30s)");
-    while (!ac.signal.aborted) {
-      await new Promise((r) => setTimeout(r, 30_000));
-      if (ac.signal.aborted) return;
-      try {
-        const states = await wallet.checkProofsStates(watched);
-        if (states.some(found)) return;
-      } catch (e) {
-        console.warn("poll failed:", e);
-      }
+      console.error("watch failed:", e);
+      say(`watch failed: ${getErrorMessage(e, "mint unreachable")}`);
     }
   }
   function revealSecret(pre: string) {
@@ -1207,10 +1175,10 @@ jQuery(function ($) {
         nip07Pubkey,
         preimage || undefined,
       );
-      // Re-encoded from allProofs so a stamped NUT-14 preimage travels
+      // allProofs are what the panel judged, secret stamp included
       const unlockedProofs = await wallet.receive(
         getEncodedToken({ mint: mintUrl, proofs: allProofs, unit }),
-        config,
+        { ...config, ...(preimage && { preimage }) },
       );
       const unlockedToken = getEncodedToken({
         mint: mintUrl,
