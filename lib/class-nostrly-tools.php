@@ -533,7 +533,8 @@ class NostrlyTools
                     }
                     #amount_to_pay,
                     .copytkn,
-                    .copyemj {
+                    .copyemj,
+                    .copypre {
                         border-radius: 6px;
                         display: inline-block;
                         background-color: #FF9900;
@@ -860,7 +861,6 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu-witness');
 
         $token_label = esc_attr__('Locked Cashu token (or emoji 🥜)', 'nostrly');
-        $receipt_label = esc_attr__('Spend receipts (from the pasted receipt)', 'nostrly');
         $token = esc_attr__('Paste a Locked Cashu ecash token (or ecash emoji 🥜, or a spend receipt from NutLock) to witness...', 'nostrly');
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
@@ -1016,11 +1016,6 @@ class NostrlyTools
                     <label for="token">{$token_label}</label>
                     <textarea id="token" name="token" rows="5" placeholder="{$token}" required></textarea>
                     <div id="witness-info" class="hidden"></div>
-                </div>
-                <div id="receipt-wrap" class="hidden">
-                    <label for="receipt">{$receipt_label}</label>
-                    <textarea id="receipt" name="receipt" rows="3" readonly></textarea>
-                    <div class="description">Split out of the spend receipt you pasted: the payer's opening of the mint's NUT-07 commitment for each spent proof above. The evidence panel checks them.</div>
                 </div>
                 <div id="signers" class="hidden">
                     <div>

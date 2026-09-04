@@ -99,8 +99,6 @@ jQuery(function ($) {
   const $divForm = $("#cashu-witness-form");
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
-  const $receipt = $("#receipt");
-  const $receiptWrap = $("#receipt-wrap");
   const $privkey = $("#privkey");
   const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
@@ -200,19 +198,16 @@ jQuery(function ($) {
       // check token
       let tokenEncoded: string = $token.val() as string;
       receipts = [];
-      $receiptWrap.hide();
       if (!tokenEncoded) {
         return;
       }
-      // A spend receipt from NutLock (nutrcA): split it, the token stays here and the receipts
-      // move to their own box, then carry on with the token
+      // A spend receipt from NutLock (nutrcA): the token stays in the box and the receipts go to
+      // the evidence panel, which is their readable form
       if (tokenEncoded.startsWith("nutrc")) {
         const bundle = decodeSpendReceipt(tokenEncoded);
         receipts = bundle.receipts;
         tokenEncoded = bundle.token;
         $token.val(tokenEncoded);
-        $receipt.val(JSON.stringify(receipts));
-        $receiptWrap.show();
       }
       if (!tokenEncoded.startsWith("cashu")) {
         const decoded = emojiDecode(tokenEncoded);
@@ -659,8 +654,8 @@ jQuery(function ($) {
         verdicts.push({
           ok: sealed,
           text: sealed
-            ? "commitment opens and matches the mint's"
-            : "commitment does not match the mint's",
+            ? "mint's spend commitment verified"
+            : "does not match the mint's spend commitment",
         });
       }
       if (witness && state.input_digest) {
