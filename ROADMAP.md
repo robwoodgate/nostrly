@@ -38,6 +38,12 @@ Status key: **shipped**, **next**, **later**, **not yet**.
 - **Disclosure as an option, not just a lock type.** Cashu Request offers
   "publicly verifiable claims" on any request: every generated leaf carries
   `disclosure`, and a lone key gives up its key path so no spend can dodge it.
+- **NutLock mirrors the lock model.** Hashlocks (paste a hash or make a
+  secret, kept in history), "publicly verifiable claims" as a switch, extra
+  spending paths as leaf rows, and a live "what this lock says" summary in the
+  words Witness uses. Auditable is a preset of the same form. On a legacy mint
+  the v3-only controls hide and the rest encodes as NUT-11/14. One half of an
+  atomic swap comes out of this form as it stands.
 - **Spend receipts.** NutLock hands the payer a receipt for a v3 spend: the
   spent proofs plus what opens the mint's NUT-07 commitment for each. Witness
   verifies one end to end and matches it against the mint's own commitment,
@@ -57,7 +63,8 @@ Status key: **shipped**, **next**, **later**, **not yet**.
 
 - **Richer requested trees.** Compose currently offers one backup-after leaf.
   Co-signers (a 2-of-2 escrow) and hashlocks are the same machinery with more
-  form fields, once there is a use case worth the UI.
+  form fields, once there is a use case worth the UI. NutLock's spending-path
+  rows are the pattern to copy.
 
 - **Requests in Redeem.** Paying a request lives in the Request tool for now,
   next to the request it fulfils. If it earns its keep, Redeem is the natural
@@ -69,12 +76,9 @@ Status key: **shipped**, **next**, **later**, **not yet**.
   across mints with no trusted party: both sides lock to the same hash, and the
   first claim publishes its preimage through NUT-07, which the counterparty
   reads to claim their side. The flashiest thing nutroot can do, and the reason
-  disclosure exists beyond public tips. Needs a hashlock lock type, a preimage
-  watch mode in Witness, and careful timeout handling.
-
-- **Batched and mixed transactions.** One transaction can carry several quote
-  inputs, proofs from different senders, and a melt quote, all atomic. Gather
-  is the natural home: sweep several tokens and pay an invoice in one request.
+  disclosure exists beyond public tips. NutLock now builds each half (secret,
+  refund after expiry, publicly verifiable); still needed: a preimage watch
+  mode in Witness, and careful timeout handling.
 
 ## Not yet
 
@@ -87,3 +91,6 @@ them would advertise something that is not settled:
   loses funds when rushed.
 - **Scripted leaves** (leaf version `0x01`): the extension point exists, the
   language does not.
+- **Batched and mixed transactions.** One transaction can carry several quote
+  inputs, proofs from different senders, and a melt quote, all atomic. Gather
+  is the natural home: sweep several tokens and pay an invoice in one request.

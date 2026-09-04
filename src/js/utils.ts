@@ -53,6 +53,7 @@ interface NutLockEntry {
   name: string;
   token: string;
   amount: number | string; // Amount.toJSON() returns number | string
+  preimage?: string; // the hashlock secret, when NutLock made it
 }
 
 // Keyset dispatch every v3-aware tool needs; re-exported so tools import it
@@ -249,6 +250,7 @@ export function storeLockedToken(
   token: string,
   amount: AmountLike,
   name: string,
+  preimage?: string,
 ): void {
   const stored = getLockedTokens();
   const newEntry: NutLockEntry = {
@@ -256,6 +258,7 @@ export function storeLockedToken(
     name,
     token,
     amount: Amount.from(amount).toJSON(),
+    ...(preimage && { preimage }),
   };
   const updated = [newEntry, ...stored];
   localStorage.setItem(TOKEN_HISTORY_KEY, JSON.stringify(updated));

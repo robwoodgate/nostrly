@@ -1,15 +1,19 @@
 // Imports
 import {
+  bytesToHex,
   getEncodedToken,
   isBlsKeyset,
+  lockToNutrootOptions,
   lockToP2PKOptions,
   LockBuilder,
-  auditableLock,
   MintQuoteState,
+  NUTROOT_NUMS_KEY,
   OutputData,
   Proof,
+  sha256,
   Token,
   Wallet,
+  type NutrootLeaf,
 } from "@cashu/cashu-ts";
 import { nip19 } from "nostr-tools";
 import { encode as emojiEncode, decode as emojiDecode } from "./emoji-encoder";
@@ -24,6 +28,7 @@ import {
   copyTextToClipboard,
   delay,
   debounce,
+  describeNutrootLeaf,
   formatAmount,
   getTokenAmount,
   getWalletWithUnit,
@@ -71,6 +76,8 @@ jQuery(function ($) {
   let isV3Mint = false; // active keyset is v3 (nutroot)
   let lockType: LockType = "refundable";
   let fallbackTime: number | undefined; // v3 staged-reclaim leaf, unix TS
+  let lockHash: string | undefined; // SHA-256 hex the main path must open
+  let lockPreimage: string | undefined; // its secret, when NutLock made it
   let quoteLockPrivkey: string; // NUT-20 lock key for the current mint quote
 
   // DOM elements
@@ -97,6 +104,19 @@ jQuery(function ($) {
   const $lockedCopyEmoji = $("#locked-emoji-copy");
   const $lockedCopyReceipt = $("#locked-receipt-copy");
   const $lockedReceiptHint = $("#locked-receipt-hint");
+  const $lockHash = $("#lock-hash");
+  const $makeSecret = $("#make-secret");
+  const $lockPreimage = $("#lock-preimage");
+  const $lockPreimageHex = $("#lock-preimage-hex");
+  const $hashlockOption = $("#hashlock-option");
+  const $useDisclose = $("#use-disclose");
+  const $discloseOption = $("#disclose-option");
+  const $extraPaths = $("#extra-paths");
+  const $addPath = $("#add-path");
+  const $pathRows = $("#path-rows");
+  const $lockSummary = $("#lock-summary");
+  const $pathsLimit = $("#paths-limit");
+  const MAX_TREE_LEAVES = 8; // NUT-10 cap; the main and refund locks take leaves too
   const $historyDiv = $("#nutlock-history");
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
@@ -184,6 +204,8 @@ jQuery(function ($) {
       $refundBlankNote.toggle(!isV3Mint);
       $refundV3Note.toggle(isV3Mint);
       $lockTypeAuditable.toggle(isV3Mint);
+      $discloseOption.toggle(isV3Mint);
+      $extraPaths.toggle(isV3Mint);
       if (!isV3Mint && lockType === "auditable") {
         $lockTypeRadios.filter("[value='refundable']").prop("checked", true);
       }
@@ -296,17 +318,168 @@ jQuery(function ($) {
     $lockUntilNote.toggle(!permanent);
     $permanentWarning.toggle(permanent);
     if (!permanent) $confirmPermanent.prop("checked", false);
+    // Auditable is a preset: one unblinded key, permanent, publicly verifiable, no extras
     const auditable = lockType === "auditable";
     $addMultisig.toggle(!auditable);
     if (auditable) $multisigOptions.hide();
     $p2bkOption.toggle(!auditable);
     if (auditable) $useP2BK.prop("checked", false);
+    $useDisclose.prop("disabled", auditable);
+    if (auditable) $useDisclose.prop("checked", true);
+    $hashlockOption.toggle(!auditable);
+    if (auditable) setLockHash("");
+    $extraPaths.toggle(isV3Mint && !auditable);
+  };
+
+  // Hashlock: a 64-hex SHA-256, pasted or made here (then the secret is shown once)
+  const setLockHash = (text: string) => {
+    const hex = text.trim().toLowerCase();
+    $lockHash.val(hex).attr("data-valid", "");
+    lockHash = undefined;
+    if (hex && !/^[0-9a-f]{64}$/.test(hex)) {
+      $lockHash.attr("data-valid", "no");
+    } else if (hex) {
+      lockHash = hex;
+    }
+    // The secret only belongs to the hash it was made for
+    if (
+      !lockPreimage ||
+      bytesToHex(sha256(hexToBytesSafe(lockPreimage))) !== lockHash
+    ) {
+      lockPreimage = undefined;
+      $lockPreimage.hide();
+    }
+  };
+  const hexToBytesSafe = (hex: string) =>
+    Uint8Array.from(hex.match(/../g) ?? [], (b) => parseInt(b, 16));
+  $lockHash.on("input", () => {
+    setLockHash($lockHash.val() as string);
+    checkIsReadyToOrder();
+  });
+  $makeSecret.on("click", () => {
+    const secret = new Uint8Array(32);
+    crypto.getRandomValues(secret);
+    lockPreimage = bytesToHex(secret);
+    setLockHash(bytesToHex(sha256(secret)));
+    $lockPreimageHex.text(lockPreimage);
+    $lockPreimage.show();
+    checkIsReadyToOrder();
+  });
+  $lockPreimage.children(".copypre").on("click", () => {
+    if (lockPreimage) copyTextToClipboard(lockPreimage);
+  });
+
+  // Extra spending paths: one leaf per row, read off the DOM at build time
+  $addPath.on("click", (e) => {
+    e.preventDefault();
+    const $row = $(
+      (
+        $("#path-row-template")[0] as HTMLTemplateElement
+      ).content.firstElementChild!.cloneNode(true) as HTMLElement,
+    );
+    $pathRows.append($row);
+    updatePathsLimit();
+    handlePubkeyInput(
+      $row.find(".path-keys"),
+      (keys: string[]) => $row.data("keys", keys),
+      true,
+    );
+    $row.find(".path-cond").on("change", () => {
+      $row
+        .find(".path-after")
+        .toggle($row.find(".path-cond").val() === "after");
+      checkIsReadyToOrder();
+    });
+    $row
+      .find(".path-nsigs, .path-after, .path-disclose")
+      .on("input change", () => checkIsReadyToOrder());
+    $row.find(".path-remove").on("click", (ev) => {
+      ev.preventDefault();
+      $row.remove();
+      updatePathsLimit();
+      checkIsReadyToOrder();
+    });
+  });
+  const readPaths = (): NutrootLeaf[] => {
+    if (!isV3Mint || lockType === "auditable") return [];
+    return $pathRows
+      .children(".path-row")
+      .toArray()
+      .map((el, i) => {
+        const $row = $(el);
+        const keys = ($row.data("keys") as string[] | undefined) ?? [];
+        if (!keys.length)
+          throw new Error(`Spending path ${i + 1} needs at least one key`);
+        const n = parseInt($row.find(".path-nsigs").val() as string, 10) || 1;
+        if (n > keys.length) {
+          throw new Error(
+            `Spending path ${i + 1} asks for ${n} signatures from ${keys.length} keys`,
+          );
+        }
+        const cond = $row.find(".path-cond").val();
+        const disclosure = $row.find(".path-disclose").is(":checked")
+          ? { disclosure: 1 }
+          : {};
+        if (cond === "after") {
+          const time = Math.floor(
+            new Date($row.find(".path-after").val() as string).getTime() / 1000,
+          );
+          if (!Number.isFinite(time))
+            throw new Error(`Spending path ${i + 1} needs a date`);
+          return { type: "after", n, keys, time, ...disclosure };
+        }
+        if (cond === "hash") {
+          if (!lockHash)
+            throw new Error(
+              `Spending path ${i + 1} needs the secret hash above`,
+            );
+          return { type: "hashlock", n, keys, hash: lockHash, ...disclosure };
+        }
+        return { type: "threshold", n, keys, ...disclosure };
+      });
+  };
+
+  // What this lock says, in the words the receiver will read
+  const renderLockSummary = (lock: LockBuilder) => {
+    const options = lock.toOptions();
+    const lines: string[] = [];
+    if (isV3Mint) {
+      const encoded = lockToNutrootOptions(options);
+      lines.push(
+        encoded.receiverKey === NUTROOT_NUMS_KEY
+          ? "No key path: only the spending paths below can claim it"
+          : "Key path: the lock key claims it directly, invisibly to the mint",
+      );
+      for (const leaf of encoded.leaves ?? []) {
+        lines.push(describeNutrootLeaf(typeof leaf === "string" ? leaf : leaf));
+      }
+      if (encoded.blindKeys?.length)
+        lines.push(`${encoded.blindKeys.length} key(s) blinded`);
+    } else {
+      const m = options.mainKeys?.length ?? 0;
+      lines.push(
+        `NUT-11 lock: ${options.requiredMainSignatures ?? 1} of ${m} signature(s)` +
+          (options.hashlock ? " plus the secret" : ""),
+      );
+      if (options.locktime) {
+        lines.push(
+          `After ${new Date(options.locktime * 1000).toLocaleString()}: ${options.refundKeys?.length ? `${options.requiredRefundSignatures ?? 1} of ${options.refundKeys.length} refund signature(s)` : "anyone"}`,
+        );
+      }
+    }
+    $lockSummary
+      .html(
+        `<strong>What this lock says:</strong><ul>${lines.map((l) => `<li>${$("<i>").text(l).html()}</li>`).join("")}</ul>`,
+      )
+      .show();
   };
   $lockTypeRadios.on("change", () => {
     applyLockType();
     checkIsReadyToOrder();
   });
   $confirmPermanent.on("change", () => checkIsReadyToOrder());
+  $useDisclose.on("change", () => checkIsReadyToOrder());
+  $useP2BK.on("change", () => checkIsReadyToOrder());
 
   /**
    * Checks if npub has a NIP-61 P2PK pubkey
@@ -552,16 +725,17 @@ jQuery(function ($) {
   });
 
   // Use NIP-07 to fetch public key
-  $nip07Button.on("click", useNip07);
-  async function useNip07() {
+  $nip07Button.on("click", () => useNip07($refundNpub));
+  $("#use-nip07-lock").on("click", () => useNip07($lockNpub));
+  async function useNip07($target: JQuery) {
     try {
       if (typeof window?.nostr?.getPublicKey === "undefined") {
         throw new Error("NIP-07 signer not detected.");
       }
       const pubkey = await window?.nostr?.getPublicKey();
       if (pubkey) {
-        $refundNpub.val(nip19.npubEncode(pubkey));
-        $refundNpub.trigger("paste"); // validation
+        $target.val(nip19.npubEncode(pubkey));
+        $target.trigger("paste"); // validation
       } else {
         throw new Error("Could not fetch public key from NIP-07 signer.");
       }
@@ -574,35 +748,60 @@ jQuery(function ($) {
 
   // Builds the semantic lock from the current form state; the wallet
   // encodes it for the active keyset (NUT-11/14 tags pre-v3, nutroot on v3)
+  // One path for every lock type: auditable is the preset "one unblinded key, permanent,
+  // publicly verifiable", which the encoder turns into NUMS plus one leaf (auditableLock's shape)
   const buildLock = () => {
-    // NUMS internal key plus one unblinded 1-of-1 leaf: verifiable by anyone
-    if (lockType === "auditable") {
-      return LockBuilder.fromOptions(auditableLock(lockP2PK));
-    }
+    const auditable = lockType === "auditable";
     const lock = new LockBuilder()
-      .addMainPubkey(lockKeys)
-      .requireMainSignatures(nSigValue);
-    if ($useP2BK.is(":checked")) {
-      lock.blindKeys();
+      .addMainPubkey(auditable ? [lockP2PK] : lockKeys)
+      .requireMainSignatures(auditable ? 1 : nSigValue);
+    if (!auditable && lockHash) lock.addHashlock(lockHash);
+    if (!auditable && $useP2BK.is(":checked")) lock.blindKeys();
+    if (auditable || $useDisclose.is(":checked")) lock.disclose();
+    if (lockType === "refundable") {
+      lock.lockUntil(expireTime).addRefundPubkey(refundKeys);
+      if (refundKeys.length) lock.requireRefundSignatures(rSigValue);
+      // v3 staged reclaim: a later window where any single refund key suffices
+      if (isV3Mint && fallbackTime && refundKeys.length && rSigValue > 1) {
+        lock.addLeaf({
+          type: "after",
+          n: 1,
+          keys: refundKeys,
+          time: fallbackTime,
+        });
+      }
     }
-    // Permanent: no locktime, so no refund leaf; a single key on v3 is a bare key path
-    if (lockType === "permanent") {
-      return lock;
-    }
-    lock.lockUntil(expireTime).addRefundPubkey(refundKeys);
-    if (refundKeys.length) {
-      lock.requireRefundSignatures(rSigValue);
-    }
-    // v3 staged reclaim: a later window where any single refund key suffices
-    if (isV3Mint && fallbackTime && refundKeys.length && rSigValue > 1) {
-      lock.addLeaf({
-        type: "after",
-        n: 1,
-        keys: refundKeys,
-        time: fallbackTime,
-      });
-    }
+    for (const leaf of readPaths()) lock.addLeaf(leaf);
     return lock;
+  };
+
+  // The tree holds 8 leaves and the main and refund locks take some, so count rows, filled or
+  // not, against what the lock uses: counted structurally, so a half-filled form still counts
+  const lockLeafCount = () => {
+    const auditable = lockType === "auditable";
+    const mainIsLeaf =
+      auditable ||
+      !!lockHash ||
+      lockKeys.length > 1 ||
+      nSigValue > 1 ||
+      $useDisclose.is(":checked");
+    const refund =
+      lockType === "refundable"
+        ? 1 + (fallbackTime && rSigValue > 1 ? 1 : 0)
+        : 0;
+    return (mainIsLeaf ? 1 : 0) + refund;
+  };
+  const updatePathsLimit = () => {
+    const over =
+      lockLeafCount() + $pathRows.children().length - MAX_TREE_LEAVES;
+    $addPath.toggle(over < 0);
+    $pathsLimit
+      .text(
+        over > 0
+          ? `Too many spending paths for one tree (8): remove ${over}.`
+          : "The tree is full: a Nutroot lock holds at most 8 spending paths.",
+      )
+      .toggle(over >= 0);
   };
 
   // Handles order button status
@@ -626,6 +825,7 @@ jQuery(function ($) {
     ];
     if (!lockKeys.length) return false;
     refundKeys = [...new Set([refundP2PK, ...extraRefundKeys].filter(Boolean))];
+    if (isV3Mint) updatePathsLimit(); // before any early return: empty rows still count
     // v3 refundable locks need a refund key: nutroot has no anyone-after-expiry
     const hasValidRefunds = isV3Mint
       ? refundKeys.length > 0
@@ -651,6 +851,13 @@ jQuery(function ($) {
         setOrderButtonState(true);
         return false;
       }
+    }
+    // Live summary of the lock as the receiver will read it
+    try {
+      if (lockP2PK) renderLockSummary(buildLock());
+      else $lockSummary.hide();
+    } catch {
+      $lockSummary.hide();
     }
     // Check secret length is under MAX_SECRET characters as some mints have
     // this limit. To do this, let's create a 1 sat blinded message with p2pk
@@ -686,6 +893,7 @@ jQuery(function ($) {
       tokenAmount > 0 &&
       typeReady &&
       lockP2PK &&
+      $lockHash.attr("data-valid") !== "no" &&
       $extraLockKeys.attr("data-valid") !== "no" &&
       $extraRefundKeys.attr("data-valid") !== "no" &&
       $refundFallback.attr("data-valid") !== "no" &&
@@ -833,7 +1041,7 @@ jQuery(function ($) {
       const npub = convertP2PKToNpub(lockP2PK);
       let { name } = await getContactDetails(npub, relays);
       if (!name) name = npub.slice(0, 11);
-      storeLockedToken(lockedToken, tokenAmount, name); // for safety / history
+      storeLockedToken(lockedToken, tokenAmount, name, lockPreimage); // for safety / history
       $lockedToken.val(lockedToken);
       showSuccessPage();
       $lockedToken.on("click", () => copyTextToClipboard(lockedToken));
@@ -879,9 +1087,12 @@ jQuery(function ($) {
       //     : entry.token;
       const $item = $(`
         <li class="history-item">
-          <span class="copytkn">Copy Token</span>&nbsp;&nbsp;<span class="copyemj">Copy 🥜</span> &nbsp; ${date} - ${name} - ${amount}
+          <span class="copytkn">Copy Token</span>&nbsp;&nbsp;<span class="copyemj">Copy 🥜</span>${entry.preimage ? '&nbsp;&nbsp;<span class="copypre">Copy Secret</span>' : ""} &nbsp; ${date} - ${name} - ${amount}
         </li>
       `);
+      $item.children(".copypre").on("click", () => {
+        copyTextToClipboard(entry.preimage!);
+      });
       // Add click handler to select the token
       $item.children(".copytkn").on("click", () => {
         copyTextToClipboard(entry.token);

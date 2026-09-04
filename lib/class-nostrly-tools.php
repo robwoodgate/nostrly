@@ -544,6 +544,59 @@ class NostrlyTools
                     #locked-receipt-copy {
                         margin-left: 1rem;
                     }
+                    #lock-npub-container,
+                    #lock-hash-container {
+                        display: flex;
+                        gap: 0.5rem;
+                        align-items: center;
+                    }
+                    #lock-npub-container input,
+                    #lock-hash-container input {
+                        flex: 1;
+                    }
+                    #lock-preimage code {
+                        display: block;
+                        word-break: break-all;
+                        margin: 0.25rem 0 0.5rem;
+                    }
+                    #lock-preimage .copypre {
+                        border-radius: 6px;
+                        display: inline-block;
+                        background-color: #FF9900;
+                        color: #000;
+                        padding: 0 0.5rem;
+                        cursor: pointer;
+                    }
+                    .path-row {
+                        border: 1px solid #555;
+                        border-radius: 6px;
+                        padding: 0.5rem;
+                        margin: 0.5rem 0;
+                    }
+                    .path-row .path-remove {
+                        float: right;
+                    }
+                    #lock-summary {
+                        border-left: 3px solid #f7931a;
+                        padding-left: 0.75rem;
+                        margin: 1rem 0;
+                    }
+                    #lock-summary ul {
+                        margin: 0.25rem 0 0 1rem;
+                    }
+                    #cashu-lock-form fieldset.lock-section {
+                        border: 1px solid #888;
+                        border-radius: 8px;
+                        padding: 0.5rem 1rem 0.75rem;
+                        margin: 1.25rem 0;
+                    }
+                    #cashu-lock-form fieldset.lock-section legend {
+                        padding: 0 0.5rem;
+                        font-weight: bold;
+                    }
+                    #paths-limit {
+                        display: none;
+                    }
                     /* History section */
                     #history {
                         border: 1px solid #ccc;
@@ -567,15 +620,23 @@ class NostrlyTools
                     }
                     /* Multisig and refund key options */
                     #cashu-lock-form a#add-multisig,
-                    #cashu-lock-form a#add-refund-keys {
+                    #cashu-lock-form a#add-refund-keys,
+                    #cashu-lock-form a#add-path {
                         display: block;
                         margin-top: 0.5rem;
                         font-size: 0.9rem;
                         color: #FF9900;
                         text-decoration: none;
                     }
+                    #cashu-lock-form .path-row a.path-remove {
+                        font-size: 0.9rem;
+                        color: #FF9900;
+                        text-decoration: none;
+                    }
                     #cashu-lock-form a#add-multisig:hover,
-                    #cashu-lock-form a#add-refund-keys:hover {
+                    #cashu-lock-form a#add-refund-keys:hover,
+                    #cashu-lock-form a#add-path:hover,
+                    #cashu-lock-form .path-row a.path-remove:hover {
                         text-decoration: underline;
                     }
                     #multisig-options,
@@ -651,6 +712,8 @@ class NostrlyTools
                             <label><input type="checkbox" id="confirm-permanent"> I have checked the key and understand this lock is permanent.</label>
                         </div>
                     </div>
+                    <fieldset class="lock-section">
+                    <legend>Options</legend>
                     <div>
                         <label>
                             <input type="checkbox" id="prefer-nip61">
@@ -665,9 +728,22 @@ class NostrlyTools
                         </label>
                         <div class="description">Check this box if you want NutLock to blind all public keys and create a <a href="https://github.com/cashubtc/nuts/blob/main/28.md" target="_blank">P2BK secret</a>. This adds privacy, but a blinded key can only be derived from a PRIVATE KEY: a Nostr extension cannot sign for one by itself, though it can unlock your NIP-60 wallet keys (for NIP-61 pubkeys), which can. <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support P2BK.</div>
                     </div>
+                    <div id="disclose-option" class="hidden">
+                        <label>
+                            <input type="checkbox" id="use-disclose">
+                            Publicly verifiable claims?
+                        </label>
+                        <div class="description">Every spending path publishes its witness through the mint (NUT-07 disclosure), so anyone holding the token can later verify who claimed it and, for a secret-locked path, read the revealed secret. A single key gives up its stealth key path for this. Off, only the mint sees a claim. Covers the main and refund locks; each extra spending path has its own switch.</div>
+                    </div>
+                    </fieldset>
+                    <fieldset class="lock-section">
+                    <legend>Main lock</legend>
                     <div>
                         <label for="lock-npub">Lock Token to Public Key (NPUB/P2PK):</label>
-                        <input type="text" id="lock-npub" name="lock-npub" placeholder="npub1... | 02..." required>
+                        <div id="lock-npub-container">
+                            <input type="text" id="lock-npub" name="lock-npub" placeholder="npub1... | 02..." required>
+                            <button type="button" id="use-nip07-lock" class="button">{$nxbutton}</button>
+                        </div>
                         <div class="description">Token will be exclusively redeemable by the owner of this public key<span id="lock-until-note"> until the lock expires</span>.</div>
                         <a href="#" id="add-multisig">+ Add Multisig</a>
                         <div id="multisig-options" class="hidden">
@@ -678,7 +754,18 @@ class NostrlyTools
                             <div class="description">Number of signatures needed to unlock (e.g., 2 for 2-of-3 multisig).</div>
                         </div>
                     </div>
-                    <div id="refundable-options">
+                    <div id="hashlock-option">
+                        <label for="lock-hash">Lock to a Hash (HTLC, optional):</label>
+                        <div id="lock-hash-container">
+                            <input type="text" id="lock-hash" name="lock-hash" placeholder="SHA-256 hash of the secret (64 hex)">
+                            <button type="button" id="make-secret" class="button">Make one for me</button>
+                        </div>
+                        <div class="description">The spender must reveal the secret behind this hash as well as signing (an HTLC). Paste a hash someone gave you, or make a new secret: it is shown once here and kept in your NutLock history.</div>
+                        <div id="lock-preimage" class="hidden"><strong>Your secret, keep it safe:</strong><code id="lock-preimage-hex"></code><span class="copypre">Copy Secret</span></div>
+                    </div>
+                    </fieldset>
+                    <fieldset id="refundable-options" class="lock-section">
+                    <legend>Refund lock</legend>
                     <div>
                         <label for="lock-expiry">Lock Expires (Local Time):</label>
                         <input type="datetime-local" id="lock-expiry" name="lock-expiry" required>
@@ -705,7 +792,31 @@ class NostrlyTools
                             </div>
                         </div>
                     </div>
-                    </div>
+                    </fieldset>
+                    <fieldset id="extra-paths" class="lock-section hidden">
+                        <legend>Extra spending paths</legend>
+                        <a href="#" id="add-path">+ Add Spending Path</a><span id="paths-limit" class="description">The tree is full: a Nutroot lock holds at most 8 spending paths.</span>
+                        <div class="description">Advanced: another way to spend, beside the ones above. Each path is a leaf of the token's Nutroot tree: some keys, how many must sign, and an optional condition.</div>
+                        <div id="path-rows"></div>
+                        <template id="path-row-template">
+                            <div class="path-row">
+                                <a href="#" class="path-remove">remove</a>
+                                <label>Keys (one per line or CSV):</label>
+                                <textarea class="path-keys" rows="2" placeholder="npub1...\n02..."></textarea>
+                                <label>Signatures Required:</label>
+                                <input type="number" class="path-nsigs" min="1" step="1" value="1">
+                                <label>Condition:</label>
+                                <select class="path-cond">
+                                    <option value="none">none</option>
+                                    <option value="after">after a date</option>
+                                    <option value="hash">needs the secret above</option>
+                                </select>
+                                <input type="datetime-local" class="path-after hidden">
+                                <label><input type="checkbox" class="path-disclose"> Publicly verifiable</label>
+                            </div>
+                        </template>
+                    </fieldset>
+                    <div id="lock-summary" class="description hidden"></div>
                     <div class="center">
                         <label for="add_donation" class="center">Do you want to add a donation for the NutLock developers?</label>
                         <input id="add_donation" type="number" placeholder="100" min="0"/>
