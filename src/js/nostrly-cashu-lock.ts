@@ -1107,4 +1107,22 @@ jQuery(function ($) {
     $historyDiv.append($list);
   };
   loadNutLockHistory(); // load now
+
+  // Witness's "counter-lock" link: their hash, their refund key as the main
+  // key, and an expiry ahead of theirs. The refund key and mint are the user's
+  const q = new URLSearchParams(location.search);
+  if (q.get("hash")) {
+    $lockHash.val(q.get("hash")!).trigger("input");
+    if (q.get("pubkey")) $lockNpub.val(q.get("pubkey")!).trigger("paste");
+    const expiry = Number(q.get("expiry"));
+    if (expiry) {
+      const local = new Date(expiry * 1000);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      $lockExpiry.val(local.toISOString().slice(0, 16)).trigger("input");
+    }
+    if (q.get("disclose")) $useDisclose.prop("checked", true);
+    toastr.info(
+      "Counter-lock prefilled from Witness: choose the mint and add your refund key",
+    );
+  }
 });

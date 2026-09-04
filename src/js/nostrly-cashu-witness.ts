@@ -12,6 +12,7 @@ import {
   signP2PKProofs,
   hasP2PKSignedProof,
   verifyHTLCHash,
+  verifyHTLCSpendingConditions,
   verifyP2PKSpendingConditions,
   schnorrVerifyDigest,
   schnorrVerifyMessage,
@@ -51,6 +52,7 @@ import {
   getErrorMessage,
   getTokenAmount,
   getWalletWithUnit,
+  inRelative,
   isBlsProof,
 } from "./utils";
 import { getContactDetails, convertP2PKToNpub } from "./nostr";
@@ -82,6 +84,9 @@ jQuery(function ($) {
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
   let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
+  let preimage = ""; // hashlock secret, once it verifies against the token's hash
+  let watchAbort: AbortController | undefined;
+  let watchedRefundAt: number | undefined; // refund time of the token being watched
 
   // Every key this page can sign with directly: pasted, plus NIP-60 via NIP-07
   const signingKeys = () => [
@@ -92,7 +97,8 @@ jQuery(function ($) {
   // inject window.nostr after this script runs
   const extensionCanSign = (opt: SpendOption) =>
     Boolean(nip07Pubkey && window.nostr && CashuNip07.canSign(window.nostr)) &&
-    CashuNip07.completes(opt, nip07Pubkey!);
+    CashuNip07.completes(opt, nip07Pubkey!) &&
+    (!opt.leaf.hash || !!preimage);
   const logger = new ConsoleLogger("debug");
 
   // DOM elements
@@ -102,6 +108,8 @@ jQuery(function ($) {
   const $privkey = $("#privkey");
   const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
+  const $hashlockDiv = $("#hashlock");
+  const $secret = $("#secret");
   const $unlockDiv = $("#unlock");
   const $unlockToken = $("#unlock-token");
   const $witnessInfo = $("#witness-info");
@@ -139,6 +147,9 @@ jQuery(function ($) {
     spendAuthorised = false;
     isV3 = false;
     spentEntries = [];
+    preimage = "";
+    watchAbort?.abort();
+    $hashlockDiv.hide();
     $witnessInfo.hide().empty();
   };
 
@@ -188,6 +199,11 @@ jQuery(function ($) {
     loadWitnessHistory();
   });
   $unlockToken.on("click", unlockToken);
+  $secret.on(
+    "input",
+    debounce(() => applySecret(), 200),
+  );
+  window.addEventListener("pagehide", () => watchAbort?.abort());
 
   // Process the input token
   async function processToken() {
@@ -264,7 +280,7 @@ jQuery(function ($) {
       } else {
         allProofs = token.proofs;
       }
-      proofs = allProofs.filter((p) => p.secret.includes("P2PK"));
+      proofs = allProofs.filter((p) => /P2PK|HTLC/.test(p.secret));
       if (!proofs.length) {
         // Nutroot: every proof is locked to its point secret; spend_info
         // says who can spend it, so witness X-rays them all
@@ -315,6 +331,184 @@ jQuery(function ($) {
       displayWitnessInfo();
     }
     checkNip07ButtonState();
+    // A secret carried over from a watch ("Use this secret") or an earlier paste
+    if ($secret.val()) applySecret(true);
+  }
+
+  // Hashlock helpers shared by both displays: spendOptions reads a NUT-14
+  // secret into the same leaf shape as a nutroot tree
+  const spendLeaves = () => {
+    try {
+      return wallet && proofs[0] ? wallet.spendOptions(proofs[0]).script : [];
+    } catch {
+      return [];
+    }
+  };
+  const hashLeaf = () => spendLeaves().find((o) => o.leaf.hash);
+  const refundLeaf = () =>
+    spendLeaves().find((o) => o.leaf.type === "after" && o.leaf.keys.length);
+  const refundAt = () => refundLeaf()?.availableAt;
+  const fmtDate = (unix: number) =>
+    new Date(unix * 1000).toLocaleString().slice(0, -3);
+  const parseWitness = (w: Proof["witness"]) =>
+    typeof w === "string" ? JSON.parse(w) : (w ?? {});
+
+  // Validate the pasted secret against the token's hashlock, then re-assess
+  function applySecret(quiet = false) {
+    const val = (($secret.val() as string) ?? "").trim().toLowerCase();
+    preimage = "";
+    $secret.attr("data-valid", "");
+    const hash = hashLeaf()?.leaf.hash;
+    if (!val || !hash) return;
+    if (!verifyHTLCHash(val, hash)) {
+      $secret.attr("data-valid", "no");
+      if (!quiet)
+        toastr.error("That secret does not open this token's hashlock");
+      return;
+    }
+    preimage = val;
+    if (!quiet) toastr.success("Secret opens the hashlock");
+    if (isV3) {
+      void displayV3Info();
+      return;
+    }
+    // NUT-14: the preimage rides the witness, and later signing keeps it there
+    const stamp = (p: Proof) =>
+      p.secret.includes("HTLC")
+        ? { ...p, witness: { ...parseWitness(p.witness), preimage: val } }
+        : p;
+    proofs = proofs.map(stamp);
+    allProofs = allProofs.map(stamp);
+    displayWitnessInfo();
+    checkNip07ButtonState();
+  }
+
+  // Swap controls for a token holding a hashlock: the counter-lock link and a
+  // watch for the revealed secret. A legacy mint returns every witness on
+  // spend; a nutroot leaf publishes only with disclosure
+  function hashlockControls(): string {
+    const hl = hashLeaf();
+    if (!hl) return "";
+    const refund = refundLeaf();
+    const at = refundAt();
+    let html = "";
+    if (refund && at && at > Date.now() / 1000) {
+      // Their refund key is the key the counter-lock is made out to; the
+      // expiry lands halfway to their refund so the secret holder runs out first
+      const params = new URLSearchParams({
+        hash: hl.leaf.hash!,
+        pubkey: refund.leaf.keys[0],
+        expiry: String(Math.floor((Date.now() / 1000 + at) / 2)),
+        disclose: "1",
+      });
+      html += `<p class="summary"><a href="https://www.nostrly.com/cashu-nutlock/?${params}" target="_blank">Create the counter-lock in NutLock (Atomic Swap)</a></p>`;
+    }
+    if (!isV3 || hl.leaf.disclosure) {
+      html += `<p class="summary"><button type="button" id="watch-secret" class="button">Watch for the secret</button> <span id="watch-status" style="margin-left:1em"></span></p><ul id="watch-result"></ul>`;
+    }
+    if (watchedRefundAt && at && at <= watchedRefundAt) {
+      toastr.warning(
+        `This token refunds at ${fmtDate(at)}, before the token you are watching does. Claim it before then.`,
+      );
+    }
+    return html;
+  }
+  function bindHashlockControls() {
+    $hashlockDiv.toggle(!!hashLeaf());
+    $("#watch-secret").on("click", () => void watchForSecret());
+  }
+
+  // Subscribe to the token's proofs and read the secret from the witness of
+  // a spent one. Websocket first: polling counts against the mint's rate limit
+  async function watchForSecret() {
+    const hash = hashLeaf()?.leaf.hash;
+    if (!wallet || !hash) return;
+    watchAbort?.abort();
+    const ac = (watchAbort = new AbortController());
+    const say = (text: string) => $("#watch-status").text(text);
+    const watched = proofs;
+    const at = refundAt();
+    watchedRefundAt = at;
+    if (at) {
+      // ponytail: setTimeout caps near 24.8 days; a longer watch simply outlives the tab
+      const ms = Math.min((at - Date.now() / 1000) * 1000, 2 ** 31 - 1);
+      const deadline = setTimeout(() => {
+        ac.abort();
+        say("stopped: the refund window is open");
+      }, ms);
+      ac.signal.addEventListener("abort", () => clearTimeout(deadline));
+    }
+    const found = (state: ProofState) => {
+      if (state.state !== "SPENT" || !state.witness) return false;
+      let pre: string | undefined;
+      try {
+        pre = isV3
+          ? parseWitness(state.witness).preimage
+          : getHTLCWitnessPreimage(state.witness);
+      } catch {
+        return false;
+      }
+      if (!pre || !verifyHTLCHash(pre, hash)) return false;
+      revealSecret(pre);
+      return true;
+    };
+    try {
+      const ws = wallet.getMintInfo().isSupported(17);
+      const live = ws.params?.some((p) => p.commands.includes("proof_state"));
+      if (!live) throw new Error("mint does not push proof states");
+      say("watching (live)");
+      const stream = wallet.on
+        .proofStatesStream(watched, { signal: ac.signal })
+        [Symbol.asyncIterator]();
+      // NUT-17 replays the current state on subscribe, so silence means the
+      // socket is dead even if the library keeps quietly reconnecting
+      const first = stream.next();
+      const replay = await Promise.race([
+        first,
+        new Promise<"silent">((r) => setTimeout(() => r("silent"), 10_000)),
+      ]);
+      if (replay === "silent") {
+        first.catch(() => {});
+        throw new Error("no state replay from the websocket");
+      }
+      for (let r = replay; !r.done; r = await stream.next()) {
+        if (found(r.value)) return;
+      }
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      console.warn("live watch unavailable, polling instead:", e);
+    }
+    say("watching (polling every 30s)");
+    while (!ac.signal.aborted) {
+      await new Promise((r) => setTimeout(r, 30_000));
+      if (ac.signal.aborted) return;
+      try {
+        const states = await wallet.checkProofsStates(watched);
+        if (states.some(found)) return;
+      } catch (e) {
+        console.warn("poll failed:", e);
+      }
+    }
+  }
+  function revealSecret(pre: string) {
+    watchAbort?.abort();
+    $("#watch-status").text("secret revealed");
+    const $li = $(
+      `<li class="signed"><span class="status-icon"></span><span>Secret revealed: ${mono(pre)}<br><span class="copytkn">Copy</span>&nbsp;&nbsp;<span class="copytkn use">Use this secret</span></span></li>`,
+    );
+    $li.find(".copytkn:not(.use)").on("click", () => copyTextToClipboard(pre));
+    $li.find(".use").on("click", () => {
+      $secret.val(pre);
+      // The watched token is spent, so its panel gives way to the next step
+      $token.val("").trigger("focus");
+      $witnessInfo.html(
+        `<p class="summary">Secret loaded below. Now paste the token the other side sent you: with your key, the secret unlocks it.</p>`,
+      );
+      $hashlockDiv.show();
+      $unlockDiv.hide();
+      toastr.info("Paste the other side's token to unlock it with this secret");
+    });
+    $("#watch-result").empty().append($li);
   }
 
   // Display witness requirements
@@ -323,7 +517,7 @@ jQuery(function ($) {
       return;
     }
     const proof = proofs[0];
-    const verification = verifyP2PKSpendingConditions(proof, logger);
+    const verification = verifyHTLCSpendingConditions(proof, logger);
     const { lockState, locktime } = verification;
     const mainPubkeys = verification.main.pubkeys;
     const refundPubkeys = verification.refund.pubkeys;
@@ -354,9 +548,13 @@ jQuery(function ($) {
     if (lockState === "PERMANENT") {
       html += `<li>Locktime: permanently locked (no expiry)</li>`;
     } else if (lockState === "ACTIVE") {
-      html += `<li>Locktime: active until ${new Date(locktime * 1000).toLocaleString().slice(0, -3)}</li>`;
+      html += `<li>Locktime: active until ${fmtDate(locktime)} (${inRelative(locktime)})</li>`;
     } else {
       html += `<li>Locktime: expired</li>`;
+    }
+    const hl = hashLeaf();
+    if (hl) {
+      html += `<li>Hashlock: ${preimage ? "secret provided" : "needs its secret"} (${hl.leaf.hash!.slice(0, 8)}…)</li>`;
     }
 
     const mainRemaining = Math.max(
@@ -472,7 +670,9 @@ jQuery(function ($) {
     }
 
     html += `</ul>`;
+    html += hashlockControls();
     $witnessInfo.show().html(html);
+    bindHashlockControls();
     void renderSpendEvidence();
   }
 
@@ -498,7 +698,10 @@ jQuery(function ($) {
       return;
     }
     const keyPath = describeV3KeyPath(proof);
-    const canSpend = (o: SpendOption) => o.satisfiable || extensionCanSign(o);
+    const canSpend = (o: SpendOption) =>
+      o.satisfiable ||
+      extensionCanSign(o) ||
+      (o.blockedBy === "preimage" && !!preimage);
     spendAuthorised = spend.keyPath || spend.script.some(canSpend);
     // A silent re-render after a paste or NIP-07 click reads as a broken button
     if (attempted) {
@@ -556,14 +759,17 @@ jQuery(function ($) {
           status = " - unlockable with your key";
         } else if (extSign) {
           status = " - unlockable with your Nostr extension";
+        } else if (opt.blockedBy === "preimage") {
+          status = preimage
+            ? " - unlockable with your key and this secret"
+            : " - needs its secret";
         } else if (opt.blockedBy === "locktime") {
           status = " - not yet active"; // the leaf text already names the date
-        } else if (opt.blockedBy === "preimage") {
-          status = " - needs its secret preimage";
         } else if (privkeys.length) {
           status = " - your key does not unlock this leaf";
         }
-        html += `<li class="${canSpend(opt) ? "signed" : "pending"}"><span class="status-icon"></span>Leaf ${opt.leafIndex + 1}: ${describeNutrootLeaf(opt.leaf)}${status}</li>`;
+        const rel = opt.availableAt ? inRelative(opt.availableAt) : "";
+        html += `<li class="${canSpend(opt) ? "signed" : "pending"}"><span class="status-icon"></span>Leaf ${opt.leafIndex + 1}: ${describeNutrootLeaf(opt.leaf)}${rel && ` (${rel})`}${status}</li>`;
         const held = new Set(opt.keys.map((k) => k.keyIndex));
         html += `<ul>`;
         opt.leaf.keys.forEach((pub, keyIndex) => {
@@ -595,7 +801,9 @@ jQuery(function ($) {
       }
       $unlockDiv.hide();
     }
+    html += hashlockControls();
     $witnessInfo.show().html(html);
+    bindHashlockControls();
     checkNip07ButtonState();
     void renderSpendEvidence();
   }
@@ -997,9 +1205,11 @@ jQuery(function ($) {
         allProofs,
         signingKeys(),
         nip07Pubkey,
+        preimage || undefined,
       );
+      // Re-encoded from allProofs so a stamped NUT-14 preimage travels
       const unlockedProofs = await wallet.receive(
-        $token.val() as string,
+        getEncodedToken({ mint: mintUrl, proofs: allProofs, unit }),
         config,
       );
       const unlockedToken = getEncodedToken({

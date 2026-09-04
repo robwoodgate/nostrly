@@ -125,6 +125,18 @@ export function describeNutrootLeaf(leaf: NutrootLeaf): string {
 }
 
 /**
+ * "in 2d 3h" style countdown to a unix time; empty once it has passed.
+ */
+export function inRelative(unix: number): string {
+  const s = unix - Date.now() / 1000;
+  if (s <= 0) return "";
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return d ? `in ${d}d ${h}h` : h ? `in ${h}h ${m}m` : `in ${m}m`;
+}
+
+/**
  * Gets the token amount by summing its proof amounts
  * @param proofs Array of proofs to sum
  * @return The token amount

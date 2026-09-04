@@ -963,6 +963,9 @@ class NostrlyTools
                     font-style: italic;
                     color: #ccc;
                 }
+                #witness-info a {
+                    color: #FF9900;
+                }
                 /* Success section */
                 #cashu-witness-success .subtitle {
                     font-weight: bold;
@@ -1026,6 +1029,11 @@ class NostrlyTools
                     <div class="center">
                         <button type="button" id="use-nip07" class="button" disabled>{$nxbutton}</button>
                     </div>
+                </div>
+                <div id="hashlock" class="hidden">
+                    <label for="secret">Secret (hashlock preimage):</label>
+                    <input type="text" id="secret" name="secret" placeholder="64 hex characters">
+                    <div class="description">This token has a hashlock: unlocking it needs the secret behind the hash as well as a key. In an atomic swap the other side reveals it by claiming your token; use "Watch for the secret" above to catch it.</div>
                 </div>
                 <div id="unlock" class="hidden center">
                     <button type="button" id="unlock-token" class="button">Unlock Token</button>

@@ -83,6 +83,13 @@ export const NOSTRLY_PUBKEY =
   "cec0f44d0d64d6d9d7a1c84c330f5467e752cc8b065f720e874a0bed1c5416d2";
 export const pool = new SimplePool();
 
+// A relay query resolves on EOSE, so a dead relay set never resolves: bound it
+const bound = <T>(work: Promise<T>, fallback: T, ms = 3000): Promise<T> =>
+  Promise.race([
+    work,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+
 /**
  * Sends a message anonymously via Nostr
  * @param {string}   toPub   Hex pubkey to send to
@@ -419,14 +426,14 @@ export const getNip60Wallet = async (
     let privkeys: string[] = [];
     let mints: string[] = [];
     let filter: Filter = { kinds: [17375], authors: [hexpub] };
-    let event = await pool.get(relays, filter);
+    let event = await bound(pool.get(relays, filter), null);
     if (!event) {
       console.warn(
         "kind:17375 wallet not found... checking for a legacy kind:37375 wallet",
       );
       toastr.warning("NIP-60 wallet not found... checking for a legacy wallet");
       filter = { kinds: [37375], authors: [hexpub] };
-      event = await pool.get(relays, filter);
+      event = await bound(pool.get(relays, filter), null);
     }
     if (!event) return { privkeys: [], mints: [], kind: null };
     console.log("getNip60Wallet", event);
@@ -506,11 +513,6 @@ export const getWalletRelays = async (
 ): Promise<string[]> => {
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
   const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
-  const bound = <T>(work: Promise<T>, fallback: T): Promise<T> =>
-    Promise.race([
-      work,
-      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 3000)),
-    ]);
   try {
     const { relays: nutzap } = await bound(getNip61Info(hexpub, relays), {
       pubkey: null,
@@ -834,24 +836,45 @@ export async function getV3SpendConfig(
   proofs: Proof[],
   privkeys: string[],
   nip07Pubkey?: string,
+  preimage?: string,
 ): Promise<{ privkey?: string[]; scriptPath?: ScriptPathPlan[] }> {
   const opts = privkeys.length ? { privkeys } : undefined;
   const plans = await wallet.planScriptPaths(proofs, opts);
   const nostr = window?.nostr;
-  if (nostr && nip07Pubkey && CashuNip07.canSign(nostr)) {
+  const nip07 =
+    nostr && nip07Pubkey && CashuNip07.canSign(nostr)
+      ? { nostr, pubkey: nip07Pubkey }
+      : undefined;
+  if (nip07 || preimage) {
     const planned = new Set(plans.map((p) => p.secret));
     for (const proof of proofs.filter(isBlsProof)) {
       if (planned.has(proof.secret)) continue;
       const spend = await wallet.spendOptions(proof, opts);
       if (spend.keyPath) continue;
-      const leaf = spend.script.find((o) =>
-        CashuNip07.completes(o, nip07Pubkey),
+      // A hashlock leaf is never satisfiable on its own, so the plan is
+      // built here: the secret completes a leaf whose keys are held
+      const hashlock = preimage
+        ? spend.script.find((o) => o.blockedBy === "preimage")
+        : undefined;
+      if (hashlock) {
+        plans.push({
+          secret: proof.secret,
+          leafIndex: hashlock.leafIndex,
+          preimage,
+        });
+        continue;
+      }
+      if (!nip07) continue;
+      const leaf = spend.script.find(
+        (o) =>
+          CashuNip07.completes(o, nip07.pubkey) && (!o.leaf.hash || preimage),
       );
       if (leaf) {
         plans.push({
           secret: proof.secret,
           leafIndex: leaf.leafIndex,
-          cosign: CashuNip07.cosign(nostr),
+          cosign: CashuNip07.cosign(nip07.nostr),
+          ...(leaf.leaf.hash && { preimage }),
         });
       }
     }
