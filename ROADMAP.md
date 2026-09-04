@@ -38,6 +38,10 @@ Status key: **shipped**, **next**, **later**, **not yet**.
 - **Disclosure as an option, not just a lock type.** Cashu Request offers
   "publicly verifiable claims" on any request: every generated leaf carries
   `disclosure`, and a lone key gives up its key path so no spend can dodge it.
+- **Spend receipts.** NutLock hands the payer a receipt for a v3 spend: the
+  spent proofs plus what opens the mint's NUT-07 commitment for each. Witness
+  verifies one end to end and matches it against the mint's own commitment,
+  so "I paid this" is provable without the mint's cooperation.
 
 ## Next
 
@@ -83,46 +87,3 @@ them would advertise something that is not settled:
   loses funds when rushed.
 - **Scripted leaves** (leaf version `0x01`): the extension point exists, the
   language does not.
-
-## Upstream: what cashu-ts could make easier
-
-Everything below was worked around here rather than fixed at source. Each is a
-small addition, and each removes something awkward from every wallet, not just
-this one.
-
-- **A signer callback for minting.** Done on cashu-ts 1005 (in experimental
-  ce00c698b): `MintProofsConfig.sign` (and `.sign(fn)` on the mint
-  builder) takes the quote digest, and for a v3 quote the tagged message and
-  container, and returns the signature; `CashuNip07.signQuote(nostr)` is the
-  extension-backed one. Cashu Gift claims a gift locked to the extension's own
-  nostr key that way, with NIP-60 wallet keys still covering nutzap locks.
-
-- **Parity-tolerant quote key matching.** Fixed at source: `findSigningKey`
-  matches on x and returns the scalar for the published parity (PR to cashu-ts
-  main). The gift tool's own both-parities workaround can go once that ships.
-
-- **`LockBuilder.disclose()`.** Done on cashu-ts 950 (in experimental
-  ce00c698b): `disclosure: true` / `disclose()` stamps every leaf the builder
-  generates, and a lone main key becomes a leaf under NUMS so the key path
-  cannot bypass it. Cashu Request's checkbox uses it.
-
-- **Spend receipts.** A spender cannot open their own NUT-07 spend commitment,
-  because nothing surfaces the `(Y, input_digest, witness)` a swap or melt
-  produced. Returning them per input would make "prove I paid this" possible
-  client-side, which is the whole point of the commitment.
-
-- **Why a legacy encoding was dropped.** Done on cashu-ts 950 (in experimental
-  ce00c698b): `PaymentRequestBuilder.omitted` carries each encoder's reason
-  after `lock()`. Cashu Request's compose summary shows it instead of guessing.
-
-- **One spendability check across both lock families.** Done on cashu-ts 950
-  (in experimental ce00c698b): `Wallet.spendOptions` now accepts any
-  proof and answers `spendable` plus a machine-readable `blockedBy`
-  (`not-keyed-to-you`, `locktime`, `threshold`, `preimage`), wording left to the
-  caller. A NUT-11 lock reads as the same leaf shape as a nutroot tree, matched
-  across key parity and through `p2pk_e`, so the decision tree in the Cashu
-  Request collect tab (`isBlsKeyset` gate, `getP2PKExpectedWitnessPubkeys`
-  fallback, hand-rolled parity flip) can collapse to one call once the pin moves.
-  `isPaymentRequestSatisfied` keeps its own legacy comparison on purpose: it
-  checks lock identity (exactly the condition requested), which is stronger than
-  spendability and is what settlement needs.

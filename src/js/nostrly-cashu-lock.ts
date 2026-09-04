@@ -95,6 +95,8 @@ jQuery(function ($) {
   const $lockedToken = $("#locked-token");
   const $lockedCopyToken = $("#locked-token-copy");
   const $lockedCopyEmoji = $("#locked-emoji-copy");
+  const $lockedCopyReceipt = $("#locked-receipt-copy");
+  const $lockedReceiptHint = $("#locked-receipt-hint");
   const $historyDiv = $("#nutlock-history");
   const $clearHistory = $("#clear-history");
   const $preamble = $(".preamble");
@@ -795,9 +797,24 @@ jQuery(function ($) {
       }
       const lockOptions = buildLock().toOptions();
       console.log("lockOptions", lockOptions);
-      const { send: p2pkProofs, keep: donationProofs } = await withStaleRetry(
-        () => wallet.ops.send(tokenAmount, proofs).asLocked(lockOptions).run(),
+      const {
+        send: p2pkProofs,
+        keep: donationProofs,
+        receipts,
+      } = await withStaleRetry(() =>
+        wallet.ops.send(tokenAmount, proofs).asLocked(lockOptions).run(),
       );
+      // Spend receipt (v3 inputs only): the spent proofs, harmless once spent, plus what opens
+      // their NUT-07 commitments. Witness verifies the bundle.
+      const spent = proofs.filter(
+        (p) => !donationProofs.some((k) => k.secret === p.secret),
+      );
+      const receipt = receipts?.length
+        ? JSON.stringify({
+            token: getEncodedToken({ mint: mintUrl, proofs: spent }),
+            receipts,
+          })
+        : "";
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
 
@@ -824,6 +841,11 @@ jQuery(function ($) {
       $lockedCopyEmoji.on("click", () =>
         copyTextToClipboard(emojiEncode("\uD83E\uDD5C", lockedToken)),
       );
+      $lockedCopyReceipt.toggle(receipt !== "");
+      $lockedReceiptHint.toggle(receipt !== "");
+      $lockedCopyReceipt
+        .off("click")
+        .on("click", () => copyTextToClipboard(receipt));
       storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
       const msg = getErrorMessage(e, "Error creating locked token.");

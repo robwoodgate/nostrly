@@ -28,6 +28,8 @@ import {
   type ReceiveConfig,
   type SpendOption,
   type SpendOptions,
+  type SpendReceipt,
+  verifySpendReceipt,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import {
@@ -75,6 +77,7 @@ jQuery(function ($) {
   let spendAuthorised = false;
   let isV3 = false; // proofs are on a v3 (nutroot) keyset
   let spentEntries: { proof: Proof; state: ProofState }[] = [];
+  let receipts: SpendReceipt[] = []; // pasted spend receipts, matched to proofs by Y
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
   let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
@@ -95,6 +98,7 @@ jQuery(function ($) {
   const $divForm = $("#cashu-witness-form");
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
+  const $receipt = $("#receipt");
   const $privkey = $("#privkey");
   const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
@@ -151,6 +155,33 @@ jQuery(function ($) {
 
   // Input handlers
   $token.on("input", debounce(processToken, 200));
+  $receipt.on("input", debounce(processReceipt, 200));
+
+  // A spend receipt bundle from NutLock: the spent proofs as a token plus the receipts that
+  // open their commitments. It fills the token field and lets the evidence panel verify.
+  function processReceipt() {
+    receipts = [];
+    const raw = (($receipt.val() as string) || "").trim();
+    if (!raw) {
+      $receipt.attr("data-valid", "");
+      return;
+    }
+    try {
+      const bundle = JSON.parse(raw) as {
+        token?: string;
+        receipts?: SpendReceipt[];
+      };
+      if (!Array.isArray(bundle.receipts) || !bundle.receipts.length) {
+        throw new Error("no receipts");
+      }
+      receipts = bundle.receipts;
+      $receipt.attr("data-valid", "");
+      if (typeof bundle.token === "string") $token.val(bundle.token);
+      void processToken();
+    } catch {
+      $receipt.attr("data-valid", "no");
+    }
+  }
   $privkey.on("paste", (_e) => {
     setTimeout(() => {
       privkey = $privkey.val() as string;
@@ -599,6 +630,42 @@ jQuery(function ($) {
       const verdicts: { ok?: boolean; text: string }[] = [];
       let allOk = true;
       const witness = state.witness;
+      // A pasted receipt: the payer's own opening of this proof's commitment
+      const receipt = receipts.find(
+        (r) => r.Y?.toLowerCase() === state.Y.toLowerCase(),
+      );
+      if (receipt) {
+        const v = verifySpendReceipt(receipt, proof);
+        const sealed =
+          v.commitment &&
+          !!state.commitment &&
+          receipt.commitment.toLowerCase() === state.commitment.toLowerCase();
+        allOk &&= v.ok && sealed;
+        verdicts.push({
+          ok: v.proof,
+          text: v.proof
+            ? "receipt names this proof"
+            : "receipt is for another proof",
+        });
+        verdicts.push({
+          ok: v.inputDigest,
+          text: v.inputDigest
+            ? "input digest recomputes from the receipt's transcript"
+            : "input digest does not match the receipt's transcript",
+        });
+        verdicts.push({
+          ok: v.witness,
+          text: v.witness
+            ? `witness spends this proof (${v.path} path)`
+            : "witness does not spend this proof",
+        });
+        verdicts.push({
+          ok: sealed,
+          text: sealed
+            ? "commitment opens and matches the mint's"
+            : "commitment does not match the mint's",
+        });
+      }
       if (witness && state.input_digest) {
         // A disclosure spend: verify the published opening end to end
         sawDisclosure = true;
@@ -744,21 +811,25 @@ jQuery(function ($) {
         if (!verdicts.length) {
           verdicts.push({ text: "witness returned (nothing to verify)" });
         }
-      } else if (state.commitment) {
+      } else if (state.commitment && !receipt) {
         verdicts.push({
           text: `evidence sealed in commitment ${shortHex(state.commitment)} (only the spender can open it)`,
         });
-      } else {
+      } else if (!receipt) {
         verdicts.push({ text: "no evidence returned by this mint" });
       }
       const disclosed = Boolean(witness && state.input_digest);
-      const headline = disclosed
+      const headline = receipt
         ? allOk
-          ? "spent, disclosure verified"
-          : "spent, disclosure INVALID"
-        : witness
-          ? "spent, witness returned"
-          : "spent privately";
+          ? "spent, receipt verified"
+          : "spent, receipt INVALID"
+        : disclosed
+          ? allOk
+            ? "spent, disclosure verified"
+            : "spent, disclosure INVALID"
+          : witness
+            ? "spent, witness returned"
+            : "spent privately";
       html += `<li class="${allOk ? "signed" : "pending"}"><span class="status-icon"></span><span>${formatAmount(proof.amount, unit)} proof ${shortHex(state.Y)}: ${headline}</span></li>`;
       if (verdicts.length) {
         html += `<ul>`;
@@ -773,6 +844,9 @@ jQuery(function ($) {
     html += `</ul>`;
     if (sawDisclosure) {
       html += `<p class="summary">Disclosed spends verify on their own and reveal nothing about the rest of the transaction they were spent in.</p>`;
+    }
+    if (receipts.length) {
+      html += `<p class="summary">A spend receipt is the payer's own opening of the commitment: it proves the proof was spent in the transaction the receipt describes, which only the payer could have known.</p>`;
     }
     html += `</div>`;
     $witnessInfo.show().append(html);
