@@ -1,6 +1,7 @@
 // Imports
 import {
   bytesToHex,
+  encodeSpendReceipt,
   getEncodedToken,
   isBlsKeyset,
   lockToNutrootOptions,
@@ -1018,7 +1019,7 @@ jQuery(function ($) {
         (p) => !donationProofs.some((k) => k.secret === p.secret),
       );
       const receipt = receipts?.length
-        ? JSON.stringify({
+        ? encodeSpendReceipt({
             token: getEncodedToken({ mint: mintUrl, proofs: spent }),
             receipts,
           })

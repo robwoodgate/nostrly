@@ -843,7 +843,7 @@ class NostrlyTools
                     <h2>Your Locked Token</h2>
                     <textarea id="locked-token" rows="10" cols="50"></textarea>
                     <p><button id="locked-token-copy" class="button">{$copy_token}</button><button id="locked-emoji-copy" class="button">{$copy_emoji}</button><button id="locked-receipt-copy" class="button hidden">{$copy_receipt}</button></p>
-                    <p id="locked-receipt-hint" class="hint hidden">The spend receipt is your proof of payment: the proofs you spent plus what opens the mint's NUT-07 commitment for each. Keep it private; paste it into Witness to verify.</p>
+                    <p id="locked-receipt-hint" class="hint hidden">The spend receipt (a <code>nutrcA...</code> string) is your proof of payment: the proofs you spent plus what opens the mint's NUT-07 commitment for each. Keep it private; paste it into Witness to verify.</p>
                 </div>
             EOL;
     }
@@ -860,9 +860,8 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu-witness');
 
         $token_label = esc_attr__('Locked Cashu token (or emoji 🥜)', 'nostrly');
-        $receipt_label = esc_attr__('Spend receipt (optional)', 'nostrly');
-        $receipt_ph = esc_attr__('Paste a spend receipt from NutLock', 'nostrly');
-        $token = esc_attr__('Paste a Locked Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
+        $receipt_label = esc_attr__('Spend receipts (from the pasted receipt)', 'nostrly');
+        $token = esc_attr__('Paste a Locked Cashu ecash token (or ecash emoji 🥜, or a spend receipt from NutLock) to witness...', 'nostrly');
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
         $cancel = esc_html__('Cancel', 'nostrly');
@@ -1018,10 +1017,10 @@ class NostrlyTools
                     <textarea id="token" name="token" rows="5" placeholder="{$token}" required></textarea>
                     <div id="witness-info" class="hidden"></div>
                 </div>
-                <div>
+                <div id="receipt-wrap" class="hidden">
                     <label for="receipt">{$receipt_label}</label>
-                    <textarea id="receipt" name="receipt" rows="3" placeholder="{$receipt_ph}"></textarea>
-                    <div class="description">A spend receipt proves who paid: it carries the spent proofs and opens the mint's NUT-07 commitment for each. Pasting one fills the token above and adds the receipt checks to its evidence.</div>
+                    <textarea id="receipt" name="receipt" rows="3" readonly></textarea>
+                    <div class="description">Split out of the spend receipt you pasted: the payer's opening of the mint's NUT-07 commitment for each spent proof above. The evidence panel checks them.</div>
                 </div>
                 <div id="signers" class="hidden">
                     <div>

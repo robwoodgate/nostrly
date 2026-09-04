@@ -29,6 +29,7 @@ import {
   type SpendOption,
   type SpendOptions,
   type SpendReceipt,
+  decodeSpendReceipt,
   verifySpendReceipt,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
@@ -99,6 +100,7 @@ jQuery(function ($) {
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
   const $receipt = $("#receipt");
+  const $receiptWrap = $("#receipt-wrap");
   const $privkey = $("#privkey");
   const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
@@ -155,33 +157,6 @@ jQuery(function ($) {
 
   // Input handlers
   $token.on("input", debounce(processToken, 200));
-  $receipt.on("input", debounce(processReceipt, 200));
-
-  // A spend receipt bundle from NutLock: the spent proofs as a token plus the receipts that
-  // open their commitments. It fills the token field and lets the evidence panel verify.
-  function processReceipt() {
-    receipts = [];
-    const raw = (($receipt.val() as string) || "").trim();
-    if (!raw) {
-      $receipt.attr("data-valid", "");
-      return;
-    }
-    try {
-      const bundle = JSON.parse(raw) as {
-        token?: string;
-        receipts?: SpendReceipt[];
-      };
-      if (!Array.isArray(bundle.receipts) || !bundle.receipts.length) {
-        throw new Error("no receipts");
-      }
-      receipts = bundle.receipts;
-      $receipt.attr("data-valid", "");
-      if (typeof bundle.token === "string") $token.val(bundle.token);
-      void processToken();
-    } catch {
-      $receipt.attr("data-valid", "no");
-    }
-  }
   $privkey.on("paste", (_e) => {
     setTimeout(() => {
       privkey = $privkey.val() as string;
@@ -224,8 +199,20 @@ jQuery(function ($) {
 
       // check token
       let tokenEncoded: string = $token.val() as string;
+      receipts = [];
+      $receiptWrap.hide();
       if (!tokenEncoded) {
         return;
+      }
+      // A spend receipt from NutLock (nutrcA): split it, the token stays here and the receipts
+      // move to their own box, then carry on with the token
+      if (tokenEncoded.startsWith("nutrc")) {
+        const bundle = decodeSpendReceipt(tokenEncoded);
+        receipts = bundle.receipts;
+        tokenEncoded = bundle.token;
+        $token.val(tokenEncoded);
+        $receipt.val(JSON.stringify(receipts));
+        $receiptWrap.show();
       }
       if (!tokenEncoded.startsWith("cashu")) {
         const decoded = emojiDecode(tokenEncoded);
@@ -256,8 +243,18 @@ jQuery(function ($) {
         if (!spentEntries.length) {
           throw new Error("Token is in-flight (pending) - try again shortly");
         }
-        $token.attr("data-valid", "no");
-        toastr.info("Token already spent - showing its NUT-07 spend evidence");
+        // Spent is the expected state for a token that arrived with a receipt
+        const viaReceipt = receipts.some((r) =>
+          spentEntries.some(
+            (e) => e.state.Y.toLowerCase() === r.Y?.toLowerCase(),
+          ),
+        );
+        $token.attr("data-valid", viaReceipt ? "" : "no");
+        if (!viaReceipt) {
+          toastr.info(
+            "Token already spent - showing its NUT-07 spend evidence",
+          );
+        }
         await renderSpendEvidence();
         return;
       }
