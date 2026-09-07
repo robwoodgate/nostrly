@@ -445,9 +445,9 @@ jQuery(function ($) {
         let spendable = true;
         if (keyPath.kind !== "bearer") {
           const keys = v3SpendKeys();
-          const spend = await wallet.spendOptions(
+          const spend = wallet.spendOptions(
             proof,
-            keys.length ? { privkeys: keys } : undefined,
+            keys.length ? { privkeys: keys } : undefined
           );
           spendable =
             spend.keyPath ||
@@ -651,12 +651,13 @@ jQuery(function ($) {
         `Sending ${formatAmount(meltQuote.amount, unit)} (plus ${formatAmount(meltQuote.fee_reserve, unit)} network fees) via Lightning`,
       );
 
-      // Melt the token using the quote. We can send all proofs, as the balance
-      // will be returned to us as change. This also saves a swap fee.
+      // Melt the token using the quote. Overpayment comes back as NUT-08
+      // change, but a keyset rotation mid-melt can strand it, so a large
+      // surplus is swapped down first and only the fee reserve rides the melt
       let meltResponse;
       const w = wallet; // narrowed reference for the retry closure
-      // v3 inputs sign the melt transaction itself, so the key goes in the
-      // melt config rather than onto the proofs
+      // v3 inputs sign the transaction itself, so the key goes in the config
+      // of whichever operation spends them rather than onto the proofs
       let meltConfig: MeltProofsConfig | undefined;
       if (proofs.some(isBlsProof)) {
         meltConfig = await getV3SpendConfig(
@@ -666,9 +667,21 @@ jQuery(function ($) {
           nip07Pubkey,
         );
       }
+      let meltProofs = proofs;
+      let keep: Proof[] = [];
+      // 10% is a guess at where the swap fee beats the rotation risk
+      const surplus = tokenAmount.subtract(amountToSend);
+      if (surplus.greaterThan(tokenAmount.floorPercent(10))) {
+        $lightningStatus.text("Swapping down to the invoice amount...");
+        const cfg = meltConfig;
+        ({ keep, send: meltProofs } = await withStaleRetry(() =>
+          w.send(amountToSend, proofs, { ...cfg, includeFees: true }),
+        ));
+        meltConfig = undefined; // the swap outputs are bearer proofs
+      }
       try {
         meltResponse = await withStaleRetry(() =>
-          w.meltProofsBolt11(meltQuote, proofs, meltConfig),
+          w.meltProofsBolt11(meltQuote, meltProofs, meltConfig),
         );
       } catch (e) {
         if (!(e instanceof MeltChangeError)) throw e;
@@ -686,12 +699,13 @@ jQuery(function ($) {
         $lightningStatus.text("Payment successful!");
         doConfettiBomb();
         // Tokenize our change (overpayment)
-        if (meltResponse.change.length > 0) {
+        const change = [...keep, ...meltResponse.change];
+        if (change.length > 0) {
           $lightningStatus.text("Success! Preparing your change token...");
           let newToken = getEncodedToken({
             mint: mintUrl,
             unit: unit,
-            proofs: meltResponse.change,
+            proofs: change,
           });
           console.log("change token :>> ", newToken);
           localStorage.setItem("nostrly-cashu-token", newToken);
