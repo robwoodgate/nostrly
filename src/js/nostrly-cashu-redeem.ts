@@ -447,7 +447,7 @@ jQuery(function ($) {
           const keys = v3SpendKeys();
           const spend = wallet.spendOptions(
             proof,
-            keys.length ? { privkeys: keys } : undefined
+            keys.length ? { privkeys: keys } : undefined,
           );
           spendable =
             spend.keyPath ||
