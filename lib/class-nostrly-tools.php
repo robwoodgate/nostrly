@@ -290,6 +290,8 @@ class NostrlyTools
                     }
                     #cashu-redeem input, #cashu-redeem textarea {
                       border-radius: 6px;
+                      box-sizing: border-box;
+                      max-width: 100%;
                       padding: 6px 15px;
                       width: 100%;
                     }
@@ -432,13 +434,16 @@ class NostrlyTools
                     #cashu-lock-form select,
                     #cashu-lock-success textarea {
                         border-radius: 6px;
+                        box-sizing: border-box;
                         margin-bottom: 0.25em;
+                        max-width: 100%;
                         padding: 6px 15px;
                         width: 100%;
                     }
                     #cashu-lock-form input[type="checkbox"] {
                         height: 1rem;
                         margin-right: 0.25rem;
+                        padding: 0;
                         width: 1rem;
                     }
                     #lock-type > label:not(:first-child):not(.hidden) {
@@ -893,7 +898,9 @@ class NostrlyTools
                 #cashu-witness-form textarea,
                 #cashu-witness-success textarea {
                     border-radius: 6px;
+                    box-sizing: border-box;
                     margin-bottom: 0.25em;
+                    max-width: 100%;
                     padding: 6px 15px;
                     width: 100%;
                 }
@@ -1493,7 +1500,9 @@ class NostrlyTools
                 #cashu-request input[type="datetime-local"],
                 #cashu-request textarea {
                     border-radius: 6px;
+                    box-sizing: border-box;
                     margin-bottom: 1rem;
+                    max-width: 100%;
                     width: 100%;
                 }
                 #cashu-request [data-valid="no"] {
