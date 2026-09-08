@@ -660,8 +660,11 @@ class NostrlyTools
                     }
                     /* Media queries */
                     @media (max-width: 600px) {
-                        #refund-npub-container {
+                        #refund-npub-container,
+                        #lock-npub-container,
+                        #lock-hash-container {
                             flex-direction: column;
+                            align-items: stretch;
                         }
                         #refund-npub {
                             max-width: 100%;
@@ -1179,6 +1182,7 @@ class NostrlyTools
                             margin-bottom: 5px;
                         }
                         #get-relays {
+                            flex: 0 0 auto;
                             width: 100%;
                         }
                     }
