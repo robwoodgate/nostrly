@@ -1517,6 +1517,14 @@ class NostrlyTools
                     max-width: 100%;
                     width: 100%;
                 }
+                /* iOS renders date controls with the system font and its own box
+                   metrics, ignoring the page text size and box-sizing */
+                #cashu-request input[type="datetime-local"] {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    font-family: inherit;
+                    font-size: inherit;
+                }
                 #cashu-request [data-valid="no"] {
                     border: 1px solid #f00;
                 }
