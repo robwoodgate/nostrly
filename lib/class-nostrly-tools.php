@@ -437,6 +437,7 @@ class NostrlyTools
                         box-sizing: border-box;
                         margin-bottom: 0.25em;
                         max-width: 100%;
+                        min-width: 0;
                         padding: 6px 15px;
                         width: 100%;
                     }
@@ -595,6 +596,9 @@ class NostrlyTools
                         border-radius: 8px;
                         padding: 0.5rem 1rem 0.75rem;
                         margin: 1.25rem 0;
+                        /* fieldsets size to min-content by default: a native date
+                           control at large text sizes would push the box off-screen */
+                        min-width: 0;
                     }
                     #cashu-lock-form fieldset.lock-section legend {
                         padding: 0 0.5rem;
