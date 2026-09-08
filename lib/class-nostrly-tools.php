@@ -448,6 +448,8 @@ class NostrlyTools
                         appearance: none;
                         font-family: inherit;
                         font-size: inherit;
+                        /* an empty control has no content box to give it height */
+                        min-height: 2.5em;
                     }
                     #cashu-lock-form input[type="checkbox"] {
                         height: 1rem;
@@ -1524,6 +1526,8 @@ class NostrlyTools
                     appearance: none;
                     font-family: inherit;
                     font-size: inherit;
+                    /* an empty control has no content box to give it height */
+                    min-height: 2.5em;
                 }
                 #cashu-request [data-valid="no"] {
                     border: 1px solid #f00;
