@@ -441,6 +441,14 @@ class NostrlyTools
                         padding: 6px 15px;
                         width: 100%;
                     }
+                    /* iOS renders date controls with the system font and its own box
+                       metrics, ignoring the page text size and box-sizing */
+                    #cashu-lock-form input[type="datetime-local"] {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        font-family: inherit;
+                        font-size: inherit;
+                    }
                     #cashu-lock-form input[type="checkbox"] {
                         height: 1rem;
                         margin-right: 0.25rem;
