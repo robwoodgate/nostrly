@@ -54,8 +54,6 @@ type LockType = "refundable" | "permanent" | "auditable";
 jQuery(function ($) {
   // Init constants
   const relays = nostrly_ajax.relays;
-  const MIN_FEE = 1; // sats
-  const PCT_FEE = 1; // 1%
   const MAX_SECRET = 1024; // Characters (mint limit)
 
   // Init vars
@@ -68,6 +66,7 @@ jQuery(function ($) {
   let tokenAmount: number = 0;
   let feeAmount: number = 0;
   let donationAmount: number = 0;
+  let donationEdited = false; // stop the 1% prefill once the user has typed
   let extraLockKeys: string[] = [];
   let extraRefundKeys: string[] = [];
   let nSigValue: number = 1;
@@ -144,9 +143,6 @@ jQuery(function ($) {
   const $p2bkOption = $("#p2bk-option");
   const $lockUntilNote = $("#lock-until-note");
   const $minFee = $("#min_fee");
-  $minFee.text(
-    `Includes estimated Mint fees of ${PCT_FEE}% (min ${MIN_FEE} sats).`,
-  );
   // Page handlers
   function showOrderForm() {
     $divOrderFm.show();
@@ -224,14 +220,25 @@ jQuery(function ($) {
   $lockValue.on("input", () => {
     tokenAmount = parseInt($lockValue.val() as string, 10); // Base10 int
     console.log("tokenAmount:>>", tokenAmount);
-    feeAmount = Math.max(Math.ceil((tokenAmount * PCT_FEE) / 100), MIN_FEE); // 1% with MIN_FEE
-    console.log("feeAmount:>>", feeAmount);
+    // Default donation: 1%, min 1 sat, until the user edits the field
+    if (!donationEdited) {
+      donationAmount =
+        tokenAmount > 0 ? Math.max(Math.ceil(tokenAmount / 100), 1) : 0;
+      $addDonation.val(donationAmount || "");
+    }
     checkIsReadyToOrder();
   });
   $addDonation.on("input", () => {
-    donationAmount = Math.abs(parseInt($addDonation.val() as string, 10)); // Base10 int
+    donationEdited = true;
+    donationAmount = Math.abs(parseInt($addDonation.val() as string, 10)) || 0;
     console.log("donationAmount:>>", donationAmount);
   });
+  // Input fee for spending the proofs we will mint, priced on the split of the full total
+  const lightningMintFee = (): number => {
+    const base = tokenAmount + donationAmount;
+    const first = wallet.getFeesToInclude(base).toNumber();
+    return wallet.getFeesToInclude(base + first).toNumber();
+  };
   const checkMinDate = debounce((expireTime) => {
     const now = Math.floor(new Date().getTime() / 1000);
     console.log("now:>>", now);
@@ -276,7 +283,11 @@ jQuery(function ($) {
     if (!wallet) {
       return;
     }
+    feeAmount = lightningMintFee();
     const totalNeeded = tokenAmount + feeAmount + donationAmount;
+    $minFee.text(
+      `Includes ${feeAmount} sats mint fee and ${donationAmount} sats donation.`,
+    );
     // Every v5 mint quote is locked (NUT-20); the key is ours to hold for minting
     const { pubkey, privkey } = await wallet.createQuoteLockKey();
     quoteLockPrivkey = privkey;
@@ -967,7 +978,8 @@ jQuery(function ($) {
             `Unit mismatch: Needed ${wallet.unit}, Received ${token.unit}`,
           );
         }
-        // Check token was big enough
+        // Check token was big enough: the fee is whatever spending these proofs costs
+        feeAmount = wallet.getFeesForProofs(token.proofs).toNumber();
         const totalNeeded = tokenAmount + feeAmount + donationAmount;
         if (getTokenAmount(token.proofs).lessThan(totalNeeded)) {
           throw new Error(

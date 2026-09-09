@@ -106,6 +106,9 @@ jQuery(function ($) {
   const $divForm = $("#cashu-witness-form");
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
+  const $receiptHint = $("#receipt-hint");
+  const $receiptBanner = $("#receipt-banner");
+  const $receiptCopy = $("#receipt-copy");
   const $privkey = $("#privkey");
   const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
@@ -137,6 +140,8 @@ jQuery(function ($) {
   // Reset vars
   const resetVars = function () {
     $token.attr("data-valid", "");
+    $receiptHint.show();
+    $receiptBanner.hide();
     wallet = undefined;
     mintUrl = "";
     unit = "sat";
@@ -223,6 +228,13 @@ jQuery(function ($) {
       if (tokenEncoded.startsWith("nutrc")) {
         const bundle = decodeSpendReceipt(tokenEncoded);
         receipts = bundle.receipts;
+        // The receipt string is replaced in the box, so offer it back
+        const pasted = tokenEncoded;
+        $receiptCopy
+          .off("click")
+          .on("click", () => copyTextToClipboard(pasted));
+        $receiptHint.hide();
+        $receiptBanner.show();
         tokenEncoded = bundle.token;
         $token.val(tokenEncoded);
       }

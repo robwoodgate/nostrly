@@ -451,6 +451,9 @@ class NostrlyTools
                         /* an empty control has no content box to give it height */
                         min-height: 2.5em;
                     }
+                    #cashu-lock-form ::placeholder {
+                        opacity: 0.45;
+                    }
                     #cashu-lock-form input[type="checkbox"] {
                         height: 1rem;
                         margin-right: 0.25rem;
@@ -720,7 +723,7 @@ class NostrlyTools
                     </div>
                     <div>
                         <label for="lock-value">Token Value (sats):</label>
-                        <input type="number" id="lock-value" name="lock-value" min="1" step="1" placeholder="1000" required>
+                        <input type="number" id="lock-value" name="lock-value" min="1" step="1" placeholder="e.g. 1000" autocomplete="off" required>
                     </div>
                     <div id="lock-type">
                         <label>Lock Type:</label>
@@ -842,7 +845,7 @@ class NostrlyTools
                     <div id="lock-summary" class="description hidden"></div>
                     <div class="center">
                         <label for="add_donation" class="center">Do you want to add a donation for the NutLock developers?</label>
-                        <input id="add_donation" type="number" placeholder="100" min="0"/>
+                        <input id="add_donation" type="number" min="0" step="1" autocomplete="off"/>
                         <button type="submit" id="lock-next">Create Locked Token</button>
                     </div>
                     <div id="history" class="center">
@@ -948,6 +951,12 @@ class NostrlyTools
                 #use-nip07:disabled {
                     opacity: 0.6;
                 }
+                #receipt-copy {
+                    font-size: inherit;
+                    margin-left: 0.5rem;
+                    padding: 0 0.5rem;
+                    width: auto;
+                }
                 /* Witness info and status */
                 #witness-info {
                     margin-top: 0.75rem;
@@ -1041,13 +1050,15 @@ class NostrlyTools
             <div id="cashu-witness-form">
                 <div>
                     <label for="token">{$token_label}</label>
-                    <textarea id="token" name="token" rows="5" placeholder="{$token}" required></textarea>
+                    <textarea id="token" name="token" rows="5" placeholder="{$token}" autocomplete="off" required></textarea>
+                    <div id="receipt-hint" class="description">You can also paste a NutLock spend receipt (<code>nutrcA...</code>) to verify a payment.</div>
+                    <div id="receipt-banner" class="description hidden">Showing the spent token and spend evidence from your receipt. <button type="button" id="receipt-copy" class="button">Copy receipt</button></div>
                     <div id="witness-info" class="hidden"></div>
                 </div>
                 <div id="signers" class="hidden">
                     <div>
                         <label for="privkey">Private Key (NSEC or Hex):</label>
-                        <input type="text" id="privkey" name="privkey" placeholder="nsec1... | hex">
+                        <input type="text" id="privkey" name="privkey" placeholder="nsec1... | hex" autocomplete="off">
                         <div class="description">Paste a private key to automatically sign the P2PK proofs. Keys are processed locally in your browser only. Your private key is NEVER sent to our server or the mint. <span id="witness-sig-legacy">For maximum security, however, we recommend using a <a href="https://github.com/nostr-protocol/nips/pull/1890" target="_blank" rel="noopener"><em>nip60</em></a> compatible Nostr extension like <a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a>, <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener">NOS2X</a>, or <a href="https://chromewebstore.google.com/detail/aka-profiles/ncmflpbbagcnakkolfpcpogheckolnad" target="_blank" rel="noopener">AKA Profiles</a>. If you have a <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a>, you may be able to unlock your token using a regular NIP-07 signer. Your name may not appear above in this case.</span><span id="witness-sig-v3" class="hidden">Unlocking a Nutroot token signs the whole unlock transaction. A NIP-07 signer can help two ways: by unlocking your <a href="https://www.nostrly.com/cashu-nutzapme/">NIP-60 Cashu Wallet</a> keys, or by signing directly when a leaf names your Nostr key unblinded (<a href="https://getalby.com/products/browser-extension" target="_blank" rel="noopener">Alby</a> supports this). Blinded keys and the stealth key path need the key itself.</span></div>
                     </div>
                     <div class="center">
@@ -1056,7 +1067,7 @@ class NostrlyTools
                 </div>
                 <div id="hashlock" class="hidden">
                     <label for="secret">Secret (hashlock preimage):</label>
-                    <input type="text" id="secret" name="secret" placeholder="64 hex characters">
+                    <input type="text" id="secret" name="secret" placeholder="64 hex characters" autocomplete="off">
                     <div class="description">This token has a hashlock: unlocking it needs the secret behind the hash as well as a key. In an atomic swap the other side reveals it by claiming your token; use "Watch for the secret" above to catch it.</div>
                 </div>
                 <div id="unlock" class="hidden center">
