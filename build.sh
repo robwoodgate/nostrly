@@ -11,8 +11,13 @@ npm i
 npm run format
 npm run build
 
-# Create plugin
-rm ${pkg}
+# Create plugin. Zip through a fixed top-level folder so WordPress always
+# installs to plugins/nostrly-saas, whatever the uploaded file is called.
+rm -f ${pkg}
 echo "Creating zip file..."
-zip -rq ${pkg} . -x='.git/*' -x='*/.git/*' -x='vendor/*/tests/*' -x='vendor/*/test/*' -x='.well-known/*' -x="src/*" -x="node_modules/*" -x="README.md" -x="webpack.config.js" -x="build.sh" -x="eslint.config.js" -x="package-lock.json" -x="*.DS_Store"
+dir="${pkg%.zip}"
+stage=$(mktemp -d)
+ln -s "$PWD" "${stage}/${dir}"
+(cd "${stage}" && zip -rq "${OLDPWD}/${pkg}" "${dir}" -x="${dir}/.git/*" -x="${dir}/*/.git/*" -x="${dir}/vendor/*/tests/*" -x="${dir}/vendor/*/test/*" -x="${dir}/.well-known/*" -x="${dir}/src/*" -x="${dir}/node_modules/*" -x="${dir}/README.md" -x="${dir}/webpack.config.js" -x="${dir}/build.sh" -x="${dir}/eslint.config.js" -x="${dir}/package-lock.json" -x="${dir}/${pkg}" -x="*.DS_Store")
+rm -r "${stage}"
 echo "Done"
