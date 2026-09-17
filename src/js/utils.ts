@@ -109,6 +109,9 @@ export function getNutrootLeaves(proof: Proof): NutrootLeaf[] {
  * One-line human description of a nutroot leaf's spending condition.
  */
 export function describeNutrootLeaf(leaf: NutrootLeaf): string {
+  if (leaf.type === "commit") {
+    return `Commitment: ${leaf.hash.slice(0, 8)}… (binds outside data, nobody can spend through it)`;
+  }
   const m = leaf.keys.length;
   const sigs = `${leaf.n} of ${m} signature${m > 1 ? "s" : ""}`;
   const disclosed = leaf.disclosure

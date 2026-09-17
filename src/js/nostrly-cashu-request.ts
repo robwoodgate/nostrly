@@ -468,6 +468,7 @@ jQuery(function ($) {
         locktime: `one of its conditions does not unlock until ${when}`,
         threshold: "it needs more signing keys than you gave",
         preimage: "it needs a preimage you do not hold",
+        commit: "it is a commitment leaf, which nobody can spend through",
       };
       return {
         spendable: false,

@@ -2,6 +2,7 @@
 import {
   attachHTLCPreimage,
   auditableLockKey,
+  isConditionLeaf,
   computeMessageDigest,
   taggedHash,
   getEncodedToken,
@@ -357,7 +358,7 @@ jQuery(function ($) {
       return [];
     }
   };
-  const hashLeaf = () => spendLeaves().find((o) => o.leaf.hash);
+  const hashLeaf = () => spendLeaves().find((o) => o.leaf.type === "hashlock");
   const refundLeaf = () =>
     spendLeaves().find((o) => o.leaf.type === "after" && o.leaf.keys.length);
   const refundAt = () => refundLeaf()?.availableAt;
@@ -394,11 +395,16 @@ jQuery(function ($) {
   // spend; a nutroot leaf publishes only with disclosure
   function hashlockControls(): string {
     const hl = hashLeaf();
-    if (!hl) return "";
+    if (!hl || !isConditionLeaf(hl.leaf)) return "";
     const refund = refundLeaf();
     const at = refundAt();
     let html = "";
-    if (refund && at && at > Date.now() / 1000) {
+    if (
+      refund &&
+      isConditionLeaf(refund.leaf) &&
+      at &&
+      at > Date.now() / 1000
+    ) {
       // Their refund key is the key the counter-lock is made out to; the
       // expiry lands halfway to their refund so the secret holder runs out first
       const params = new URLSearchParams({
@@ -733,6 +739,11 @@ jQuery(function ($) {
     if (spend.script.length) {
       html += `<strong>Script Leaves (any ONE unlocks the token):</strong><ul>`;
       for (const opt of spend.script) {
+        if (!isConditionLeaf(opt.leaf)) {
+          // A commitment leaf has no keys and no signer: list it, nothing to unlock.
+          html += `<li class="pending"><span class="status-icon"></span>Leaf ${opt.leafIndex + 1}: ${describeNutrootLeaf(opt.leaf)}</li>`;
+          continue;
+        }
         let status = "";
         const extSign = extensionCanSign(opt);
         if (opt.satisfiable) {
@@ -882,6 +893,9 @@ jQuery(function ($) {
           try {
             const leafHex = parsed.leaf;
             const leaf = parseNutrootLeafHex(leafHex);
+            if (!isConditionLeaf(leaf)) {
+              throw new Error("a commitment leaf is not a spending path");
+            }
             const sigs = parsed.signatures ?? [];
             const signers = leaf.keys.filter((key) =>
               sigs.some((sig) => {
