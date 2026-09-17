@@ -165,6 +165,7 @@ class Nostrly
             'domain' => preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST)),
             'relays' => self::get_relay_urls(),
             'pubkey' => get_option('nostrly_rootkey'),
+            'nutlock_url' => get_option('nostrly_nutlock_url') ?: home_url('/cashu-nutlock/'),
         ]);
         wp_add_inline_script('jquery', $js, 'before');
         // wp_enqueue_script('nostrly-public', NOSTRLY_URL.'assets/js/nostrly-public.min.js', [], NOSTRLY_VERSION, false); // NB: head
