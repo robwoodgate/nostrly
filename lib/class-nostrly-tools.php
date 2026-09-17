@@ -393,15 +393,6 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu-lock');
         wp_enqueue_script('confetti');
 
-        // Remember this page so the other tools can link to it whatever its
-        // slug is on this site (Witness's atomic-swap counter-lock link).
-        if (is_singular()) {
-            $permalink = get_permalink();
-            if ($permalink && get_option('nostrly_nutlock_url') !== $permalink) {
-                update_option('nostrly_nutlock_url', $permalink, false);
-            }
-        }
-
         $nxbutton = esc_html__('Use Nostr Extension', 'nostrly');
         $subtitle = esc_html__('Lightning Invoice', 'nostrly');
         $copy_inv = esc_html__('Copy', 'nostrly');

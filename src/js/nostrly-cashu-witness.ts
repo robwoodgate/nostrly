@@ -64,7 +64,6 @@ import { handleCashuDonation } from "./cashu-donate";
 
 declare const nostrly_ajax: {
   relays: string[];
-  nutlock_url: string;
 };
 
 // DOM ready
@@ -441,7 +440,7 @@ jQuery(function ($) {
       new URLSearchParams(window.location.search).forEach((v, k) => {
         if (!params.has(k)) params.set(k, v);
       });
-      html += `<p class="summary"><a href="${nostrly_ajax.nutlock_url}?${params}" target="_blank">Create the counter-lock in NutLock (Atomic Swap)</a></p>`;
+      html += `<p class="summary"><a href="/cashu-nutlock/?${params}" target="_blank">Create the counter-lock in NutLock (Atomic Swap)</a></p>`;
     }
     if (!isV3 || hl.leaf.disclosure) {
       // A watch only ever reveals the secret of the token being watched, so say
