@@ -137,6 +137,7 @@ jQuery(function ($) {
         );
         if (!response.ok) throw "Unable to reach host";
         const json = await response.json();
+        if (json.status === "ERROR") throw json.reason || "LNURL service error";
         data = json;
       } else {
         const dataPart = bech32.decode(address, 20000).words;
@@ -611,6 +612,8 @@ jQuery(function ($) {
           let target = wallet.maxSpendableAfterFees(proofs);
           for (let attempt = 0; attempt < 3 && !target.isZero(); attempt++) {
             invoice = await getInvoiceFromLnurl(address, toSats(target));
+            if (!invoice)
+              throw new Error(`Could not get an invoice from ${address}`);
             meltQuote = await wallet.createMeltQuoteBolt11(invoice);
             console.log("meltQuote :>> ", meltQuote);
             target = wallet.maxSpendableAfterFees(
