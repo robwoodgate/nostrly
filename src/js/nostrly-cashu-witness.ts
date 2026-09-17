@@ -56,6 +56,7 @@ import {
   getWalletWithUnit,
   inRelative,
   isBlsProof,
+  getLockedTokens,
 } from "./utils";
 import { getContactDetails, convertP2PKToNpub } from "./nostr";
 import toastr from "toastr";
@@ -63,6 +64,7 @@ import { handleCashuDonation } from "./cashu-donate";
 
 declare const nostrly_ajax: {
   relays: string[];
+  nutlock_url: string;
 };
 
 // DOM ready
@@ -362,6 +364,27 @@ jQuery(function ($) {
   const refundLeaf = () =>
     spendLeaves().find((o) => o.leaf.type === "after" && o.leaf.keys.length);
   const refundAt = () => refundLeaf()?.availableAt;
+  // Which side of a swap this token is. The one we created is the one we sent,
+  // and its spend is what publishes the secret; one we were sent is the one we
+  // claim with that secret. History settles it without a key; failing that, a
+  // hashlock leaf our own key already satisfies means we are the claimant.
+  const weSentThisToken = () => {
+    const tok = (($token.val() as string) ?? "").trim();
+    return !!tok && getLockedTokens().some((e) => e.token.trim() === tok);
+  };
+  const weClaimThisToken = () => {
+    const privkeys = signingKeys();
+    if (!privkeys.length || !wallet || !proofs[0]) return false;
+    try {
+      return wallet
+        .spendOptions(proofs[0], { privkeys })
+        .script.some(
+          (o) => o.leaf.type === "hashlock" && o.blockedBy === "preimage",
+        );
+    } catch {
+      return false;
+    }
+  };
   const fmtDate = (unix: number) =>
     new Date(unix * 1000).toLocaleString().slice(0, -3);
   // Validate the pasted secret against the token's hashlock, then re-assess
@@ -413,10 +436,20 @@ jQuery(function ($) {
         expiry: String(Math.floor((Date.now() / 1000 + at) / 2)),
         disclose: "1",
       });
-      html += `<p class="summary"><a href="https://www.nostrly.com/cashu-nutlock/?${params}" target="_blank">Create the counter-lock in NutLock (Atomic Swap)</a></p>`;
+      // Carry this page's own flags (eg ?test=1) so the counter-lock opens with
+      // the same mint list we are using here.
+      new URLSearchParams(window.location.search).forEach((v, k) => {
+        if (!params.has(k)) params.set(k, v);
+      });
+      html += `<p class="summary"><a href="${nostrly_ajax.nutlock_url}?${params}" target="_blank">Create the counter-lock in NutLock (Atomic Swap)</a></p>`;
     }
     if (!isV3 || hl.leaf.disclosure) {
-      html += `<p class="summary"><button type="button" id="watch-secret" class="button">Watch for the secret</button> <span id="watch-status" style="margin-left:1em"></span></p><ul id="watch-result"></ul>`;
+      // A watch only ever reveals the secret of the token being watched, so say
+      // which token that is, and send the claimant to the one they sent instead.
+      html +=
+        weClaimThisToken() && !weSentThisToken()
+          ? `<p class="summary">You hold a key for this token's hashlock, so this is the one you claim with the secret. The secret becomes public when the other side claims the token <em>you</em> sent them: paste that token here and watch it.</p>`
+          : `<p class="summary"><button type="button" id="watch-secret" class="button">${weSentThisToken() ? "Watch the token you sent" : "Watch this token for the secret"}</button> <span id="watch-status" style="margin-left:1em"></span></p><ul id="watch-result"></ul>`;
     }
     if (watchedRefundAt && at && at <= watchedRefundAt) {
       toastr.warning(
@@ -740,8 +773,10 @@ jQuery(function ($) {
       html += `<strong>Script Leaves (any ONE unlocks the token):</strong><ul>`;
       for (const opt of spend.script) {
         if (!isConditionLeaf(opt.leaf)) {
-          // A commitment leaf has no keys and no signer: list it, nothing to unlock.
+          // A commitment leaf has no keys and no signer, so it gets no status. Show the
+          // digest in full: checking it against the data it binds is the point of the leaf.
           html += `<li class="pending"><span class="status-icon"></span>Leaf ${opt.leafIndex + 1}: ${describeNutrootLeaf(opt.leaf)}</li>`;
+          html += `<ul><li><span class="commit-hash" title="Click to copy this commitment" style="font-family:monospace;word-break:break-all;cursor:pointer">${opt.leaf.hash}</span></li></ul>`;
           continue;
         }
         let status = "";
@@ -794,6 +829,9 @@ jQuery(function ($) {
     }
     html += hashlockControls();
     $witnessInfo.show().html(html);
+    $witnessInfo.find(".commit-hash").on("click", function () {
+      copyTextToClipboard($(this).text());
+    });
     bindHashlockControls();
     checkNip07ButtonState();
     void renderSpendEvidence();
