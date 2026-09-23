@@ -348,7 +348,7 @@ const loadWalletWithUnit = async (
 
   // Cache expired (> 12 hours) - load fresh and save data
   if (!cache || cache.lastUpdated < Date.now() - 12 * 3600 * 1000) {
-    const wallet = new Wallet(mintUrl, { unit, logger });
+    const wallet = new Wallet(mintUrl, { unit, logger, wsKeepaliveMs: 30_000 });
     await wallet.loadMint();
     // Cache the data
     const keyChainCache = wallet.keyChain.cache;
@@ -365,7 +365,11 @@ const loadWalletWithUnit = async (
   }
 
   // Use cached data
-  const wallet = new Wallet(cache.mintUrl, { unit: cache.unit, logger });
+  const wallet = new Wallet(cache.mintUrl, {
+    unit: cache.unit,
+    logger,
+    wsKeepaliveMs: 30_000,
+  });
   wallet.loadMintFromCache(cache.mintInfo, cache.keyChainCache);
   console.log("getWalletWithUnit:>> using cached data", cache);
   return wallet;

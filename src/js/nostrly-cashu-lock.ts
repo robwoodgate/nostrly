@@ -852,7 +852,7 @@ jQuery(function ($) {
     // threshold above the key count) once the form is otherwise complete
     if (isV3Mint && typeReady) {
       try {
-        const issues = buildLock().validate("v3");
+        const issues = buildLock().validate("nutroot");
         if (issues.length) {
           toastr.error(issues[0].message);
           setOrderButtonState(true);
