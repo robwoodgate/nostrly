@@ -483,7 +483,7 @@ jQuery(function ($) {
       ac.signal.addEventListener("abort", () => clearTimeout(deadline));
     }
     const found = (state: ProofState) => {
-      if (state.state !== "SPENT" || !state.witness) return false;
+      if (!state.witness) return false;
       const pre = getHTLCWitnessPreimage(state.witness);
       if (!pre || !verifyHTLCHash(pre, hash)) return false;
       revealSecret(pre);
@@ -517,7 +517,7 @@ jQuery(function ($) {
     $li.find(".copytkn:not(.use)").on("click", () => copyTextToClipboard(pre));
     $li.find(".use").on("click", () => {
       $secret.val(pre);
-      // The watched token is spent, so its panel gives way to the next step
+      // The watched token is claimed, so its panel gives way to the next step
       $token.val("").trigger("focus");
       $witnessInfo.html(
         `<p class="summary">Secret loaded below. Now paste the token the other side sent you: with your key, the secret unlocks it.</p>`,
