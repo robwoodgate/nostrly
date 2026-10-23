@@ -12,7 +12,7 @@ class Nostrly
 {
     public const DEFAULT_RELAYS = [
         'wss://purplepag.es',
-        'wss://relay.nostr.band',
+        'wss://profiles.nostr1.com',
         'wss://relay.primal.net',
         'wss://relay.damus.io',
         'wss://relay.snort.social',
