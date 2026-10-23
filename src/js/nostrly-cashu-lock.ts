@@ -1,7 +1,6 @@
 // Imports
 import {
   bytesToHex,
-  encodeSpendReceipt,
   getEncodedToken,
   isBlsKeyset,
   lockToNutrootOptions,
@@ -102,15 +101,11 @@ jQuery(function ($) {
   const $lockedToken = $("#locked-token");
   const $lockedCopyToken = $("#locked-token-copy");
   const $lockedCopyEmoji = $("#locked-emoji-copy");
-  const $lockedCopyReceipt = $("#locked-receipt-copy");
-  const $lockedReceiptHint = $("#locked-receipt-hint");
   const $lockHash = $("#lock-hash");
   const $makeSecret = $("#make-secret");
   const $lockPreimage = $("#lock-preimage");
   const $lockPreimageHex = $("#lock-preimage-hex");
   const $hashlockOption = $("#hashlock-option");
-  const $useDisclose = $("#use-disclose");
-  const $discloseOption = $("#disclose-option");
   const $extraPaths = $("#extra-paths");
   const $addPath = $("#add-path");
   const $pathRows = $("#path-rows");
@@ -201,7 +196,6 @@ jQuery(function ($) {
       $refundBlankNote.toggle(!isV3Mint);
       $refundV3Note.toggle(isV3Mint);
       $lockTypeAuditable.toggle(isV3Mint);
-      $discloseOption.toggle(isV3Mint);
       $extraPaths.toggle(isV3Mint);
       if (!isV3Mint && lockType === "auditable") {
         $lockTypeRadios.filter("[value='refundable']").prop("checked", true);
@@ -330,14 +324,12 @@ jQuery(function ($) {
     $lockUntilNote.toggle(!permanent);
     $permanentWarning.toggle(permanent);
     if (!permanent) $confirmPermanent.prop("checked", false);
-    // Auditable is a preset: one unblinded key, permanent, publicly verifiable, no extras
+    // Auditable is a preset: one unblinded key, permanent, no extras
     const auditable = lockType === "auditable";
     $addMultisig.toggle(!auditable);
     if (auditable) $multisigOptions.hide();
     $p2bkOption.toggle(!auditable);
     if (auditable) $useP2BK.prop("checked", false);
-    $useDisclose.prop("disabled", auditable);
-    if (auditable) $useDisclose.prop("checked", true);
     $hashlockOption.toggle(!auditable);
     if (auditable) setLockHash("");
     $extraPaths.toggle(isV3Mint && !auditable);
@@ -403,7 +395,7 @@ jQuery(function ($) {
       checkIsReadyToOrder();
     });
     $row
-      .find(".path-nsigs, .path-after, .path-disclose")
+      .find(".path-nsigs, .path-after")
       .on("input change", () => checkIsReadyToOrder());
     $row.find(".path-remove").on("click", (ev) => {
       ev.preventDefault();
@@ -429,25 +421,22 @@ jQuery(function ($) {
           );
         }
         const cond = $row.find(".path-cond").val();
-        const disclosure = $row.find(".path-disclose").is(":checked")
-          ? { disclosure: 1 }
-          : {};
         if (cond === "after") {
           const time = Math.floor(
             new Date($row.find(".path-after").val() as string).getTime() / 1000,
           );
           if (!Number.isFinite(time))
             throw new Error(`Spending path ${i + 1} needs a date`);
-          return { type: "after", n, keys, time, ...disclosure };
+          return { type: "after", n, keys, time };
         }
         if (cond === "hash") {
           if (!lockHash)
             throw new Error(
               `Spending path ${i + 1} needs the secret hash above`,
             );
-          return { type: "hashlock", n, keys, hash: lockHash, ...disclosure };
+          return { type: "hashlock", n, keys, hash: lockHash };
         }
-        return { type: "threshold", n, keys, ...disclosure };
+        return { type: "threshold", n, keys };
       });
   };
 
@@ -490,7 +479,6 @@ jQuery(function ($) {
     checkIsReadyToOrder();
   });
   $confirmPermanent.on("change", () => checkIsReadyToOrder());
-  $useDisclose.on("change", () => checkIsReadyToOrder());
   $useP2BK.on("change", () => checkIsReadyToOrder());
 
   /**
@@ -760,16 +748,21 @@ jQuery(function ($) {
 
   // Builds the semantic lock from the current form state; the wallet
   // encodes it for the active keyset (NUT-11/14 tags pre-v3, nutroot on v3)
-  // One path for every lock type: auditable is the preset "one unblinded key, permanent,
-  // publicly verifiable", which the encoder turns into NUMS plus one leaf (auditableLock's shape)
+  // Auditable is one unblinded key as a leaf under NUMS (v3 only), so anyone
+  // holding the token can read who it names
   const buildLock = () => {
-    const auditable = lockType === "auditable";
+    if (lockType === "auditable") {
+      return new LockBuilder().addLeaf({
+        type: "threshold",
+        n: 1,
+        keys: [lockP2PK],
+      });
+    }
     const lock = new LockBuilder()
-      .addMainPubkey(auditable ? [lockP2PK] : lockKeys)
-      .requireMainSignatures(auditable ? 1 : nSigValue);
-    if (!auditable && lockHash) lock.addHashlock(lockHash);
-    if (!auditable && $useP2BK.is(":checked")) lock.blindKeys();
-    if (auditable || $useDisclose.is(":checked")) lock.disclose();
+      .addMainPubkey(lockKeys)
+      .requireMainSignatures(nSigValue);
+    if (lockHash) lock.addHashlock(lockHash);
+    if ($useP2BK.is(":checked")) lock.blindKeys();
     if (lockType === "refundable") {
       lock.lockUntil(expireTime).addRefundPubkey(refundKeys);
       if (refundKeys.length) lock.requireRefundSignatures(rSigValue);
@@ -792,11 +785,7 @@ jQuery(function ($) {
   const lockLeafCount = () => {
     const auditable = lockType === "auditable";
     const mainIsLeaf =
-      auditable ||
-      !!lockHash ||
-      lockKeys.length > 1 ||
-      nSigValue > 1 ||
-      $useDisclose.is(":checked");
+      auditable || !!lockHash || lockKeys.length > 1 || nSigValue > 1;
     const refund =
       lockType === "refundable"
         ? 1 + (fallbackTime && rSigValue > 1 ? 1 : 0)
@@ -1018,24 +1007,9 @@ jQuery(function ($) {
       }
       const lockOptions = buildLock().toOptions();
       console.log("lockOptions", lockOptions);
-      const {
-        send: p2pkProofs,
-        keep: donationProofs,
-        receipts,
-      } = await withStaleRetry(() =>
-        wallet.ops.send(tokenAmount, proofs).asLocked(lockOptions).run(),
+      const { send: p2pkProofs, keep: donationProofs } = await withStaleRetry(
+        () => wallet.ops.send(tokenAmount, proofs).asLocked(lockOptions).run(),
       );
-      // Spend receipt (v3 inputs only): the spent proofs, harmless once spent, plus what opens
-      // their NUT-07 commitments. Witness verifies the bundle.
-      const spent = proofs.filter(
-        (p) => !donationProofs.some((k) => k.secret === p.secret),
-      );
-      const receipt = receipts?.length
-        ? encodeSpendReceipt({
-            token: getEncodedToken({ mint: mintUrl, proofs: spent }),
-            receipts,
-          })
-        : "";
       console.log("p2pkProofs:>>", p2pkProofs);
       console.log("donationProofs:>>", donationProofs);
 
@@ -1062,11 +1036,6 @@ jQuery(function ($) {
       $lockedCopyEmoji.on("click", () =>
         copyTextToClipboard(emojiEncode("\uD83E\uDD5C", lockedToken)),
       );
-      $lockedCopyReceipt.toggle(receipt !== "");
-      $lockedReceiptHint.toggle(receipt !== "");
-      $lockedCopyReceipt
-        .off("click")
-        .on("click", () => copyTextToClipboard(receipt));
       storeMintProofs(mintUrl, [], true); // zap the proof store
     } catch (e) {
       const msg = getErrorMessage(e, "Error creating locked token.");
@@ -1132,7 +1101,6 @@ jQuery(function ($) {
       local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
       $lockExpiry.val(local.toISOString().slice(0, 16)).trigger("input");
     }
-    if (q.get("disclose")) $useDisclose.prop("checked", true);
     toastr.info(
       "Counter-lock prefilled from Witness: choose the mint and add your refund key",
     );

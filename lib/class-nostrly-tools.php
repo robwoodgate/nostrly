@@ -398,7 +398,6 @@ class NostrlyTools
         $copy_inv = esc_html__('Copy', 'nostrly');
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
-        $copy_receipt = esc_html__('Copy Spend Receipt', 'nostrly');
         $cancel = esc_html__('Cancel', 'nostrly');
         // Test mint, offered only on ?test=1 (localhost) or ?test=<mint url>, so the live
         // selector is untouched
@@ -560,8 +559,7 @@ class NostrlyTools
                         color: #000;
                         padding: 0 0.25rem;
                     }
-                    #locked-emoji-copy,
-                    #locked-receipt-copy {
+                    #locked-emoji-copy {
                         margin-left: 1rem;
                     }
                     #lock-npub-container,
@@ -732,7 +730,7 @@ class NostrlyTools
                         <label id="lock-type-auditable" class="hidden"><input type="radio" name="lock-type" value="auditable"> Auditable</label>
                         <div class="description" data-lock-type="refundable">Locked to the recipient until the expiry, then to the refund key(s). The safe default: a wrong recipient key is recoverable once the lock expires.</div>
                         <div class="description hidden" data-lock-type="permanent">Locked to the recipient key(s) forever, with no expiry and no refund path. On a Nutroot mint a single key gives a stealth lock: the mint cannot tell the token is locked, and only the key holder can prove it is theirs.</div>
-                        <div class="description hidden" data-lock-type="auditable">A public Nutroot lock to one key, nutzap-style: anyone holding the token can verify who it is locked to, and nobody else can spend it. Permanent; keys are not blinded.</div>
+                        <div class="description hidden" data-lock-type="auditable">A public Nutroot lock to one key, nutzap-style: anyone holding the token can verify who it is locked to and, once it is spent, that they claimed it. Nobody else can spend it. Permanent; keys are not blinded.</div>
                         <div id="permanent-warning" class="hidden">
                             <strong>WARNING:</strong> this lock cannot be removed. If the public key is wrong, the sats are gone.<br>
                             <label><input type="checkbox" id="confirm-permanent"> I have checked the key and understand this lock is permanent.</label>
@@ -753,13 +751,6 @@ class NostrlyTools
                             Use Pay-to-Blinded-Key (P2BK)?
                         </label>
                         <div class="description">Check this box if you want NutLock to blind all public keys and create a <a href="https://github.com/cashubtc/nuts/blob/main/28.md" target="_blank">P2BK secret</a>. This adds privacy, but a blinded key can only be derived from a PRIVATE KEY: a Nostr extension cannot sign for one by itself, though it can unlock your NIP-60 wallet keys (for NIP-61 pubkeys), which can. <a href="https://www.nostrly.com/cashu-witness/" target="_blank">Cashu Witness</a> and <a href="https://www.nostrly.com/cashu-redeem/" target="_blank">Cashu Redeem</a> support P2BK.</div>
-                    </div>
-                    <div id="disclose-option" class="hidden">
-                        <label>
-                            <input type="checkbox" id="use-disclose">
-                            Publicly verifiable claims?
-                        </label>
-                        <div class="description">Every spending path publishes its witness through the mint (NUT-07 disclosure), so anyone holding the token can later verify who claimed it and, for a secret-locked path, read the revealed secret. A single key gives up its stealth key path for this. Off, only the mint sees a claim. Covers the main and refund locks; each extra spending path has its own switch.</div>
                     </div>
                     </fieldset>
                     <fieldset class="lock-section">
@@ -838,7 +829,6 @@ class NostrlyTools
                                     <option value="hash">needs the secret above</option>
                                 </select>
                                 <input type="datetime-local" class="path-after hidden">
-                                <label><input type="checkbox" class="path-disclose"> Publicly verifiable</label>
                             </div>
                         </template>
                     </fieldset>
@@ -868,8 +858,7 @@ class NostrlyTools
                 <div id="cashu-lock-success" class="center hidden">
                     <h2>Your Locked Token</h2>
                     <textarea id="locked-token" rows="10" cols="50"></textarea>
-                    <p><button id="locked-token-copy" class="button">{$copy_token}</button><button id="locked-emoji-copy" class="button">{$copy_emoji}</button><button id="locked-receipt-copy" class="button hidden">{$copy_receipt}</button></p>
-                    <p id="locked-receipt-hint" class="hint hidden">The spend receipt (a <code>nutrcA...</code> string) is your proof of payment: the proofs you spent plus what opens the mint's NUT-07 commitment for each. Keep it private; paste it into Witness to verify.</p>
+                    <p><button id="locked-token-copy" class="button">{$copy_token}</button><button id="locked-emoji-copy" class="button">{$copy_emoji}</button></p>
                 </div>
             EOL;
     }
@@ -886,7 +875,7 @@ class NostrlyTools
         wp_enqueue_script('nostrly-cashu-witness');
 
         $token_label = esc_attr__('Locked Cashu token (or emoji 🥜)', 'nostrly');
-        $token = esc_attr__('Paste a Locked Cashu ecash token (or ecash emoji 🥜, or a spend receipt from NutLock) to witness...', 'nostrly');
+        $token = esc_attr__('Paste a Locked Cashu ecash token (or ecash emoji 🥜) to witness...', 'nostrly');
         $copy_token = esc_html__('Copy Token', 'nostrly');
         $copy_emoji = esc_html__('Copy 🥜', 'nostrly');
         $cancel = esc_html__('Cancel', 'nostrly');
@@ -950,12 +939,6 @@ class NostrlyTools
                 }
                 #use-nip07:disabled {
                     opacity: 0.6;
-                }
-                #receipt-copy {
-                    font-size: inherit;
-                    margin-left: 0.5rem;
-                    padding: 0 0.5rem;
-                    width: auto;
                 }
                 /* Witness info and status */
                 #witness-info {
@@ -1051,8 +1034,6 @@ class NostrlyTools
                 <div>
                     <label for="token">{$token_label}</label>
                     <textarea id="token" name="token" rows="5" placeholder="{$token}" autocomplete="off" required></textarea>
-                    <div id="receipt-hint" class="description">You can also paste a NutLock spend receipt (<code>nutrcA...</code>) to verify a payment.</div>
-                    <div id="receipt-banner" class="description hidden">Showing the spent token and spend evidence from your receipt. <button type="button" id="receipt-copy" class="button">Copy receipt</button></div>
                     <div id="witness-info" class="hidden"></div>
                 </div>
                 <div id="signers" class="hidden">
@@ -1452,7 +1433,6 @@ class NostrlyTools
         $after_label = esc_attr__('...can also claim after', 'nostrly');
         $blind_label = esc_html__('Blind my keys, so payments cannot be linked (recommended)', 'nostrly');
         $legacy_label = esc_html__('Include a legacy fallback for wallets that predate v3 keysets', 'nostrly');
-        $disclose_label = esc_html__('Publicly verifiable claims: the mint publishes each spend\'s witness (NUT-07)', 'nostrly');
         $single_label = esc_html__('Single use: this request expects one payment', 'nostrly');
         $output_label = esc_attr__('Your payment request', 'nostrly');
         $copy = esc_html__('Copy Request', 'nostrly');
@@ -1684,7 +1664,6 @@ class NostrlyTools
                     <div class="checks">
                         <div><input type="checkbox" id="req-blind" checked> <label class="inline" for="req-blind">{$blind_label}</label></div>
                         <div><input type="checkbox" id="req-legacy" checked> <label class="inline" for="req-legacy">{$legacy_label}</label></div>
-                        <div><input type="checkbox" id="req-disclose"> <label class="inline" for="req-disclose">{$disclose_label}</label></div>
                         <div><input type="checkbox" id="req-single"> <label class="inline" for="req-single">{$single_label}</label></div>
                     </div>
 

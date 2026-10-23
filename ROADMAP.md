@@ -15,10 +15,7 @@ Status key: **shipped**, **next**, **later**, **not yet**.
   Witness x-rays every leaf with a per-leaf "can your key satisfy this" verdict.
 - **P2BK receiver-keyed sends.** Unique secret per output derived from a static
   recipient key, so the recipient's key never appears on the wire.
-- **Spend evidence (NUT-07).** Witness verifies a disclosure spend end to end
-  in the browser: commitment opens, signatures verify against the input digest,
-  preimage matches its hashlock, and the exercised leaf matches the token's own
-  disclosed tree.
+- **Spend evidence (NUT-07).** Witness verifies a spent v3 proof's witness end to end in the browser: signatures verify against the input digest, preimage matches its hashlock, and the exercised leaf matches the token's own tree.
 - **Auditable locks are named, not just parsed.** Witness recognises the
   canonical shape and says who can claim it, verified from the proof alone.
 - **Payment requests (NUT-18 / NUT-26).** Cashu Request composes a request that
@@ -35,19 +32,11 @@ Status key: **shipped**, **next**, **later**, **not yet**.
 - **NIP-07 for claims.** A gift locked to the extension's own nostr key is
   claimed through the extension, no private key in the page: the safer habit
   to teach.
-- **Disclosure as an option, not just a lock type.** Cashu Request offers
-  "publicly verifiable claims" on any request: every generated leaf carries
-  `disclosure`, and a lone key gives up its key path so no spend can dodge it.
 - **NutLock mirrors the lock model.** Hashlocks (paste a hash or make a
-  secret, kept in history), "publicly verifiable claims" as a switch, extra
-  spending paths as leaf rows, and a live "what this lock says" summary in the
+  secret, kept in history), extra spending paths as leaf rows, and a live "what this lock says" summary in the
   words Witness uses. Auditable is a preset of the same form. On a legacy mint
   the v3-only controls hide and the rest encodes as NUT-11/14. One half of an
   atomic swap comes out of this form as it stands.
-- **Spend receipts.** NutLock hands the payer a receipt for a v3 spend: the
-  spent proofs plus what opens the mint's NUT-07 commitment for each. Witness
-  verifies one end to end and matches it against the mint's own commitment,
-  so "I paid this" is provable without the mint's cooperation.
 
 ## Next
 
@@ -72,13 +61,7 @@ Status key: **shipped**, **next**, **later**, **not yet**.
 
 ## Later
 
-- **Atomic ecash swaps (hashlock plus disclosure).** Two strangers swap ecash
-  across mints with no trusted party: both sides lock to the same hash, and the
-  first claim publishes its preimage through NUT-07, which the counterparty
-  reads to claim their side. The flashiest thing nutroot can do, and the reason
-  disclosure exists beyond public tips. NutLock now builds each half (secret,
-  refund after expiry, publicly verifiable); still needed: a preimage watch
-  mode in Witness, and careful timeout handling.
+- **Atomic ecash swaps (hashlock).** Two strangers swap ecash across mints with no trusted party: both sides lock to the same hash, and the first claim publishes its preimage through NUT-07, which the counterparty reads to claim their side. The flashiest thing nutroot can do. NutLock builds each half (secret, refund after expiry) and Witness watches for the secret; still needed: careful timeout handling.
 
 ## Not yet
 

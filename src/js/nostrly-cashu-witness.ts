@@ -1,10 +1,7 @@
 // Imports
 import {
   attachHTLCPreimage,
-  auditableLockKey,
   isConditionLeaf,
-  computeMessageDigest,
-  taggedHash,
   getEncodedToken,
   getTokenMetadata,
   getHTLCWitnessPreimage,
@@ -19,8 +16,6 @@ import {
   schnorrVerifyDigest,
   schnorrVerifyMessage,
   parseNutrootLeafHex,
-  bytesToHex,
-  hexToBytes,
   Amount,
   Proof,
   Wallet,
@@ -31,9 +26,6 @@ import {
   type ReceiveConfig,
   type SpendOption,
   type SpendOptions,
-  type SpendReceipt,
-  decodeSpendReceipt,
-  verifySpendReceipt,
 } from "@cashu/cashu-ts";
 import { decode as emojiDecode, encode as emojiEncode } from "./emoji-encoder";
 import {
@@ -83,7 +75,6 @@ jQuery(function ($) {
   let spendAuthorised = false;
   let isV3 = false; // proofs are on a v3 (nutroot) keyset
   let spentEntries: { proof: Proof; state: ProofState }[] = [];
-  let receipts: SpendReceipt[] = []; // pasted spend receipts, matched to proofs by Y
   const hasNip07 = typeof window?.nostr?.getPublicKey !== "undefined";
   let nip07Pubkey: string | undefined; // 02-prefixed, once the extension is asked
   let nip07Privkeys: string[] = []; // NIP-60 wallet keys unlocked via the extension
@@ -108,9 +99,6 @@ jQuery(function ($) {
   const $divForm = $("#cashu-witness-form");
   const $divSuccess = $("#cashu-witness-success");
   const $token = $("#token");
-  const $receiptHint = $("#receipt-hint");
-  const $receiptBanner = $("#receipt-banner");
-  const $receiptCopy = $("#receipt-copy");
   const $privkey = $("#privkey");
   const $signersDiv = $("#signers");
   const $useNip07 = $("#use-nip07");
@@ -142,8 +130,6 @@ jQuery(function ($) {
   // Reset vars
   const resetVars = function () {
     $token.attr("data-valid", "");
-    $receiptHint.show();
-    $receiptBanner.hide();
     wallet = undefined;
     mintUrl = "";
     unit = "sat";
@@ -221,24 +207,8 @@ jQuery(function ($) {
 
       // check token
       let tokenEncoded: string = $token.val() as string;
-      receipts = [];
       if (!tokenEncoded) {
         return;
-      }
-      // A spend receipt from NutLock (nutrcA): the token stays in the box and the receipts go to
-      // the evidence panel, which is their readable form
-      if (tokenEncoded.startsWith("nutrc")) {
-        const bundle = decodeSpendReceipt(tokenEncoded);
-        receipts = bundle.receipts;
-        // The receipt string is replaced in the box, so offer it back
-        const pasted = tokenEncoded;
-        $receiptCopy
-          .off("click")
-          .on("click", () => copyTextToClipboard(pasted));
-        $receiptHint.hide();
-        $receiptBanner.show();
-        tokenEncoded = bundle.token;
-        $token.val(tokenEncoded);
       }
       if (!tokenEncoded.startsWith("cashu")) {
         const decoded = emojiDecode(tokenEncoded);
@@ -257,7 +227,7 @@ jQuery(function ($) {
       const token: Token = wallet.decodeToken(tokenEncoded);
       // Drop spent proofs first: one spent input fails a whole unlock swap.
       // Spent ones are kept aside with their NUT-07 state, which carries the
-      // spend evidence (commitment, and a disclosure opening) worth showing.
+      // witness worth showing.
       const states = await wallet.checkProofsStates(token.proofs);
       const unspent = token.proofs.filter(
         (_, i) => states[i]?.state === "UNSPENT",
@@ -269,18 +239,8 @@ jQuery(function ($) {
         if (!spentEntries.length) {
           throw new Error("Token is in-flight (pending) - try again shortly");
         }
-        // Spent is the expected state for a token that arrived with a receipt
-        const viaReceipt = receipts.some((r) =>
-          spentEntries.some(
-            (e) => e.state.Y.toLowerCase() === r.Y?.toLowerCase(),
-          ),
-        );
-        $token.attr("data-valid", viaReceipt ? "" : "no");
-        if (!viaReceipt) {
-          toastr.info(
-            "Token already spent - showing its NUT-07 spend evidence",
-          );
-        }
+        $token.attr("data-valid", "no");
+        toastr.info("Token already spent - showing its NUT-07 spend evidence");
         await renderSpendEvidence();
         return;
       }
@@ -413,8 +373,7 @@ jQuery(function ($) {
   }
 
   // Swap controls for a token holding a hashlock: the counter-lock link and a
-  // watch for the revealed secret. A legacy mint returns every witness on
-  // spend; a nutroot leaf publishes only with disclosure
+  // watch for the revealed secret, which NUT-07 returns with the witness
   function hashlockControls(): string {
     const hl = hashLeaf();
     if (!hl || !isConditionLeaf(hl.leaf)) return "";
@@ -433,7 +392,6 @@ jQuery(function ($) {
         hash: hl.leaf.hash!,
         pubkey: refund.leaf.keys[0],
         expiry: String(Math.floor((Date.now() / 1000 + at) / 2)),
-        disclose: "1",
       });
       // Carry this page's own flags (eg ?test=1) so the counter-lock opens with
       // the same mint list we are using here.
@@ -442,14 +400,12 @@ jQuery(function ($) {
       });
       html += `<p class="summary"><a href="/cashu-nutlock/?${params}" target="_blank">Create the counter-lock in NutLock (Atomic Swap)</a></p>`;
     }
-    if (!isV3 || hl.leaf.disclosure) {
-      // A watch only ever reveals the secret of the token being watched, so say
-      // which token that is, and send the claimant to the one they sent instead.
-      html +=
-        weClaimThisToken() && !weSentThisToken()
-          ? `<p class="summary">You hold a key for this token's hashlock, so this is the one you claim with the secret. The secret becomes public when the other side claims the token <em>you</em> sent them: paste that token here and watch it.</p>`
-          : `<p class="summary"><button type="button" id="watch-secret" class="button">${weSentThisToken() ? "Watch the token you sent" : "Watch this token for the secret"}</button> <span id="watch-status" style="margin-left:1em"></span></p><ul id="watch-result"></ul>`;
-    }
+    // A watch only ever reveals the secret of the token being watched, so say
+    // which token that is, and send the claimant to the one they sent instead.
+    html +=
+      weClaimThisToken() && !weSentThisToken()
+        ? `<p class="summary">You hold a key for this token's hashlock, so this is the one you claim with the secret. The secret becomes public when the other side claims the token <em>you</em> sent them: paste that token here and watch it.</p>`
+        : `<p class="summary"><button type="button" id="watch-secret" class="button">${weSentThisToken() ? "Watch the token you sent" : "Watch this token for the secret"}</button> <span id="watch-status" style="margin-left:1em"></span></p><ul id="watch-result"></ul>`;
     if (watchedRefundAt && at && at <= watchedRefundAt) {
       toastr.warning(
         `This token refunds at ${fmtDate(at)}, before the token you are watching does. Claim it before then.`,
@@ -743,9 +699,17 @@ jQuery(function ($) {
     let html = `<div><strong>Token Value:</strong><ul><li>${formatAmount(tokenAmount, unit)} from ${mintUrl}</li></ul></div>`;
     html += `<div><strong>Nutroot Token:</strong> the token secret is itself a public key, with any conditions hidden inside it, taproot-style. The mint cannot see the details below unless they are used.</div>`;
 
-    // An auditable lock is the one shape a stranger can fully check: the whole
-    // claim is verified here, so say who it names rather than leaving it implied
-    const auditKey = auditableLockKey(proof);
+    // An auditable lock (NUMS, one single-key threshold leaf) is the one shape a
+    // stranger can fully check; spendOptions above verified the tree against the secret
+    const locks = spend.script.map((o) => o.leaf).filter(isConditionLeaf);
+    const auditKey =
+      keyPath.kind === "script-only" &&
+      locks.length === 1 &&
+      locks[0].type === "threshold" &&
+      locks[0].n === 1 &&
+      locks[0].keys.length === 1
+        ? locks[0].keys[0]
+        : undefined;
     if (auditKey) {
       const npub = convertP2PKToNpub(auditKey);
       const keyId = `audit-${npub}`;
@@ -836,10 +800,8 @@ jQuery(function ($) {
     void renderSpendEvidence();
   }
 
-  // NUT-07 spend evidence: a spent v3 proof returns a binding commitment,
-  // tagged_hash("Cashu_SpendCommitment", Y || input_digest || SHA256(witness)),
-  // and a spend through a disclosure leaf also returns the witness and input
-  // digest that open it. Everything shown verified is verified client-side.
+  // NUT-07 spend evidence: a spent v3 proof returns its witness and the input
+  // digest it signs. Everything shown verified is verified client-side.
   // NUT-07 fields come from the mint (and the witness from the spender), so
   // everything interpolated into the panel is escaped as untrusted
   const escapeHtml = (s: string) => $("<i>").text(s).html();
@@ -852,68 +814,15 @@ jQuery(function ($) {
     if (!spentEntries.length) {
       return;
     }
-    let sawDisclosure = false;
+    let sawV3Witness = false;
     let html = `<div><strong>Spend Evidence (NUT-07):</strong><ul>`;
     for (const { proof, state } of spentEntries) {
       const verdicts: { ok?: boolean; text: string }[] = [];
       let allOk = true;
       const witness = state.witness;
-      // A pasted receipt: the payer's own opening of this proof's commitment
-      const receipt = receipts.find(
-        (r) => r.Y?.toLowerCase() === state.Y.toLowerCase(),
-      );
-      if (receipt) {
-        const v = verifySpendReceipt(receipt, proof);
-        const sealed =
-          v.commitment &&
-          !!state.commitment &&
-          receipt.commitment.toLowerCase() === state.commitment.toLowerCase();
-        allOk &&= v.ok && sealed;
-        verdicts.push({
-          ok: v.proof,
-          text: v.proof
-            ? "receipt names this proof"
-            : "receipt is for another proof",
-        });
-        verdicts.push({
-          ok: v.inputDigest,
-          text: v.inputDigest
-            ? "input digest recomputes from the receipt's transcript"
-            : "input digest does not match the receipt's transcript",
-        });
-        verdicts.push({
-          ok: v.witness,
-          text: v.witness
-            ? `witness spends this proof (${v.path} path)`
-            : "witness does not spend this proof",
-        });
-        verdicts.push({
-          ok: sealed,
-          text: sealed
-            ? "mint's spend commitment verified"
-            : "does not match the mint's spend commitment",
-        });
-      }
       if (witness && state.input_digest) {
-        // A disclosure spend: verify the published opening end to end
-        sawDisclosure = true;
-        if (state.commitment) {
-          const witnessHash = computeMessageDigest(witness);
-          const calc = bytesToHex(
-            taggedHash(
-              "Cashu_SpendCommitment",
-              hexToBytes(state.Y),
-              hexToBytes(state.input_digest),
-              witnessHash,
-            ),
-          );
-          const match = calc === state.commitment.toLowerCase();
-          allOk &&= match;
-          verdicts.push({
-            ok: match,
-            text: match ? "commitment opens" : "commitment does not open",
-          });
-        }
+        // A v3 spend: verify the published witness end to end
+        sawV3Witness = true;
         let parsed: {
           leaf?: string;
           signatures?: string[];
@@ -976,12 +885,12 @@ jQuery(function ($) {
               verdicts.push({
                 ok: inTree,
                 text: inTree
-                  ? "leaf matches this token's disclosed conditions"
-                  : "leaf is NOT among this token's disclosed conditions",
+                  ? "leaf matches this token's conditions"
+                  : "leaf is NOT among this token's conditions",
               });
             }
           } catch (e) {
-            console.error("disclosure leaf parse error:", e);
+            console.error("witness leaf parse error:", e);
             verdicts.push({ ok: false, text: "undecodable leaf" });
             allOk = false;
           }
@@ -1042,25 +951,17 @@ jQuery(function ($) {
         if (!verdicts.length) {
           verdicts.push({ text: "witness returned (nothing to verify)" });
         }
-      } else if (state.commitment && !receipt) {
-        verdicts.push({
-          text: `evidence sealed in commitment ${shortHex(state.commitment)} (only the spender can open it)`,
-        });
-      } else if (!receipt) {
+      } else {
         verdicts.push({ text: "no evidence returned by this mint" });
       }
-      const disclosed = Boolean(witness && state.input_digest);
-      const headline = receipt
-        ? allOk
-          ? "spent, receipt verified"
-          : "spent, receipt INVALID"
-        : disclosed
+      const headline =
+        witness && state.input_digest
           ? allOk
-            ? "spent, disclosure verified"
-            : "spent, disclosure INVALID"
+            ? "spent, witness verified"
+            : "spent, witness INVALID"
           : witness
             ? "spent, witness returned"
-            : "spent privately";
+            : "spent";
       html += `<li class="${allOk ? "signed" : "pending"}"><span class="status-icon"></span><span>${formatAmount(proof.amount, unit)} proof ${shortHex(state.Y)}: ${headline}</span></li>`;
       if (verdicts.length) {
         html += `<ul>`;
@@ -1073,11 +974,8 @@ jQuery(function ($) {
       }
     }
     html += `</ul>`;
-    if (sawDisclosure) {
-      html += `<p class="summary">Disclosed spends verify on their own and reveal nothing about the rest of the transaction they were spent in.</p>`;
-    }
-    if (receipts.length) {
-      html += `<p class="summary">A spend receipt is the payer's own opening of the commitment: it proves the proof was spent in the transaction the receipt describes, which only the payer could have known.</p>`;
+    if (sawV3Witness) {
+      html += `<p class="summary">A v3 witness verifies on its own and reveals nothing about the rest of the transaction it was spent in.</p>`;
     }
     html += `</div>`;
     $witnessInfo.show().append(html);

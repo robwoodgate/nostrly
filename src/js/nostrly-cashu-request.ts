@@ -53,7 +53,6 @@ jQuery(function ($) {
   const $backupAfter = $("#req-backup-after");
   const $blind = $("#req-blind");
   const $legacy = $("#req-legacy");
-  const $disclose = $("#req-disclose");
   const $single = $("#req-single");
   const $output = $("#req-output");
   const $outputWrap = $("#req-output-wrap");
@@ -152,7 +151,6 @@ jQuery(function ($) {
 
     const lock = new LockBuilder().addMainPubkey(payTo);
     if ($blind.is(":checked")) lock.blindKeys();
-    if ($disclose.is(":checked")) lock.disclose();
 
     // A backup leaf is the payee's own second key, claimable after a date: the
     // simplest honest reason for a request to carry a tree at all.
@@ -677,10 +675,7 @@ jQuery(function ($) {
   $(
     "#req-amount, #req-unit, #req-mints, #req-description, #req-payto, #req-backup, #req-backup-after, #req-nostr",
   ).on("input", debounce(refresh, 250));
-  $("#req-blind, #req-legacy, #req-disclose, #req-single").on(
-    "change",
-    refresh,
-  );
+  $("#req-blind, #req-legacy, #req-single").on("change", refresh);
   $inspect.on("input", debounce(inspect, 250));
   $copy.on("click", () => {
     copyTextToClipboard($output.val() as string);

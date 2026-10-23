@@ -3,7 +3,7 @@ import {
   getEncodedToken,
   getTokenMetadata,
   hasP2PKSignedProof,
-  hasValidDleq,
+  verifyMintSignatures,
   verifyP2PKSpendingConditions,
   isP2PKSpendAuthorised,
   Amount,
@@ -205,18 +205,17 @@ jQuery(function ($) {
       const keysetById = new Map(
         wallet.keyChain.getAllKeys().map((k) => [k.id, k]),
       );
-      const dleqVerified = originalProofs.filter((p) => {
-        // v3 proofs pairing-verify without DLEQ data; only pre-v3 proofs
-        // lacking a DLEQ pass through to the mint's judgement
-        if (!p.dleq && !isBlsProof(p)) return true;
-        const ks = keysetById.get(p.id);
-        if (!ks) return true;
-        try {
-          return hasValidDleq(p, ks);
-        } catch {
-          return true;
-        }
-      });
+      // v3 proofs pairing-verify without DLEQ data; only pre-v3 proofs
+      // lacking a DLEQ pass through to the mint's judgement
+      const { invalid } = await verifyMintSignatures(
+        originalProofs.filter(
+          (p) => (p.dleq || isBlsProof(p)) && keysetById.has(p.id),
+        ),
+        (id) => keysetById.get(id)!,
+      );
+      const dleqVerified = originalProofs.filter(
+        (p) => !invalid.some((i) => i.proof === p),
+      );
       if (!dleqVerified.length) {
         throw "Token cannot be verified — the mint did not sign these proofs";
       }
