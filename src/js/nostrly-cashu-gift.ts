@@ -30,6 +30,7 @@ import {
   getErrorMessage,
   getTokenAmount,
   getWalletWithUnit,
+  selectMint,
 } from "./utils";
 import { handleCashuDonation } from "./cashu-donate";
 import toastr from "toastr";
@@ -146,9 +147,7 @@ jQuery(function ($) {
 
   // Remember the mint between visits: it is the one field nobody wants to retype
   const savedMint = localStorage.getItem(MINT_KEY);
-  if (savedMint && $mint.find(`option[value="${savedMint}"]`).length) {
-    $mint.val(savedMint);
-  }
+  if (savedMint) selectMint($mint, savedMint);
 
   // Same mint list as NutLock, refreshed from the auditor on demand
   $mint.on("change", async () => {

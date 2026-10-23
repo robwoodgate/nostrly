@@ -125,6 +125,17 @@ export function describeNutrootLeaf(leaf: NutrootLeaf): string {
 }
 
 /**
+ * Selects a saved mint in a mint picker, adding it first if the page does not list it.
+ * @remarks Keeps a ?test or discovered mint across visits without the query string.
+ */
+export function selectMint($select: JQuery, mintUrl: string): void {
+  if (!$select.find("option").filter((_i, o) => o.value === mintUrl).length) {
+    $select.append($("<option></option>").attr("value", mintUrl).text(mintUrl));
+  }
+  $select.val(mintUrl);
+}
+
+/**
  * "in 2d 3h" style countdown to a unix time; empty once it has passed.
  */
 export function inRelative(unix: number): string {

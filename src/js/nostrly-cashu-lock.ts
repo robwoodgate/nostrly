@@ -39,6 +39,7 @@ import {
   clearLockedTokens,
   getErrorMessage,
   withStaleRetry,
+  selectMint,
 } from "./utils";
 import { handleCashuDonation } from "./cashu-donate";
 import toastr from "toastr";
@@ -47,9 +48,10 @@ declare const nostrly_ajax: {
   relays: string[];
 };
 
-// DOM ready
+const MINT_KEY = "nostrly-lock-mint";
 type LockType = "refundable" | "permanent" | "auditable";
 
+// DOM ready
 jQuery(function ($) {
   // Init constants
   const relays = nostrly_ajax.relays;
@@ -203,6 +205,7 @@ jQuery(function ($) {
       applyLockType();
       toastr.success(`Loaded Mint: ${mintUrl}`);
       $mintSelect.attr("data-valid", "");
+      localStorage.setItem(MINT_KEY, mintUrl);
     } catch (e) {
       const msg = getErrorMessage(e);
       toastr.error(msg);
@@ -1088,6 +1091,13 @@ jQuery(function ($) {
     $historyDiv.append($list);
   };
   loadNutLockHistory(); // load now
+
+  // Reopen on the last mint that loaded, so returning to the page needs no reselect
+  const savedMint = localStorage.getItem(MINT_KEY);
+  if (savedMint) {
+    selectMint($mintSelect, savedMint);
+    $mintSelect.trigger("input");
+  }
 
   // Witness's "counter-lock" link: their hash, their refund key as the main
   // key, and an expiry ahead of theirs. The refund key and mint are the user's
