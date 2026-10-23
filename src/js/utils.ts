@@ -130,7 +130,7 @@ export function describeNutrootLeaf(leaf: NutrootLeaf): string {
  */
 export function selectMint($select: JQuery, mintUrl: string): void {
   if (!$select.find("option").filter((_i, o) => o.value === mintUrl).length) {
-    $select.append($("<option></option>").attr("value", mintUrl).text(mintUrl));
+    $select.append(new Option(mintUrl, mintUrl));
   }
   $select.val(mintUrl);
 }
