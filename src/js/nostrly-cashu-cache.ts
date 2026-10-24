@@ -1,5 +1,5 @@
 import { generateSecretKey, nip19 } from "nostr-tools";
-import { getNut11Mints } from "./nut11";
+import { getNut11Mints, isNut11Mint } from "./nut11";
 import { copyTextToClipboard, debounce, delay } from "./utils";
 import { DEFAULT_RELAYS, pool, getUserRelays, getWalletAndInfo } from "./nostr";
 import { bytesToHex, getPubKeyFromPrivKey, hexToBytes } from "@cashu/cashu-ts";
@@ -21,7 +21,7 @@ jQuery(function ($) {
   let userPubkey: string;
   let userRelays: string[];
   let privkeys: string[];
-  let mintUrls: string[];
+  let mintUrls: string[] = [];
   let mints: string[];
   let relays: string[];
   let kind = null;
@@ -159,7 +159,7 @@ jQuery(function ($) {
   });
 
   // Validate mints
-  const validateMints = debounce(() => {
+  const validateMints = debounce(async () => {
     const mintList = ($mints.val() as string)
       .trim()
       .split("\n")
@@ -167,12 +167,18 @@ jQuery(function ($) {
       .map((url) => url.trim());
     mints = [...new Set(mintList)]; // Deduplicate
     $mints.val(mints.join("\n") + "\n");
-    // Check if all entered mints are in mintUrls
-    const invalidMints = mints.filter((mint) => !mintUrls.includes(mint));
+    // Mints the auditor did not list are checked against their own info
+    const checking = mints;
+    const unknownMints = mints.filter((mint) => !mintUrls.includes(mint));
+    if (unknownMints.length) $createWallet.prop("disabled", true);
+    const supported = await Promise.all(unknownMints.map(isNut11Mint));
+    if (checking !== mints) return; // Edited while checking
+    mintUrls.push(...unknownMints.filter((_mint, i) => supported[i]));
+    const invalidMints = unknownMints.filter((_mint, i) => !supported[i]);
     if (invalidMints.length > 0) {
       $mints.attr("data-valid", "no");
       toastr.error(
-        `Invalid mints detected: ${invalidMints.join(", ")}. Please use mints from the selector, as they support NUT-11 P2PK locking.`,
+        `Invalid mints detected: ${invalidMints.join(", ")}. Each mint must support NUT-11 (P2PK) and NUT-12 (DLEQ).`,
       );
       mints = []; // Clear mints to prevent proceeding with invalid ones
     } else if (mints.length === 0) {
