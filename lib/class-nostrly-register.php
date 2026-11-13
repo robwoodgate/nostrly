@@ -296,7 +296,7 @@ class NostrlyRegister
             'amount' => (int) $this->get_price($name),
             'currency' => 'SAT',
             'reference' => "{$name} Nostrly Address",
-            'memo' => "Nostrly: {$name}@{$this->domain}",
+            'memo' => "Nostrly: {$name}",
             'external_reference' => "nostrly:{$name}:{$pubkey}",
         ]);
         if (empty($payment['payment_request'])) {
