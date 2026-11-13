@@ -5,8 +5,6 @@
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
-use Firebase\JWT;
-use GuzzleHttp\Exception\ClientException;
 use swentel\nostr\Key\Key;
 
 class NostrlyRegister
@@ -63,6 +61,8 @@ class NostrlyRegister
         // Check payment status and register user
         add_action('wp_ajax_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
         add_action('wp_ajax_nopriv_nostrly_pmtcheck', [$this, 'ajax_nostrly_pmtcheck']);
+        // Paid in Sats webhook
+        add_action('rest_api_init', [$this, 'register_routes']);
 
         $this->domain = preg_replace('/^www\./', '', parse_url(get_site_url(), PHP_URL_HOST));
     }
@@ -251,11 +251,9 @@ class NostrlyRegister
     }
 
     /**
-     * Creates a lightning invoice.
+     * Creates a lightning invoice for a name, via Paid in Sats.
      *
-     * @return JSON Lightning invoice
-     *
-     * {"post_id":0,"amount":65000,"token":"abc123...","payment_request":"lnbc1..."}
+     * @return JSON {"amount":65000,"token":"abc123...","payment_request":"lnbc1...","payment_hash":"..."}
      */
     public function ajax_nostrly_checkout()
     {
@@ -285,66 +283,43 @@ class NostrlyRegister
             wp_send_json_error(['message' => 'Your NPUB is already associated with an account']);
         }
 
-        // Check for orders in progress
-        $existing_pk = get_transient('nostrly_'.$name, $pubkey);
-        if (false !== $existing_pk && $existing_pk != $pubkey) {
-            wp_send_json_error(['message' => 'This name is currently reserved. Try again later.']);
+        // Check for orders in progress, and reuse this buyer's open invoice
+        $order = get_transient('nostrly_'.$name);
+        if (false !== $order) {
+            if (!is_array($order) || $order['pubkey'] !== $pubkey) {
+                wp_send_json_error(['message' => 'This name is currently reserved. Try again later.']);
+            }
+            wp_send_json_success($order['data']);
         }
 
-        // Prepare invoice request payload
-        $payload = [
-            'amount' => $this->get_price($name),
-            'currency' => 'btc',
-            'memo' => "{$name} Nostrly Address",
+        $payment = $this->paidinsats('POST', '/api/v1/payments', [
+            'amount' => (int) $this->get_price($name),
+            'currency' => 'SAT',
+            'reference' => "{$name} Nostrly Address",
+            'external_reference' => "nostrly:{$name}:{$pubkey}",
+        ]);
+        if (empty($payment['payment_request'])) {
+            wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
+        }
+        $data = [
+            'amount' => (int) $payment['total_sats'],
+            'token' => $payment['id'],
+            'payment_request' => $payment['payment_request'],
+            'payment_hash' => $payment['payment_hash'],
         ];
 
-        // Use WP REST API internally
-        // @see https://wpscholar.com/blog/internal-wp-rest-api-calls/
-        // We catch exceptions as the endpoint contacts an external LN server
-        try {
-            $request = new WP_REST_Request('POST', '/lnp-alby/v1/invoices');
-            $request->set_body_params($payload);
-            $response = rest_do_request($request);
-            if ($response->is_error()) {
-                wp_send_json_error(['message' => $response->get_error_message()]);
-            }
-            $server = rest_get_server();
-            $data = $server->response_to_data($response, false); // array
-        } catch (ClientException $e) {
-            $response = $e->getResponse();
-            error_log('ajax_nostrly_checkout error: '.$response->getBody()->getContents());
-            wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
-        } catch (Exception $e) {
-            error_log('ajax_nostrly_checkout error: '.$e->getMessage());
-            wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
-        }
-
-        // Decode the token to get payment hash
-        try {
-            $jwt = JWT\JWT::decode($data['token'], new JWT\Key(BLN_PUBLISHER_PAYWALL_JWT_KEY, BLN_PUBLISHER_PAYWALL_JWT_ALGORITHM));
-            // error_log(print_r($jwt, true));
-        } catch (Exception $e) {
-            error_log('ajax_nostrly_checkout error: '.$e->getMessage());
-            wp_send_json_error(['message' => 'There was a problem creating the invoice. Please contact us']);
-        }
-
-        // Tweak the data
-        unset($data['post_id']);
-        $data['payment_hash'] = $jwt->{'r_hash'};
-
-        // BLN Publisher doesn't save comment, so lets save the name there
-        global $wpdb;
-        $wpdb->update($wpdb->prefix.'lightning_publisher_payments', [
-            'comment' => $name,
-        ], ['payment_hash' => $data['payment_hash']]);
-
-        // Save pubkey transient to prevent overlapping orders
-        set_transient('nostrly_'.$name, $pubkey, 720); // 12 minutes
+        // Reserve the name for as long as the invoice is open
+        $ttl = max(60, strtotime($payment['expires_at']) - time());
+        set_transient('nostrly_'.$name, ['pubkey' => $pubkey, 'data' => $data], $ttl);
 
         // Return the invoice data
         wp_send_json_success($data);
     }
 
+    /**
+     * Polled by the register page: reports the payment and, once paid, hands
+     * the new account its backup password (once).
+     */
     public function ajax_nostrly_pmtcheck()
     {
         // Sanitize and verify nonce
@@ -352,74 +327,169 @@ class NostrlyRegister
             wp_send_json_error(['message' => __('Session Expired. Please refresh the page and try again.', 'nostrly')]);
         }
 
-        // Validate token
+        // Validate token (the payment id)
         $token = sanitize_text_field($_POST['token'] ?? '');
-        if (!$token) {
+        if (!preg_match('/^[0-9a-f]{16,64}$/', $token)) {
             wp_send_json_error(['message' => __('Invalid token.', 'nostrly')]);
         }
 
-        // Validate name
-        $resp = [];
-        $name = sanitize_text_field($_POST['name'] ?? '');
-        if (!$this->username_isvalid($name, $resp)) {
-            wp_send_json_error(['message' => $resp['reason']]);
-        }
-
-        // Check invoice payment status
-        // We can't use WP REST API internally as the endpoint uses wp_send_json
-        // and this terminates script execution immediately
-        try {
-            $api_url = get_rest_url().'lnp-alby/v1/invoices/verify';
-            $response = wp_remote_post($api_url, [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                ],
-                'body' => json_encode(['token' => $token]),
-                'data_format' => 'body',
-            ]);
-        } catch (Exception $e) {
-            error_log($e->getMessage());
-            wp_send_json_error(['message' => $e->getMessage()]);
-        }
-
-        // Check for errors in the API response
-        if (is_wp_error($response)) {
-            wp_send_json_error(['message' => $response->get_error_message()]);
-
-            return;
-        }
-
-        // Check invoice payment status
-        // Expected: 200 (paid), 402 (not paid), or 404 (not found)
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        $code = wp_remote_retrieve_response_code($response);
-        if (empty($body['settled']) && 200 != $code) {
-            if (402 == $code) {
-                // not paid yet, but ok to wait
-                wp_send_json_success($body);
+        // The webhook may have registered the account already
+        $user = $this->get_user_by_payment($token);
+        if (!$user) {
+            $payment = $this->paidinsats('GET', '/api/v1/payments/'.$token);
+            $state = $payment['state'] ?? '';
+            if ('pending' === $state) {
+                wp_send_json_success(['paid' => false]); // not paid yet, but ok to wait
             }
-            // Bad news
-            wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
+            if ('paid' !== $state) {
+                wp_send_json_error(['message' => __('Invoice not found or expired.', 'nostrly')]);
+            }
+            $user = $this->fulfil($payment);
+            if (is_wp_error($user) && ($registered = $this->get_user_by_payment($token))) {
+                $user = $registered; // the webhook got there first
+            }
+            if (is_wp_error($user)) {
+                error_log('nostrly_pmtcheck: '.$token.' '.$user->get_error_message());
+                wp_send_json_error(['message' => 'Account creation failed. Please contact us.']);
+            }
         }
 
-        // Create user
-        $password = wp_generate_password();
-        $existing_user = get_user_by('login', $name);
-        $user_id = wp_create_user($name, $password);
-        $public_key = get_transient('nostrly_'.$name);
-        if (!is_wp_error($user_id) && false !== $public_key) {
-            // Set public key
-            update_user_meta($user_id, 'nostr_public_key', sanitize_text_field($public_key));
+        // The password is shown once, to the first caller holding the token
+        $password = '';
+        if (delete_user_meta($user->ID, 'nostrly_password_unclaimed')) {
+            $password = wp_generate_password();
+            wp_set_password($password, $user->ID);
+        }
+        wp_send_json_success(['paid' => true, 'password' => $password]);
+    }
 
-            // Login user. This is ok here because it will ONLY happen
-            // when the account is first being created (wp_create_user).
-            // wp_set_current_user($user_id);
-            // wp_set_auth_cookie($user_id);
-            wp_send_json_success(['paid' => true, 'password' => $password]);
+    public function register_routes(): void
+    {
+        register_rest_route('nostrly/v1', '/paidinsats', [
+            'methods' => 'POST',
+            'callback' => [$this, 'rest_paidinsats_webhook'],
+            'permission_callback' => '__return_true', // signed: see callback
+        ]);
+    }
+
+    /**
+     * Paid in Sats webhook: registers the account when its payment is paid.
+     * Answers 200 to anything correctly signed, as a retry cannot fix a refusal.
+     */
+    public function rest_paidinsats_webhook(WP_REST_Request $request)
+    {
+        $secret = defined('NOSTRLY_PIS_WEBHOOK_SECRET') ? NOSTRLY_PIS_WEBHOOK_SECRET : '';
+        $body = $request->get_body();
+        parse_str(str_replace(',', '&', (string) $request->get_header('x-paidinsats-signature')), $sig);
+        $t = (string) ($sig['t'] ?? '');
+        $mac = hash_hmac('sha256', $t.'.'.$body, $secret);
+        if (!$secret || !ctype_digit($t) || abs(time() - (int) $t) > 300
+            || !hash_equals($mac, (string) ($sig['v1'] ?? ''))) {
+            return new WP_REST_Response(['error' => 'bad_signature'], 401);
         }
 
-        // Still here... bad!
-        wp_send_json_error(['message' => 'Account creation failed. Please contact us.']);
+        $event = json_decode($body, true);
+        $payment = $event['payment'] ?? [];
+        $ref = (string) ($payment['external_reference'] ?? '');
+        if ('payment.paid' === ($event['event'] ?? '') && 0 === strpos($ref, 'nostrly:')) {
+            $user = $this->fulfil($payment);
+            if (is_wp_error($user)) {
+                error_log('nostrly webhook: '.($payment['id'] ?? '').' '.$user->get_error_message());
+            }
+        }
+
+        return new WP_REST_Response(['ok' => true], 200);
+    }
+
+    /**
+     * Registers the account a paid payment was for. Safe to call twice.
+     * The name and pubkey come from the payment's external_reference.
+     *
+     * @param array $payment a Paid in Sats payment object
+     *
+     * @return WP_Error|WP_User
+     */
+    private function fulfil(array $payment)
+    {
+        $id = (string) ($payment['id'] ?? '');
+        $ref = (string) ($payment['external_reference'] ?? '');
+        if ('paid' !== ($payment['state'] ?? '') || '' === $id
+            || !preg_match('/^nostrly:([a-z0-9]{2,20}):([0-9a-f]{64})$/', $ref, $m)) {
+            return new WP_Error('nostrly_payment', 'not a paid registration');
+        }
+        [, $name, $pubkey] = $m;
+
+        $user = $this->get_user_by_payment($id);
+        if ($user) {
+            return $user;
+        }
+        if ((int) ($payment['total_sats'] ?? 0) < (int) $this->get_price($name)) {
+            return new WP_Error('nostrly_payment', "underpaid for {$name}");
+        }
+        $resp = [];
+        if (!$this->username_isvalid($name, $resp)) {
+            return new WP_Error('nostrly_payment', "{$name}: {$resp['reason']}");
+        }
+        if ($this->get_user_by_public_key($pubkey)) {
+            return new WP_Error('nostrly_payment', "pubkey for {$name} already has an account");
+        }
+
+        $user_id = wp_create_user($name, wp_generate_password());
+        if (is_wp_error($user_id)) {
+            return $user_id;
+        }
+        update_user_meta($user_id, 'nostr_public_key', $pubkey);
+        update_user_meta($user_id, 'nostrly_payment_id', $id);
+        update_user_meta($user_id, 'nostrly_password_unclaimed', 1);
+        delete_transient('nostrly_'.$name);
+
+        return get_user_by('id', $user_id);
+    }
+
+    /**
+     * Calls the Paid in Sats API with the key from wp-config.
+     *
+     * @return null|array decoded response, null on any failure
+     */
+    private function paidinsats(string $method, string $path, ?array $body = null): ?array
+    {
+        if (!defined('NOSTRLY_PIS_API_KEY')) {
+            error_log('nostrly: NOSTRLY_PIS_API_KEY is not set');
+
+            return null;
+        }
+        $base = defined('NOSTRLY_PIS_URL') ? NOSTRLY_PIS_URL : 'https://paidinsats.com';
+        $response = wp_remote_request($base.$path, [
+            'method' => $method,
+            'timeout' => 20,
+            'headers' => [
+                'Authorization' => 'Bearer '.NOSTRLY_PIS_API_KEY,
+                'Content-Type' => 'application/json',
+            ],
+            'body' => null === $body ? null : wp_json_encode($body),
+        ]);
+        $code = wp_remote_retrieve_response_code($response);
+        if (is_wp_error($response) || $code < 200 || $code > 299) {
+            $why = is_wp_error($response) ? $response->get_error_message() : $code.' '.wp_remote_retrieve_body($response);
+            error_log("nostrly: paidinsats {$method} {$path} failed: {$why}");
+
+            return null;
+        }
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+
+        return is_array($data) ? $data : null;
+    }
+
+    private function get_user_by_payment(string $payment_id)
+    {
+        $users = get_users([
+            'meta_key' => 'nostrly_payment_id',
+            'meta_value' => $payment_id,
+            'number' => 1,
+            'count_total' => false,
+        ]);
+
+        return !empty($users) ? $users[0] : false;
     }
 
     private function get_user_by_public_key($public_key)
