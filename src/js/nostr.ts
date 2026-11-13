@@ -83,12 +83,30 @@ export const NOSTRLY_PUBKEY =
   "cec0f44d0d64d6d9d7a1c84c330f5467e752cc8b065f720e874a0bed1c5416d2";
 export const pool = new SimplePool();
 
-// A relay query resolves on EOSE, so a dead relay set never resolves: bound it
-const bound = <T>(work: Promise<T>, fallback: T, ms = 3000): Promise<T> =>
-  Promise.race([
-    work,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ]);
+/**
+ * Newest event matching a filter, or null.
+ * @remarks Settles after `ms` with whatever has arrived, so one slow relay
+ * cannot hide an event the others already sent.
+ */
+const getLatest = (
+  relays: string[],
+  filter: Filter,
+  ms = 3000,
+): Promise<Event | null> =>
+  new Promise((resolve) => {
+    let latest: Event | null = null;
+    const done = () => resolve(latest);
+    const timer = setTimeout(done, ms);
+    pool.subscribeManyEose(relays, filter, {
+      onevent(event: Event) {
+        if (!latest || event.created_at > latest.created_at) latest = event;
+      },
+      onclose() {
+        clearTimeout(timer);
+        done();
+      },
+    });
+  });
 
 /**
  * Sends a message anonymously via Nostr
@@ -162,10 +180,10 @@ export const getInboxRelays = async (
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
   const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
   try {
-    const event = await Promise.race([
-      pool.get(relays, { kinds: [10050], authors: [hexpub] }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
-    ]);
+    const event = await getLatest(relays, {
+      kinds: [10050],
+      authors: [hexpub],
+    });
     return (event?.tags ?? [])
       .filter(
         (tag) =>
@@ -391,7 +409,7 @@ export const getUserRelays = async (
     relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
     const filter: Filter = { kinds: [10002], authors: [hexpub] };
-    const event = await pool.get(relays, filter);
+    const event = await getLatest(relays, filter);
     if (!event || !event.tags) return []; // none found
     console.log("getUserRelays", event);
     return event.tags
@@ -426,14 +444,14 @@ export const getNip60Wallet = async (
     let privkeys: string[] = [];
     let mints: string[] = [];
     let filter: Filter = { kinds: [17375], authors: [hexpub] };
-    let event = await bound(pool.get(relays, filter), null);
+    let event = await getLatest(relays, filter);
     if (!event) {
       console.warn(
         "kind:17375 wallet not found... checking for a legacy kind:37375 wallet",
       );
       toastr.warning("NIP-60 wallet not found... checking for a legacy wallet");
       filter = { kinds: [37375], authors: [hexpub] };
-      event = await bound(pool.get(relays, filter), null);
+      event = await getLatest(relays, filter);
     }
     if (!event) return { privkeys: [], mints: [], kind: null };
     console.log("getNip60Wallet", event);
@@ -476,7 +494,7 @@ export const getNip61Info = async (
     relays = relays || DEFAULT_RELAYS; // Fallback
     let hexpub = maybeConvertNpubToHexPub(hexOrNpub);
     const filter: Filter = { kinds: [10019], authors: [hexpub] };
-    const event = await pool.get(relays, filter);
+    const event = await getLatest(relays, filter);
     if (!event) return { pubkey: null, mints: [], relays: [] };
     console.log("getNip61Info", event);
     let mints: string[] = [];
@@ -514,13 +532,9 @@ export const getWalletRelays = async (
   relays = relays?.length ? relays : DEFAULT_RELAYS; // Fallback
   const hexpub = maybeConvertNpubToHexPub(hexOrNpub);
   try {
-    const { relays: nutzap } = await bound(getNip61Info(hexpub, relays), {
-      pubkey: null,
-      mints: [],
-      relays: [] as string[],
-    });
+    const { relays: nutzap } = await getNip61Info(hexpub, relays);
     if (nutzap.length) return [...new Set([...relays, ...nutzap])];
-    const general = await bound(getUserRelays(hexpub, relays), [] as string[]);
+    const general = await getUserRelays(hexpub, relays);
     return [...new Set([...relays, ...general])];
   } catch (e) {
     console.error("getWalletRelays", e);
