@@ -61,6 +61,11 @@ If a real test suite is added later, update this file with exact single-test com
   - removes previous generated `assets/js/nostrly*` bundles
   - runs `composer install --no-dev`
   - creates `nostrly-saas.zip` excluding source/dev folders
+- Deploy script: `./deploy.sh` (needs a clean working tree)
+  - builds the version in `nostrly.php`, then pushes the built tree as tag `vX.Y.Z` to the `sully` remote
+  - a hook on the server checks that tag out into the live plugin folder; `-f` replaces a deployed version
+  - the server runs no build, and branch pushes to `sully` deploy nothing
+  - `.well-known/` is not deployed: copy it to the web root by hand
 
 ## Coding Style Guidelines
 
