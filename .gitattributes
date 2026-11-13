@@ -1,8 +1,20 @@
-.gitattributes export-ignore
-.gitignore export-ignore
-webpack.config.js export-ignore
-README.md export-ignore
-node_modules export-ignore
-src export-ignore
-build.sh export-ignore
-deploy.sh export-ignore
+# Files that do not ship in the plugin. Read by build.sh, which makes both the
+# zip and the deployed tree from this list.
+/.gitattributes export-ignore
+/.github/** export-ignore
+/.gitignore export-ignore
+/.npmrc export-ignore
+/.well-known/** export-ignore
+/AGENTS.md export-ignore
+/README.md export-ignore
+/ROADMAP.md export-ignore
+/build.sh export-ignore
+/deploy.sh export-ignore
+/eslint.config.js export-ignore
+/package-lock.json export-ignore
+/package.json export-ignore
+/src/** export-ignore
+/tsconfig.json export-ignore
+/webpack.config.js export-ignore
+/vendor/**/test/** export-ignore
+/vendor/**/tests/** export-ignore

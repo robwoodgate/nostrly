@@ -56,14 +56,16 @@ If a real test suite is added later, update this file with exact single-test com
 
 ## Packaging
 
+- What ships is decided in one place: every file not git-ignored and not marked `export-ignore` in `.gitattributes`, plus the build outputs listed in `build.sh` (`outputs`).
+  - a new dev-only file or folder: add it to `.gitattributes`
+  - a new git-ignored build output: add it to `outputs` in `build.sh`
 - Build/package script: `./build.sh`
-- Script currently:
-  - removes previous generated `assets/js/nostrly*` bundles
-  - runs `composer install --no-dev`
-  - creates `nostrly-saas.zip` excluding source/dev folders
+  - runs `composer install --no-dev`, `npm ci` and the production build
+  - commits the built tree to `refs/build/latest` (never to a branch) and creates `nostrly-saas.zip` from it
+  - does not format code or update `package-lock.json`: run `npm run format` before committing, and `npm i` yourself when dependencies change
 - Deploy script: `./deploy.sh` (needs a clean working tree)
-  - builds the version in `nostrly.php`, then pushes the built tree as tag `vX.Y.Z` to the `sully` remote
-  - a hook on the server checks that tag out into the live plugin folder; `-f` replaces a deployed version
+  - runs `./build.sh`, then pushes the built tree as tag `vX.Y.Z` to the `sully` remote
+  - a hook on the server checks that tag out into the live plugin folder and purges the caches; `-f` replaces a deployed version
   - the server runs no build, and branch pushes to `sully` deploy nothing
   - `.well-known/` is not deployed: copy it to the web root by hand
 

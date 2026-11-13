@@ -21,21 +21,12 @@ if [[ ! "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-echo "Building ${ver}..."
-rm -f assets/js/nostrly*
-composer install --no-dev --quiet
-npm ci --ignore-scripts --no-audit --no-fund
-npm run build
-
-# Commit the built tree through a temporary index, so it never reaches a branch
-GIT_INDEX_FILE="$(mktemp -d)/index"
-export GIT_INDEX_FILE
-git read-tree HEAD
-git rm -r -q --cached --ignore-unmatch src .well-known README.md \
-  webpack.config.js build.sh deploy.sh eslint.config.js package-lock.json
-git add -f assets/js vendor
-git rm -r -q --cached --ignore-unmatch ':(glob)vendor/**/tests/**' ':(glob)vendor/**/test/**'
-commit=$(git commit-tree "$(git write-tree)" -p HEAD -m "build: ${ver}")
+./build.sh
+commit=$(git rev-parse refs/build/latest)
+if [ "$(git rev-parse "${commit}^")" != "$(git rev-parse HEAD)" ]; then
+  echo "The build is not of the current commit." >&2
+  exit 1
+fi
 
 echo "Pushing v${ver} to ${remote}..."
 git push $force "$remote" "${commit}:refs/tags/v${ver}"
