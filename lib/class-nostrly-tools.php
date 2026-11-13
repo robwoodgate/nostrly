@@ -712,8 +712,10 @@ class NostrlyTools
                             <option value="" disabled selected>Select a mint...</option>
                             {$testmint}
                             <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
-                            <option value="https://mint.103100.xyz">https://mint.103100.xyz</option>
-                            <option value="https://mint.coinos.io">https://mint.coinos.io</option>
+                            <option value="https://mint.sovran.money">https://mint.sovran.money</option>
+                            <option value="https://m7.mountainlake.io">https://m7.mountainlake.io</option>
+                            <option value="https://mint.westernbtc.com">https://mint.westernbtc.com</option>
+                            <option value="https://mint.cubabitcoin.org">https://mint.cubabitcoin.org</option>
                             <option value="discover">Discover more mints...</option>
                         </select>
                         <div class="description">Choose the NUT-11 compliant mint you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://auditor.regtest.macadamia.cash" target="_blank">Cashu Auditor</a> (in which case, <a href="https://auditor.regtest.macadamia.cash" target="_blank">donating a token from that mint</a> will add it to the list)</div>
@@ -1209,7 +1211,7 @@ class NostrlyTools
                         <select id="mint-select" name="mint-select">
                             <option value="" disabled selected>Loading mints...</option>
                         </select>
-                        <textarea id="mints" name="mints" rows="4" placeholder="https://mint.minibits.cash/Bitcoin\nhttps://mint.103100.xyz"></textarea>
+                        <textarea id="mints" name="mints" rows="4" placeholder="https://mint.minibits.cash/Bitcoin\nhttps://mint.sovran.money"></textarea>
                         <div class="description">Choose the NUT-11 compliant mints you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://auditor.regtest.macadamia.cash" target="_blank">Cashu Auditor</a> (in which case, <a href="https://auditor.regtest.macadamia.cash" target="_blank">donating a token from that mint</a> will add it to the list)</div>
                     </div>
                     <div>
@@ -1963,8 +1965,10 @@ class NostrlyTools
                         <option value="" disabled selected>Select a mint...</option>
                         {$giftmint}
                         <option value="https://mint.minibits.cash/Bitcoin">https://mint.minibits.cash/Bitcoin</option>
-                        <option value="https://mint.103100.xyz">https://mint.103100.xyz</option>
-                        <option value="https://mint.coinos.io">https://mint.coinos.io</option>
+                        <option value="https://mint.sovran.money">https://mint.sovran.money</option>
+                        <option value="https://m7.mountainlake.io">https://m7.mountainlake.io</option>
+                        <option value="https://mint.westernbtc.com">https://mint.westernbtc.com</option>
+                        <option value="https://mint.cubabitcoin.org">https://mint.cubabitcoin.org</option>
                         <option value="discover">Discover more mints...</option>
                     </select>
                     <p class="hint">The gift is minted here, so pick a mint the recipient is happy to hold ecash from.</p>
