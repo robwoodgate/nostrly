@@ -430,19 +430,24 @@ class NostrlyRegister
         }
 
         try {
-            return $this->register_paid($id, $name, $pubkey, (int) ($payment['total_sats'] ?? 0));
+            return $this->register_paid($id, $name, $pubkey, $payment);
         } finally {
             $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
         }
     }
 
     /** Creates the account for a paid name, or returns the one already created. */
-    private function register_paid(string $id, string $name, string $pubkey, int $sats)
+    private function register_paid(string $id, string $name, string $pubkey, array $payment)
     {
         $user = $this->get_user_by_payment($id);
         if ($user) {
             return $user;
         }
+        // A payment registers once, soon after it is paid; two days covers the webhook's retries
+        if (time() - (int) strtotime((string) ($payment['paid_at'] ?? '')) > 2 * DAY_IN_SECONDS) {
+            return new WP_Error('nostrly_payment', "payment for {$name} is too old to register");
+        }
+        $sats = (int) ($payment['total_sats'] ?? 0);
         if ($sats < (int) $this->get_price($name)) {
             return new WP_Error('nostrly_payment', "underpaid for {$name}");
         }
