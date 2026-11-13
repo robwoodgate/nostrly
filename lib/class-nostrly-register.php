@@ -422,11 +422,28 @@ class NostrlyRegister
         }
         [, $name, $pubkey] = $m;
 
+        // One registration per payment at a time: the webhook and the poll can coincide
+        global $wpdb;
+        $lock = 'nostrly_reg_'.$id;
+        if (!$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 10)', $lock))) {
+            return new WP_Error('nostrly_payment', 'registration already in progress');
+        }
+
+        try {
+            return $this->register_paid($id, $name, $pubkey, (int) ($payment['total_sats'] ?? 0));
+        } finally {
+            $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+        }
+    }
+
+    /** Creates the account for a paid name, or returns the one already created. */
+    private function register_paid(string $id, string $name, string $pubkey, int $sats)
+    {
         $user = $this->get_user_by_payment($id);
         if ($user) {
             return $user;
         }
-        if ((int) ($payment['total_sats'] ?? 0) < (int) $this->get_price($name)) {
+        if ($sats < (int) $this->get_price($name)) {
             return new WP_Error('nostrly_payment', "underpaid for {$name}");
         }
         $resp = [];
