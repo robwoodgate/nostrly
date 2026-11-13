@@ -231,7 +231,12 @@ jQuery(function ($) {
       let newToken = null;
       if (validEntries.length > 0) {
         newToken = await processValidProofs(mintUrl, unit, validEntries);
-        validEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
+        // A failed receive stays unredeemed for a retry, unless clearing
+        if (newToken || clearInvalid) {
+          validEntries.forEach((entry) => eventIdsToRedeem.add(entry.eventId));
+        } else {
+          toastr.error(`Could not redeem ${unit} proofs from ${mintHost}`);
+        }
       }
       return newToken;
     } catch (error) {
