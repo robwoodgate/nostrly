@@ -512,6 +512,7 @@ class NostrlyRegister
             'meta_value' => $payment_id,
             'number' => 1,
             'count_total' => false,
+            'cache_results' => false, // a parallel request may have just registered it
         ]);
 
         return !empty($users) ? $users[0] : false;
