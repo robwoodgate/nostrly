@@ -149,7 +149,7 @@ jQuery(function ($) {
         $("#nostr_public_key").val(metadata.npub);
         $("#description").val(metadata.about || "");
         $("#nostr_nip05").val(metadata.nip05 || "");
-        $("#_lnp_ln_address").val(metadata.lud16 || "");
+        $("#nostrly_ln_address").val(metadata.lud16 || "");
         $(".user-profile-picture img").attr({
           src: metadata.picture,
           srcset: metadata.picture,
@@ -252,7 +252,7 @@ jQuery(function ($) {
         $("#nostr_public_key").val(metadata.npub);
         $("#description").val(metadata.about || "");
         $("#nostr_nip05").val(metadata.nip05 || "");
-        $("#_lnp_ln_address").val(metadata.lud16 || "");
+        $("#nostrly_ln_address").val(metadata.lud16 || "");
         $(".user-profile-picture img").attr({
           src: metadata.picture,
           srcset: metadata.picture,
