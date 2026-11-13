@@ -24,6 +24,9 @@ class NostrlyLogin
         add_action('wp_ajax_nostr_sync_profile', [$this, 'ajax_nostr_sync_profile']);
         add_action('wp_ajax_nostr_disconnect', [$this, 'ajax_nostr_disconnect']);
         add_filter('user_profile_update_errors', [$this, 'allow_empty_email']);
+        add_action('personal_options_update', [$this, 'save_ln_address']);
+        add_action('edit_user_profile_update', [$this, 'save_ln_address']);
+        add_action('user_profile_update_errors', [$this, 'check_ln_address']);
     }
 
     public function add_custom_user_profile_fields($user)
@@ -89,6 +92,21 @@ class NostrlyLogin
                     <?php } ?>
                     <p class="description">
                         <?php esc_html_e('This is your currently set NIP-05 internet identifier.', 'nostrly'); ?>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="nostrly_ln_address"><?php esc_html_e('Lightning Address', 'nostrly'); ?></label></th>
+                <td>
+                    <input type="text" id="nostrly_ln_address" name="nostrly_ln_address"
+                       value="<?php echo esc_attr(get_user_meta($user->ID, '_lnp_ln_address', true)); ?>"
+                       class="regular-text" placeholder="you@wallet.example" />
+                    <p class="description">
+                        <?php echo esc_html(sprintf(
+                            /* translators: %s: the user's Nostrly address */
+                            __('Payments to %s are forwarded here. Leave empty to use your npub.cash wallet. Syncing your Nostr profile replaces it with the address set there.', 'nostrly'),
+                            $user->user_login.'@nostrly.com'
+                        )); ?>
                     </p>
                 </td>
             </tr>
@@ -289,6 +307,36 @@ class NostrlyLogin
     public function allow_empty_email($errors)
     {
         unset($errors->errors['empty_email']);
+    }
+
+    /** The posted Lightning address: '' when empty, null when not an address. */
+    private function posted_ln_address(): ?string
+    {
+        $address = strtolower(trim(sanitize_text_field(wp_unslash($_POST['nostrly_ln_address'] ?? ''))));
+
+        return ('' === $address || is_email($address)) ? $address : null;
+    }
+
+    public function save_ln_address($user_id): void
+    {
+        if (!isset($_POST['nostrly_ln_address'])
+            || !wp_verify_nonce($_POST['nostrly_nonce'] ?? '', 'nostrly_save_profile')
+            || !current_user_can('edit_user', $user_id)) {
+            return;
+        }
+        $address = $this->posted_ln_address();
+        if ('' === $address) {
+            delete_user_meta($user_id, '_lnp_ln_address');
+        } elseif (null !== $address) {
+            update_user_meta($user_id, '_lnp_ln_address', $address);
+        }
+    }
+
+    public function check_ln_address($errors): void
+    {
+        if (isset($_POST['nostrly_ln_address']) && null === $this->posted_ln_address()) {
+            $errors->add('nostrly_ln_address', __('<strong>Error:</strong> The Lightning Address should look like name@wallet.example.', 'nostrly'));
+        }
     }
 
     private function is_valid_public_key($key)
