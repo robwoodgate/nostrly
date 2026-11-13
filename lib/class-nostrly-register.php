@@ -312,7 +312,8 @@ class NostrlyRegister
         $ttl = max(60, strtotime($payment['expires_at']) - time());
         set_transient('nostrly_'.$name, ['pubkey' => $pubkey, 'data' => $data], $ttl);
 
-        // Return the invoice data
+        // Only this response carries the code that collects the password
+        $data['token'] .= '.'.$this->claim_code($payment['id']);
         wp_send_json_success($data);
     }
 
@@ -327,11 +328,12 @@ class NostrlyRegister
             wp_send_json_error(['message' => __('Session Expired. Please refresh the page and try again.', 'nostrly')]);
         }
 
-        // Validate token (the payment id)
-        $token = sanitize_text_field($_POST['token'] ?? '');
-        if (!preg_match('/^[0-9a-f]{16,64}$/', $token)) {
+        // Validate token: the payment id, then the claim code if this page has it
+        if (!preg_match('/^([0-9a-f]{16,64})(?:\.([0-9a-f]{64}))?$/', (string) ($_POST['token'] ?? ''), $m)) {
             wp_send_json_error(['message' => __('Invalid token.', 'nostrly')]);
         }
+        $token = $m[1];
+        $can_claim = isset($m[2]) && hash_equals($this->claim_code($token), $m[2]);
 
         // The webhook may have registered the account already
         $user = $this->get_user_by_payment($token);
@@ -354,9 +356,9 @@ class NostrlyRegister
             }
         }
 
-        // The password is shown once, to the first caller holding the token
+        // The password is shown once, to the page that created the invoice
         $password = '';
-        if (delete_user_meta($user->ID, 'nostrly_password_unclaimed')) {
+        if ($can_claim && delete_user_meta($user->ID, 'nostrly_password_unclaimed')) {
             $password = wp_generate_password();
             wp_set_password($password, $user->ID);
         }
@@ -478,6 +480,11 @@ class NostrlyRegister
         $data = json_decode(wp_remote_retrieve_body($response), true);
 
         return is_array($data) ? $data : null;
+    }
+
+    private function claim_code(string $payment_id): string
+    {
+        return hash_hmac('sha256', $payment_id, wp_salt('auth'));
     }
 
     private function get_user_by_payment(string $payment_id)
