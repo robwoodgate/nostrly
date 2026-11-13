@@ -17,13 +17,19 @@ const MINT_LIST_KEY = "nostrly.nut11Mints";
 // Same defaults as the PHP mint selects
 const DEFAULT_MINTS = [
   "https://mint.minibits.cash/Bitcoin",
-  "https://mint.103100.xyz",
-  "https://mint.coinos.io",
+  "https://mint.sovran.money",
+  "https://m7.mountainlake.io",
+  "https://mint.westernbtc.com",
+  "https://mint.cubabitcoin.org"
 ];
 
 // NIP-61 wants NUT-11 (P2PK) and NUT-12 (DLEQ) support
 const supportsNip61 = (info: any): boolean =>
   info?.nuts?.[11]?.supported === true && info?.nuts?.[12]?.supported === true;
+
+// The auditor also lists test mints, whose tokens have no value
+const isRegtestMint = (url: string): boolean =>
+  /^https?:\/\/([^/]+\.)?regtest\./i.test(url);
 
 /**
  * Get the list of NUT11 mint URLs
@@ -33,7 +39,7 @@ const supportsNip61 = (info: any): boolean =>
  * @return {Promise<string[]>} Promise to return array of mint urls
  */
 export const getNut11Mints = async (
-  auditorApiUrl: string = "https://api.audit.8333.space",
+  auditorApiUrl: string = "https://auditor.regtest.macadamia.cash/api",
 ): Promise<string[]> => {
   const discoveredMints: Array<string> = [];
   try {
@@ -51,7 +57,7 @@ export const getNut11Mints = async (
       } catch {
         return;
       }
-      if (!supportsNip61(info)) return;
+      if (!supportsNip61(info) || isRegtestMint(mint.url)) return;
       if (discoveredMints.indexOf(mint.url) === -1) {
         discoveredMints.push(mint.url);
       }

@@ -716,7 +716,7 @@ class NostrlyTools
                             <option value="https://mint.coinos.io">https://mint.coinos.io</option>
                             <option value="discover">Discover more mints...</option>
                         </select>
-                        <div class="description">Choose the NUT-11 compliant mint you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://audit.8333.space" target="_blank">Cashu Auditor</a> (in which case, <a href="https://audit.8333.space" target="_blank">donating a token from that mint</a> will add it to the list)</div>
+                        <div class="description">Choose the NUT-11 compliant mint you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://auditor.regtest.macadamia.cash" target="_blank">Cashu Auditor</a> (in which case, <a href="https://auditor.regtest.macadamia.cash" target="_blank">donating a token from that mint</a> will add it to the list)</div>
                         <div id="v3-note" class="description hidden">🌰 This mint supports <strong>Nutroot</strong>: your lock is hidden inside the token secret, taproot-style, so the mint cannot see who it is locked to. Locks never decay to anyone-can-spend: a Refundable lock needs a refund key, and the other types are permanent.</div>
                     </div>
                     <div>
@@ -1210,7 +1210,7 @@ class NostrlyTools
                             <option value="" disabled selected>Loading mints...</option>
                         </select>
                         <textarea id="mints" name="mints" rows="4" placeholder="https://mint.minibits.cash/Bitcoin\nhttps://mint.103100.xyz"></textarea>
-                        <div class="description">Choose the NUT-11 compliant mints you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://audit.8333.space" target="_blank">Cashu Auditor</a> (in which case, <a href="https://audit.8333.space" target="_blank">donating a token from that mint</a> will add it to the list)</div>
+                        <div class="description">Choose the NUT-11 compliant mints you are comfortable using. If a mint is not in the list, it may not be NUT-11 compliant, or is not known to <a href="https://auditor.regtest.macadamia.cash" target="_blank">Cashu Auditor</a> (in which case, <a href="https://auditor.regtest.macadamia.cash" target="_blank">donating a token from that mint</a> will add it to the list)</div>
                     </div>
                     <div>
                         <label for="relays">Relays (one per line):</label>
