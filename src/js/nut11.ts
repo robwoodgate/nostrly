@@ -20,7 +20,7 @@ const DEFAULT_MINTS = [
   "https://mint.sovran.money",
   "https://m7.mountainlake.io",
   "https://mint.westernbtc.com",
-  "https://mint.cubabitcoin.org"
+  "https://mint.cubabitcoin.org",
 ];
 
 // NIP-61 wants NUT-11 (P2PK) and NUT-12 (DLEQ) support
